@@ -37,29 +37,33 @@ def parse_event(log_type, event):
 def get_recent_events(limit):
     """Read up to ``limit`` recent events from the configured Windows log."""
 
-    log_type = get_log_type()
-    hand = win32evtlog.OpenEventLog("",log_type)
-    flags = (
-        win32evtlog.EVENTLOG_SEQUENTIAL_READ  |
-        win32evtlog.EVENTLOG_BACKWARDS_READ
-        )
-    
-    parsed_events = []
-    count = 0
-    while count  < limit:
-        events = win32evtlog.ReadEventLog(hand, flags,0)
-        if events:
-            for event in events:
-                parsed_events.append(parse_event(log_type, event))
-                
-                count  +=  1
-                
-                if count >= limit:
-                    break
-        else:
-            break
+    hand = None
+    try:
+        log_type = get_log_type()
+        hand = win32evtlog.OpenEventLog("",log_type)
+        flags = (
+            win32evtlog.EVENTLOG_SEQUENTIAL_READ  |
+            win32evtlog.EVENTLOG_BACKWARDS_READ
+            )
+        
+        parsed_events = []
+        count = 0
+        while count  < limit:
+            events = win32evtlog.ReadEventLog(hand, flags,0)
+            if events:
+                for event in events:
+                    parsed_events.append(parse_event(log_type, event))
+                    
+                    count  +=  1
+                    
+                    if count >= limit:
+                        break
+            else:
+                break
+    finally:
+        if hand is not None:
+            win32evtlog.CloseEventLog(hand)
 
-    win32evtlog.CloseEventLog(hand)
     return parsed_events
 
 def get_log_type():
