@@ -4,6 +4,7 @@ from config import INCIDENT_BUNDLE_TIMEDELTA
 from event_collection import get_log_type, get_recent_events
 from event_filtering import filter_events, filter_events_by_time
 from incident_detection import bundle_incidents
+from json_reporting import export_incidents_to_json
 from terminal_reporting import display_incident_reports
 
 
@@ -26,6 +27,8 @@ def main():
     print()
     display_incident_reports(incidents)
 
+    # Export incidents to JSON file
+    export_incidents_to_json(incidents, "reports/incidents.json")
 
 if __name__ == "__main__":
     main()

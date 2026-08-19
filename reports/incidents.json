@@ -1,0 +1,448 @@
+[
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "Microsoft-Windows-DNS-Client",
+            "event_id": 1014,
+            "time_generated": "2026-08-18T19:53:26",
+            "level": "Warning",
+            "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 3088.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T19:55:17",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {9EA82395-E31B-41CA-8DF7-EC1CEE7194DF}, {2ED83BAA-B2FD-43B1-99BF-E6149C622692}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T19:55:18",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscBrokerManager, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T19:55:18",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscDataProtection, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T19:55:18",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.SecurityAppBroker, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T19:55:41",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.ChatGPT-Desktop_1.2026.190.0_x64__2p2nqsd0c76g0, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:03:52",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {8CD48002-1C68-54C7-9BCC-F361B0566EA9}, {01C337F2-5519-4720-B560-4871783A6DD5}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:03:52",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {8CD48002-1C68-54C7-9BCC-F361B0566EA9}, {01C337F2-5519-4720-B560-4871783A6DD5}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10005,
+            "time_generated": "2026-08-18T20:14:26",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10005 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'87, GamingServices, Unavailable, {D529741A-1BF1-4D1E-9976-35089622E758}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10005,
+            "time_generated": "2026-08-18T20:14:26",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10005 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'87, GamingServices, Unavailable, {3E8C9ABE-9226-4609-BF5B-60288A391DEE}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10005,
+            "time_generated": "2026-08-18T20:14:27",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10005 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'87, GamingServices, Unavailable, {D529741A-1BF1-4D1E-9976-35089622E758}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10005,
+            "time_generated": "2026-08-18T20:14:27",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10005 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'87, GamingServices, Unavailable, {3E8C9ABE-9226-4609-BF5B-60288A391DEE}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:14:38",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:15:27",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:15:27",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:15:27",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T20:15:27",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-18T20:16:41",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T21:23:15",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T21:35:10",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.Codex_26.814.5167.0_x64__2p2nqsd0c76g0, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "Service Control Manager",
+            "event_id": 7031,
+            "time_generated": "2026-08-18T21:56:55",
+            "level": "Error",
+            "message": "The Microsoft Defender Antivirus Service service terminated unexpectedly. It has done this 1 time(s). The following corrective action will be taken in 1000 milliseconds: Restart the service.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-18T22:01:43",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "winsrvext",
+            "event_id": 100,
+            "time_generated": "2026-08-19T03:05:54",
+            "level": "Warning",
+            "message": "Process C:\\Program Files (x86)\\MSI\\MSI Center\\Mystic Light\\LEDKeeper2.exe is delaying system shutdown after 5015 milliseconds.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:55",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:56",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10010,
+            "time_generated": "2026-08-19T03:05:56",
+            "level": "Error",
+            "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{00000000-0000-0000-0000-000000000000}'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "Microsoft-Windows-WLAN-AutoConfig",
+            "event_id": 10002,
+            "time_generated": "2026-08-19T03:06:14",
+            "level": "Warning",
+            "message": "WLAN Extensibility Module has stopped.\r\n\r\nModule Path: C:\\WINDOWS\\system32\\mtkihvx.dll\r\n\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "Microsoft-Windows-DNS-Client",
+            "event_id": 1014,
+            "time_generated": "2026-08-19T14:06:30",
+            "level": "Warning",
+            "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 2524.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:08:22",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {9EA82395-E31B-41CA-8DF7-EC1CEE7194DF}, {2ED83BAA-B2FD-43B1-99BF-E6149C622692}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:08:26",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.SecurityAppBroker, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:08:26",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscBrokerManager, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:08:26",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscDataProtection, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:09:03",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.ChatGPT-Desktop_1.2026.190.0_x64__2p2nqsd0c76g0, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:09:57",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:09:57",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:09:57",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        },
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T14:09:57",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "Tcpip",
+            "event_id": 4266,
+            "time_generated": "2026-08-19T14:41:14",
+            "level": "Warning",
+            "message": "A request to allocate an ephemeral port number from the global UDP port space has failed due to all such ports being in use.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "System",
+            "computer_name": "Maxs-PC",
+            "provider": "DCOM",
+            "event_id": 10016,
+            "time_generated": "2026-08-19T15:13:39",
+            "level": "Warning",
+            "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+        }
+    ]
+]
