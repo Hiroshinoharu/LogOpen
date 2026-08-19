@@ -85,7 +85,7 @@ class MainWorkflowTests(unittest.TestCase):
 
         def fake_bundle_incidents(events):
             bundle_inputs.append([event["log_type"] for event in events])
-            return [[event] for event in events]
+            return [events]
 
         def fake_display_incident_reports(incidents):
             displayed_incidents.extend(incidents)
@@ -127,11 +127,11 @@ class MainWorkflowTests(unittest.TestCase):
             get_recent_calls,
             [("System", 500), ("Application", 500)],
         )
-        self.assertEqual(bundle_inputs, [["System"], ["Application"]])
-        self.assertEqual(displayed_incidents, [[system_event], [application_event]])
+        self.assertEqual(bundle_inputs, [["System", "Application"]])
+        self.assertEqual(displayed_incidents, [[system_event, application_event]])
         self.assertEqual(
             exported_incidents,
-            [([[system_event], [application_event]], "reports/incidents.json")],
+            [([[system_event, application_event]], "reports/incidents.json")],
         )
         self.assertTrue(
             any("the System and Application logs" in call for call in print_calls)

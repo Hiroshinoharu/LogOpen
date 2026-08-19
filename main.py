@@ -24,7 +24,6 @@ def main():
     """Print recent warning and error events from the configured Windows logs."""
 
     problem_events = []
-    incidents = []
 
     for log_type in config.LOG_TYPES:
         events = get_recent_events(log_type, limit=500)
@@ -32,9 +31,9 @@ def main():
         log_problem_events = filter_events_by_time(events, 24)
         log_problem_events = filter_events(log_problem_events, ["Error", "Warning"])
         problem_events.extend(log_problem_events)
-        incidents.extend(bundle_incidents(log_problem_events))
+    problem_events.sort(key=lambda event: event["time_generated"])
+    incidents = bundle_incidents(problem_events)
 
-    incidents.sort(key=lambda incident: incident[0]["time_generated"])
     log_types_label = format_log_types_label(config.LOG_TYPES)
     print(
         f"Found {len(problem_events)} recent warning or error events in "

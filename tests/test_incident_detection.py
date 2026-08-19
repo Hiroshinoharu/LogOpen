@@ -27,6 +27,72 @@ class IncidentDetectionTests(unittest.TestCase):
 
         self.assertEqual(event_similarity_score(previous_event, current_event), 5)
 
+    def test_event_similarity_score_for_unrelated_close_events(self):
+        base_time = datetime(2026, 8, 19, 12, 0, 0)
+        previous_event = make_event(
+            provider="DCOM",
+            event_id=10016,
+            time_generated=base_time,
+            message="DCOM permission warning.",
+        )
+        current_event = make_event(
+            provider="Tcpip",
+            event_id=4266,
+            time_generated=base_time + timedelta(seconds=10),
+            message="TCP/IP failed to establish an outgoing connection.",
+        )
+
+        self.assertEqual(event_similarity_score(previous_event, current_event), 1)
+
+    def test_event_similarity_score_correlates_cross_log_defender_events(self):
+        base_time = datetime(2026, 8, 19, 12, 0, 0)
+        previous_event = make_event(
+            log_type="Application",
+            provider="Application Error",
+            event_id=1000,
+            time_generated=base_time,
+            message="Faulting application name: MsMpEng.exe",
+        )
+        current_event = make_event(
+            log_type="System",
+            provider="Service Control Manager",
+            event_id=7031,
+            time_generated=base_time + timedelta(seconds=5),
+            message=(
+                "The Microsoft Defender Antivirus Service service "
+                "terminated unexpectedly."
+            ),
+        )
+
+        self.assertEqual(event_similarity_score(previous_event, current_event), 4)
+        self.assertEqual(
+            bundle_incidents([previous_event, current_event]),
+            [[previous_event, current_event]],
+        )
+
+    def test_bundle_incidents_keeps_different_components_separate(self):
+        base_time = datetime(2026, 8, 19, 12, 0, 0)
+        first_event = make_event(
+            log_type="Application",
+            provider="Application Error",
+            event_id=1000,
+            time_generated=base_time,
+            message="Faulting application name: MsMpEng.exe",
+        )
+        second_event = make_event(
+            log_type="Application",
+            provider="Application Error",
+            event_id=1000,
+            time_generated=base_time + timedelta(seconds=10),
+            message="Faulting application name: SearchIndexer.exe",
+        )
+
+        self.assertEqual(event_similarity_score(first_event, second_event), 2)
+        self.assertEqual(
+            bundle_incidents([first_event, second_event]),
+            [[first_event], [second_event]],
+        )
+
     def test_bundle_incidents_groups_similar_events_only(self):
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         events = [

@@ -222,9 +222,7 @@
             "time_generated": "2026-08-18T21:56:47",
             "level": "Error",
             "message": "Faulting application name: MsMpEng.exe, version: 4.18.26070.9, time stamp: 0x9a78fc05\r\nFaulting module name: mpengine.dll, version: 1.1.26070.7, time stamp: 0xa09e75a9\r\nException code: 0xc0000005\r\nFault offset: 0x000000000092e48b\r\nFaulting process id: 0x1768\r\nFaulting application start time: 0x1dd2f42d2743c6b\r\nFaulting application path: C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.26070.9-0\\MsMpEng.exe\r\nFaulting module path: C:\\ProgramData\\Microsoft\\Windows Defender\\Definition Updates\\{26C3D1CC-4CA4-46EC-8CCB-E1FCFAFE124B}\\mpengine.dll\r\nReport Id: 69bce080-726d-4a9e-a078-407b63460b3d\r\nFaulting package full name: \r\nFaulting package-relative application ID: \r\n"
-        }
-    ],
-    [
+        },
         {
             "log_type": "System",
             "computer_name": "Maxs-PC",

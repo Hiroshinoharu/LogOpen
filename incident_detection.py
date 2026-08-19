@@ -1,6 +1,7 @@
 """Incident detection and summarization helpers."""
 
 from collections import Counter
+import re
 
 from config import EVENT_SIMILARITY_THRESHOLD, INCIDENT_BUNDLE_TIMEDELTA
 from incident_classification import classify_event, classify_incident
@@ -13,6 +14,56 @@ SEVERITY_RANK = {
     "Error": 3,
     "Failure Audit": 3,
 }
+
+COMPONENT_ALIASES = {
+    "microsoft defender antivirus": {
+        "microsoft defender antivirus",
+        "microsoft defender antivirus service",
+        "msmpeng",
+        "msmpeng.exe",
+        "windefend",
+    },
+}
+EXECUTABLE_PATTERN = re.compile(r"\b[a-z0-9_.-]+\.exe\b")
+
+
+def normalize_component_name(value):
+    """Return a normalized component name for comparison."""
+
+    return " ".join(
+        value.lower().replace("_", " ").replace("-", " ").split()
+    )
+
+
+def extract_event_components(event):
+    """Extract deterministic component identifiers from provider/message text."""
+
+    text = f"{event['provider']} {event['message']}".lower()
+    components = set()
+
+    for canonical_name, aliases in COMPONENT_ALIASES.items():
+        if any(alias in text for alias in aliases):
+            components.add(canonical_name)
+
+    for executable_name in EXECUTABLE_PATTERN.findall(text):
+        components.add(normalize_component_name(executable_name))
+
+    return components
+
+
+def component_similarity_score(previous_event, current_event):
+    """Return a bonus or penalty based on extracted component names."""
+
+    previous_components = extract_event_components(previous_event)
+    current_components = extract_event_components(current_event)
+
+    if not previous_components or not current_components:
+        return 0
+
+    if previous_components & current_components:
+        return 3
+
+    return -3
 
 
 def event_similarity_score(previous_event, current_event):
@@ -32,6 +83,8 @@ def event_similarity_score(previous_event, current_event):
     if previous_event["event_id"] == current_event["event_id"]:
         score += 2
 
+    score += component_similarity_score(previous_event, current_event)
+
     if (
         abs(
             (
@@ -42,7 +95,7 @@ def event_similarity_score(previous_event, current_event):
     ):
         score += 1
 
-    return score
+    return max(score, 0)
 
 
 def bundle_incidents(events):
