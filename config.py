@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-LOG_TYPE = "System"
+LOG_TYPES = ["System", "Application"]
 INCIDENT_BUNDLE_TIMEDELTA = timedelta(minutes=1)
 EVENT_SIMILARITY_THRESHOLD = 3
 PROVIDER_CLASSIFICATIONS = {

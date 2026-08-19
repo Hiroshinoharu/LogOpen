@@ -1,28 +1,48 @@
 """Read recent Windows event log entries and filter them for inspection."""
 
-from config import INCIDENT_BUNDLE_TIMEDELTA
-from event_collection import get_log_type, get_recent_events
+import config
+from event_collection import get_recent_events
 from event_filtering import filter_events, filter_events_by_time
 from incident_detection import bundle_incidents
 from json_reporting import export_incidents_to_json
 from terminal_reporting import display_incident_reports
 
 
-def main():
-    """Print recent warning and error events from the selected Windows log."""
+def format_log_types_label(log_types):
+    """Return a readable label for the configured Windows log types."""
 
-    events = get_recent_events(limit=500)
-    events.sort(key=lambda event: event["time_generated"])
-    problem_events = filter_events_by_time(events, 24)
-    problem_events = filter_events(problem_events, ["Error", "Warning"])
-    incidents = bundle_incidents(problem_events)
+    if not log_types:
+        return "configured logs"
+    if len(log_types) == 1:
+        return f"{log_types[0]} log"
+    if len(log_types) == 2:
+        return f"{log_types[0]} and {log_types[1]} logs"
+    return f"{', '.join(log_types[:-1])}, and {log_types[-1]} logs"
+
+
+def main():
+    """Print recent warning and error events from the configured Windows logs."""
+
+    problem_events = []
+    incidents = []
+
+    for log_type in config.LOG_TYPES:
+        events = get_recent_events(log_type, limit=500)
+        events.sort(key=lambda event: event["time_generated"])
+        log_problem_events = filter_events_by_time(events, 24)
+        log_problem_events = filter_events(log_problem_events, ["Error", "Warning"])
+        problem_events.extend(log_problem_events)
+        incidents.extend(bundle_incidents(log_problem_events))
+
+    incidents.sort(key=lambda incident: incident[0]["time_generated"])
+    log_types_label = format_log_types_label(config.LOG_TYPES)
     print(
         f"Found {len(problem_events)} recent warning or error events in "
-        f"the {get_log_type()} log in the last 24 hours:"
+        f"the {log_types_label} in the last 24 hours:"
     )
     print(
         f"Bundled into {len(incidents)} incidents based on a "
-        f"{INCIDENT_BUNDLE_TIMEDELTA} time window."
+        f"{config.INCIDENT_BUNDLE_TIMEDELTA} time window."
     )
     print()
     display_incident_reports(incidents)

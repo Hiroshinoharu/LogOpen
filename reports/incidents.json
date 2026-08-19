@@ -12,6 +12,26 @@
     ],
     [
         {
+            "log_type": "Application",
+            "computer_name": "Maxs-PC",
+            "provider": "Microsoft-Windows-Perflib",
+            "event_id": 1023,
+            "time_generated": "2026-08-18T19:53:40",
+            "level": "Error",
+            "message": "Windows cannot load the extensible counter DLL \"C:\\WINDOWS\\system32\\sysmain.dll\" (Win32 error code 126).\r\n"
+        },
+        {
+            "log_type": "Application",
+            "computer_name": "Maxs-PC",
+            "provider": "Microsoft-Windows-Perflib",
+            "event_id": 1008,
+            "time_generated": "2026-08-18T19:53:40",
+            "level": "Warning",
+            "message": "The Open procedure for service \"BITS\" in DLL \"C:\\Windows\\System32\\bitsperf.dll\" failed with error code 2. Performance data for this service will not be available.\r\n"
+        }
+    ],
+    [
+        {
             "log_type": "System",
             "computer_name": "Maxs-PC",
             "provider": "DCOM",
@@ -195,6 +215,17 @@
     ],
     [
         {
+            "log_type": "Application",
+            "computer_name": "Maxs-PC",
+            "provider": "Application Error",
+            "event_id": 1000,
+            "time_generated": "2026-08-18T21:56:47",
+            "level": "Error",
+            "message": "Faulting application name: MsMpEng.exe, version: 4.18.26070.9, time stamp: 0x9a78fc05\r\nFaulting module name: mpengine.dll, version: 1.1.26070.7, time stamp: 0xa09e75a9\r\nException code: 0xc0000005\r\nFault offset: 0x000000000092e48b\r\nFaulting process id: 0x1768\r\nFaulting application start time: 0x1dd2f42d2743c6b\r\nFaulting application path: C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.26070.9-0\\MsMpEng.exe\r\nFaulting module path: C:\\ProgramData\\Microsoft\\Windows Defender\\Definition Updates\\{26C3D1CC-4CA4-46EC-8CCB-E1FCFAFE124B}\\mpengine.dll\r\nReport Id: 69bce080-726d-4a9e-a078-407b63460b3d\r\nFaulting package full name: \r\nFaulting package-relative application ID: \r\n"
+        }
+    ],
+    [
+        {
             "log_type": "System",
             "computer_name": "Maxs-PC",
             "provider": "Service Control Manager",
@@ -338,6 +369,28 @@
             "time_generated": "2026-08-19T14:06:30",
             "level": "Warning",
             "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 2524.\r\n"
+        }
+    ],
+    [
+        {
+            "log_type": "Application",
+            "computer_name": "Maxs-PC",
+            "provider": "CertEnroll",
+            "event_id": 39452759,
+            "time_generated": "2026-08-19T14:07:19",
+            "level": "Error",
+            "message": "<The description for Event ID ( 87 ) in Source ( 'CertEnroll' ) could not be found. It contains the following insertion string(s):'Local system, https://AMD-KeyId-f5cdad9867a6dce93c5544bff5f7e367c20027f6-v2.microsoftaik.azure.net/templates/Aik/scep, PkiStatus(11): SCEPDispositionPendingChallenge\\nEnrollStatus(32): EnrollUnknown\\nThe operation completed successfully. 0x0 (WIN32: 0)\\nSubmitDone\\nSubmitV2Attestation: Bad Request\\n{\"Message\":\"V2 Protocol AIK certificate requests with P-256 ECC public keys are not supported. Public key algorithm: 1.2.840.10045.2.1, Key length: 256.\"}\\nHTTP/1.1 400 Bad Request\\nDate: Wed, 19 Aug 2026 13:07:19 GMT\\nContent-Length: 154\\nContent-Type: application/json; charset=utf-8\\nX-Content-Type-Options: nosniff\\nStrict-Transport-Security: max-age=31536000;includeSubDomains\\nx-ms-request-id: a8960f94-10c0-405b-9772-77d1792e86ac\\n, POST(1438ms), SubmitDone, Bad request (400). 0x80190190 (-2145844848 HTTP_E_STATUS_BAD_REQUEST)'.>"
+        }
+    ],
+    [
+        {
+            "log_type": "Application",
+            "computer_name": "Maxs-PC",
+            "provider": "SteelSeries GG Update Service Proxy",
+            "event_id": 0,
+            "time_generated": "2026-08-19T14:08:03",
+            "level": "Error",
+            "message": "Service cannot be started. The handle is invalid\r\n"
         }
     ],
     [

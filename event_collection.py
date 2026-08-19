@@ -3,8 +3,6 @@
 import win32evtlog
 import win32evtlogutil
 
-from config import LOG_TYPE
-
 
 def log_event_level(event):
     """Return a human-readable severity label for a Windows event log record."""
@@ -36,18 +34,11 @@ def parse_event(log_type, event):
     }
 
 
-def get_log_type():
-    """Return the Windows event log channel used by this script."""
-
-    return LOG_TYPE
-
-
-def get_recent_events(limit):
-    """Read up to ``limit`` recent events from the configured Windows log."""
+def get_recent_events(log_type, limit):
+    """Read up to ``limit`` recent events from the requested Windows log."""
 
     hand = None
     try:
-        log_type = get_log_type()
         hand = win32evtlog.OpenEventLog("", log_type)
         flags = (
             win32evtlog.EVENTLOG_SEQUENTIAL_READ
