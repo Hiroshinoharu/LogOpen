@@ -7,7 +7,7 @@ to JSON files.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def make_json_safe(value):
@@ -39,6 +39,9 @@ def make_json_safe(value):
 
     elif isinstance(value, datetime):
         return value.isoformat()
+
+    elif isinstance(value,  timedelta):
+        return str(value)
 
     else:
         return value

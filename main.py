@@ -3,7 +3,7 @@
 import config
 from event_collection import get_recent_events
 from event_filtering import filter_events, filter_events_by_time
-from incident_detection import bundle_incidents
+from incident_detection import build_incident, bundle_incidents
 from json_reporting import export_incidents_to_json
 from terminal_reporting import display_incident_reports
 
@@ -33,6 +33,10 @@ def main():
         problem_events.extend(log_problem_events)
     problem_events.sort(key=lambda event: event["time_generated"])
     incidents = bundle_incidents(problem_events)
+    
+    incident_summaries = [
+        build_incident(incident) for incident in incidents
+    ]
 
     log_types_label = format_log_types_label(config.LOG_TYPES)
     print(
@@ -47,7 +51,7 @@ def main():
     display_incident_reports(incidents)
 
     # Export incidents to JSON file
-    export_incidents_to_json(incidents, "reports/incidents.json")
+    export_incidents_to_json(incident_summaries, "reports/incidents.json")
 
 if __name__ == "__main__":
     main()
