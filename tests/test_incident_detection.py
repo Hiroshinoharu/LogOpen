@@ -157,6 +157,8 @@ class IncidentDetectionTests(unittest.TestCase):
         self.assertEqual(summary["providers_counts"]["Microsoft-Windows-DNS-Client"], 2)
         self.assertEqual(summary["event_ids_counts"][1014], 2)
         self.assertEqual(summary["incident_duration"], timedelta(seconds=40))
+        self.assertIn("DNS Resolution Timeout", summary["summary_text"])
+        self.assertIn("3 events", summary["summary_text"])
 
 
 if __name__ == "__main__":

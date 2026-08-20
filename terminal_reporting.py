@@ -36,6 +36,7 @@ def _print_incident_events(events, out):
 
 def _print_incident_summary(index, summary, out):
     print(f"Incident {index}:", file=out)
+    print(f"  Summary: {summary['summary_text']}", file=out)
     print(f"  Log Type: {summary['log_type']}", file=out)
     print(f"  Computer Name: {summary['computer_name']}", file=out)
     print(f"  Providers: {summary['providers']}", file=out)

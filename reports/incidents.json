@@ -39,7 +39,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Microsoft-Windows-DNS-Client": "DNS Client"
-        }
+        },
+        "summary_text": "Warning DNS Resolution Timeout in the System log on Maxs-PC involving DNS Client (1 event over 0:00:00)."
     },
     {
         "log_type": "Application",
@@ -81,7 +82,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "CertEnroll": "CertEnroll"
-        }
+        },
+        "summary_text": "Error CertEnroll in the Application log on Maxs-PC involving CertEnroll (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -179,7 +181,8 @@
         "incident_duration": "0:01:00",
         "provider_classifications": {
             "DCOM": "Distributed COM"
-        }
+        },
+        "summary_text": "Warning DCOM Permission Warning in the System log on Maxs-PC involving Distributed COM (7 events over 0:01:00)."
     },
     {
         "log_type": "System",
@@ -221,7 +224,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Tcpip": "TCP/IP"
-        }
+        },
+        "summary_text": "Warning UDP Ephemeral Port Exhaustion in the System log on Maxs-PC involving TCP/IP (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -308,7 +312,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "TPM": "TPM"
-        }
+        },
+        "summary_text": "Error TPM in the System log on Maxs-PC involving TPM (6 events over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -395,7 +400,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "TPM": "TPM"
-        }
+        },
+        "summary_text": "Error TPM in the System log on Maxs-PC involving TPM (6 events over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -437,7 +443,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Tcpip": "TCP/IP"
-        }
+        },
+        "summary_text": "Warning TCP/IP in the System log on Maxs-PC involving TCP/IP (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -479,7 +486,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "winsrvext": "Windows Server Extension"
-        }
+        },
+        "summary_text": "Warning Application Delayed System Shutdown in the System log on Maxs-PC involving Windows Server Extension (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -521,7 +529,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "winsrvext": "Windows Server Extension"
-        }
+        },
+        "summary_text": "Warning Application Delayed System Shutdown in the System log on Maxs-PC involving Windows Server Extension (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -563,7 +572,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "winsrvext": "Windows Server Extension"
-        }
+        },
+        "summary_text": "Warning Application Delayed System Shutdown in the System log on Maxs-PC involving Windows Server Extension (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -605,7 +615,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Microsoft-Windows-WLAN-AutoConfig": "WLAN AutoConfig"
-        }
+        },
+        "summary_text": "Warning WLAN Module Stopped in the System log on Maxs-PC involving WLAN AutoConfig (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -647,7 +658,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Microsoft-Windows-DNS-Client": "DNS Client"
-        }
+        },
+        "summary_text": "Warning DNS Resolution Timeout in the System log on Maxs-PC involving DNS Client (1 event over 0:00:00)."
     },
     {
         "log_type": "Application",
@@ -701,7 +713,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Microsoft-Windows-Perflib": "Perflib"
-        }
+        },
+        "summary_text": "Error Perflib in the Application log on Maxs-PC involving Perflib (2 events over 0:00:00)."
     },
     {
         "log_type": "Application",
@@ -743,7 +756,8 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "CertEnroll": "CertEnroll"
-        }
+        },
+        "summary_text": "Error CertEnroll in the Application log on Maxs-PC involving CertEnroll (1 event over 0:00:00)."
     },
     {
         "log_type": "System",
@@ -832,7 +846,8 @@
         "incident_duration": "0:00:34",
         "provider_classifications": {
             "DCOM": "Distributed COM"
-        }
+        },
+        "summary_text": "Warning Security Center DCOM Permission Warning in the System log on Maxs-PC involving Distributed COM (6 events over 0:00:34)."
     },
     {
         "log_type": "System",
@@ -874,6 +889,77 @@
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "Tcpip": "TCP/IP"
-        }
+        },
+        "summary_text": "Warning TCP/IP in the System log on Maxs-PC involving TCP/IP (1 event over 0:00:00)."
+    },
+    {
+        "log_type": "System",
+        "computer_name": "Maxs-PC",
+        "providers": [
+            "DCOM"
+        ],
+        "providers_counts": {
+            "DCOM": 4
+        },
+        "event_ids": [
+            10016
+        ],
+        "event_ids_counts": {
+            "10016": 4
+        },
+        "time_generated_start": "2026-08-20T17:44:11",
+        "time_generated_end": "2026-08-20T17:44:11",
+        "levels": [
+            "Warning"
+        ],
+        "highest_severity": "Warning",
+        "incident_classification": "DCOM Permission Warning",
+        "event_classification_counts": {
+            "DCOM Permission Warning": 4
+        },
+        "event_count": 4,
+        "events": [
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-08-20T17:44:11",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-08-20T17:44:11",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-08-20T17:44:11",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {00000000-0000-0000-0000-000000000000}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-08-20T17:44:11",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {00000000-0000-0000-0000-000000000000}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            }
+        ],
+        "incident_duration": "0:00:00",
+        "provider_classifications": {
+            "DCOM": "Distributed COM"
+        },
+        "summary_text": "Warning DCOM Permission Warning in the System log on Maxs-PC involving Distributed COM (4 events over 0:00:00)."
     }
 ]

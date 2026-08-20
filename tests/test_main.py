@@ -129,10 +129,13 @@ class MainWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(bundle_inputs, [["System", "Application"]])
         self.assertEqual(displayed_incidents, [[system_event, application_event]])
-        self.assertEqual(
-            exported_incidents,
-            [([[system_event, application_event]], "reports/incidents.json")],
-        )
+        self.assertEqual(len(exported_incidents), 1)
+        exported_payload, exported_path = exported_incidents[0]
+        self.assertEqual(exported_path, "reports/incidents.json")
+        self.assertEqual(len(exported_payload), 1)
+        self.assertEqual(exported_payload[0]["event_count"], 2)
+        self.assertEqual(exported_payload[0]["providers"], ["SharedProvider"])
+        self.assertEqual(exported_payload[0]["log_type"], "System")
         self.assertTrue(
             any("the System and Application logs" in call for call in print_calls)
         )

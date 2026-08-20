@@ -27,6 +27,18 @@ COMPONENT_ALIASES = {
 EXECUTABLE_PATTERN = re.compile(r"\b[a-z0-9_.-]+\.exe\b")
 
 
+def _join_readable(values):
+    """Return a natural-language string for a sequence of values."""
+
+    if not values:
+        return "unknown providers"
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}"
+    return f"{', '.join(values[:-1])}, and {values[-1]}"
+
+
 def normalize_component_name(value):
     """Return a normalized component name for comparison."""
 
@@ -173,5 +185,16 @@ def build_incident(events):
     }
     incident_summary["provider_classifications"] = classify_incident(
         incident_summary
+    )
+    provider_labels = sorted(incident_summary["provider_classifications"].values())
+    event_label = "event" if incident_summary["event_count"] == 1 else "events"
+    incident_summary["summary_text"] = (
+        f"{incident_summary['highest_severity']} "
+        f"{incident_summary['incident_classification']} in the "
+        f"{incident_summary['log_type']} log on "
+        f"{incident_summary['computer_name']} involving "
+        f"{_join_readable(provider_labels)} "
+        f"({incident_summary['event_count']} {event_label} over "
+        f"{incident_summary['incident_duration']})."
     )
     return incident_summary
