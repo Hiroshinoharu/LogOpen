@@ -73,7 +73,13 @@ def _format_score_reasons(reasons):
         "High event count (>10)": "more than 10 related events were grouped together",
         "Moderate event count (5-9)": "5 to 9 related events were grouped together",
         "Low event count (3-4)": "3 to 4 related events were grouped together",
-        "Incident duration > 1 hour": "the incident lasted longer than 1 hour",
+        "Incident lasted between 1 and 5 minutes": (
+            "the incident lasted between 1 and 5 minutes"
+        ),
+        "Incident lasted between 5 and 15 minutes": (
+            "the incident lasted between 5 and 15 minutes"
+        ),
+        "Incident lasted over 15 minutes": "the incident lasted over 15 minutes",
     }
     formatted_reasons = [
         readable_reasons.get(reason, reason[:1].lower() + reason[1:])
@@ -109,10 +115,11 @@ def _build_summary_text(incident_summary):
 def refresh_incident_summary(incident_summary):
     """Refresh score-derived fields after enriching an incident summary."""
 
-    score, reasons = calculate_incident_score(incident_summary)
+    score, reasons, breakdown = calculate_incident_score(incident_summary)
     incident_summary["incident_score"] = score
     incident_summary["incident_priority"] = get_incident_priority(score)
     incident_summary["incident_score_reasons"] = reasons
+    incident_summary["incident_score_breakdown"] = breakdown
     incident_summary["summary_text"] = _build_summary_text(incident_summary)
     return incident_summary
 

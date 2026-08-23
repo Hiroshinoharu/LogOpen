@@ -15,12 +15,14 @@ def clean_message(message):
 
 
 def _print_incident_mapping(title, values, out, separator="x"):
+    """Print a mapping of keys to values for an incident summary."""
     print(title, file=out)
     for key, value in values.items():
         print(f"    {key} {separator} {value}", file=out)
 
 
 def _print_incident_events(events, out):
+    """Print the source events for an incident summary."""
     print("  Messages:", file=out)
     for event_index, event in enumerate(events, start=1):
         print(
@@ -35,6 +37,7 @@ def _print_incident_events(events, out):
 
 
 def _print_incident_summary(index, summary, out):
+    """Print a single incident summary to the specified output stream."""
     print(f"Incident {index}:", file=out)
     print(f"  Summary: {summary['summary_text']}", file=out)
     print(f"  Log Type: {summary['log_type']}", file=out)

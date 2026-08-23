@@ -1,5 +1,13 @@
 from datetime import timedelta
 
+MAX_INCIDENT_SCORE = 100
+PRIORITY_THRESHOLDS = (
+    (80, "Critical"),
+    (60, "High"),
+    (40, "Medium"),
+    (0, "Low"),
+)
+
 CLASSIFICATION_WEIGHTS = {
     "Application Hang": 10,
     "UDP Ephemeral Port Exhaustion": 15,
@@ -9,7 +17,7 @@ CLASSIFICATION_WEIGHTS = {
     "DCOM Permission Warning": 0,
 }
 
-def  get_incident_priority(score):
+def get_incident_priority(score):
     """Determine the priority level of an incident based on its score.
 
     Args:
@@ -18,73 +26,120 @@ def  get_incident_priority(score):
     Returns:
         str: A string representing the priority level ("High", "Medium", or "Low").
     """
-    if score >= 80:
-        return "Critical"
-    elif score >= 60:
-        return "High"
-    elif score >= 40:
-        return "Medium"
-    else:
-        return "Low"
+    return next(
+        priority
+        for threshold, priority in PRIORITY_THRESHOLDS
+        if score >= threshold
+    )
+
+
+def _add_score(breakdown, reasons, category, points, reason):
+    """Record one scoring contribution and its explanation."""
+
+    if points:
+        breakdown[category] += points
+        reasons.append(reason)
+
+
+def _get_duration_score(duration):
+    """Return the score contribution and reason for an incident duration."""
+
+    if duration < timedelta(minutes=1):
+        return 0, None
+    if duration <= timedelta(minutes=5):
+        return 5, "Incident lasted between 1 and 5 minutes"
+    if duration <= timedelta(minutes=15):
+        return 10, "Incident lasted between 5 and 15 minutes"
+    return 15, "Incident lasted over 15 minutes"
+
 
 def calculate_incident_score(incident):
-    """Calculate an incident score from impact, likelihood, and detectability values.
+    """Calculate a capped score, reasons, and category breakdown for an incident."""
 
-    This function combines the provided factors into a single numeric score that can
-    be used to compare and rank incidents.
-
-    Args:
-        impact: Numeric value representing how severe the incident is.
-        likelihood: Numeric value representing how likely the incident is to occur.
-        detectability: Numeric value representing how easy the incident is to detect.
-
-    Returns:
-        A numeric score representing the combined effect of impact, likelihood,
-        and detectability.
-    """
-    score = 0
     reasons = []
+    breakdown = {
+        "severity": 0,
+        "event_count": 0,
+        "classification_impact": 0,
+        "recurrence": 0,
+        "duration": 0,
+    }
 
     # Score based on highest severity
     if incident["highest_severity"] == "Error":
-        score += 40
-        reasons.append("Error-level incident detected")
-
+        _add_score(
+            breakdown,
+            reasons,
+            "severity",
+            40,
+            "Error-level incident detected",
+        )
     elif incident["highest_severity"] == "Warning":
-        score += 20
-        reasons.append("Warning-level incident detected")
-    
+        _add_score(
+            breakdown,
+            reasons,
+            "severity",
+            20,
+            "Warning-level incident detected",
+        )
+
     if incident["event_count"] >= 10:
-        score += 30
-        reasons.append("High event count (>10)")
-    
+        _add_score(
+            breakdown,
+            reasons,
+            "event_count",
+            30,
+            "High event count (>10)",
+        )
     elif incident["event_count"] >= 5:
-        score += 15
-        reasons.append("Moderate event count (5-9)")
-    
+        _add_score(
+            breakdown,
+            reasons,
+            "event_count",
+            15,
+            "Moderate event count (5-9)",
+        )
     elif incident["event_count"] >= 3:
-        score += 5
-        reasons.append("Low event count (3-4)")
-    
-    if incident["incident_duration"] > timedelta(hours=1):
-        score += 20
-        reasons.append("Incident duration > 1 hour")
+        _add_score(
+            breakdown,
+            reasons,
+            "event_count",
+            5,
+            "Low event count (3-4)",
+        )
+
+    duration_score, duration_reason = _get_duration_score(
+        incident["incident_duration"]
+    )
+    _add_score(
+        breakdown,
+        reasons,
+        "duration",
+        duration_score,
+        duration_reason,
+    )
 
     recurrence_count_24h = incident.get("recurrence_count_24h", 1)
     recurrence_count_7d = incident.get("recurrence_count_7d", 1)
 
     if recurrence_count_24h >= 3:
-        score += 10
-        reasons.append(
+        _add_score(
+            breakdown,
+            reasons,
+            "recurrence",
+            10,
             "Classification occurred "
-            f"{recurrence_count_24h} times in the last 24 hours"
+            f"{recurrence_count_24h} times in the last 24 hours",
         )
 
     if recurrence_count_7d >= 5:
-        score += 20
-        reasons.append(
+        _add_score(
+            breakdown,
+            reasons,
+            "recurrence",
+            20,
             "Classification occurred "
-            f"{recurrence_count_7d} times in the last 7 days"
+            f"{recurrence_count_7d} times in the last 7 days",
         )
 
     classification = incident["incident_classification"]
@@ -92,7 +147,14 @@ def calculate_incident_score(incident):
     impact_score = CLASSIFICATION_WEIGHTS.get(classification, 0)
 
     if impact_score > 0:
-        score += impact_score
-        reasons.append(f"Incident classification '{classification}' has an impact score of {impact_score}")
+        _add_score(
+            breakdown,
+            reasons,
+            "classification_impact",
+            impact_score,
+            f"Incident classification '{classification}' "
+            f"has an impact score of {impact_score}",
+        )
 
-    return score, reasons
+    score = min(sum(breakdown.values()), MAX_INCIDENT_SCORE)
+    return score, reasons, breakdown

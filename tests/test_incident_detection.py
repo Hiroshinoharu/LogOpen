@@ -220,14 +220,14 @@ class IncidentDetectionTests(unittest.TestCase):
 
         summary = build_incident(events)
 
-        self.assertEqual(summary["incident_score"], 55)
+        self.assertEqual(summary["incident_score"], 50)
         self.assertEqual(summary["incident_priority"], "Medium")
         self.assertEqual(
             summary["incident_score_reasons"],
             [
                 "Warning-level incident detected",
                 "Moderate event count (5-9)",
-                "Incident duration > 1 hour",
+                "Incident lasted over 15 minutes",
             ],
         )
         self.assertEqual(
@@ -235,9 +235,9 @@ class IncidentDetectionTests(unittest.TestCase):
             "Medium-priority DCOM Permission Warning incident in the "
             "System log on Test-PC involving Distributed COM. "
             "It contains 5 events and lasted 1 hour and 5 minutes. "
-            "Score 55 because warning-level events were present, "
+            "Score 50 because warning-level events were present, "
             "5 to 9 related events were grouped together, and "
-            "the incident lasted longer than 1 hour.",
+            "the incident lasted over 15 minutes.",
         )
 
 
