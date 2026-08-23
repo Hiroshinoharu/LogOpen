@@ -150,6 +150,15 @@ class IncidentDetectionTests(unittest.TestCase):
 
         self.assertEqual(summary["highest_severity"], "Error")
         self.assertEqual(summary["incident_classification"], "DNS Resolution Timeout")
+        self.assertEqual(summary["incident_score"], 45)
+        self.assertEqual(summary["incident_priority"], "Medium")
+        self.assertEqual(
+            summary["incident_score_reasons"],
+            [
+                "Error-level incident detected",
+                "Low event count (3-4)",
+            ],
+        )
         self.assertEqual(
             summary["event_classification_counts"]["DNS Resolution Timeout"],
             2,
@@ -157,8 +166,76 @@ class IncidentDetectionTests(unittest.TestCase):
         self.assertEqual(summary["providers_counts"]["Microsoft-Windows-DNS-Client"], 2)
         self.assertEqual(summary["event_ids_counts"][1014], 2)
         self.assertEqual(summary["incident_duration"], timedelta(seconds=40))
-        self.assertIn("DNS Resolution Timeout", summary["summary_text"])
-        self.assertIn("3 events", summary["summary_text"])
+        self.assertEqual(
+            summary["summary_text"],
+            "Medium-priority DNS Resolution Timeout incident in the "
+            "System log on Test-PC involving DNS Client and Distributed COM. "
+            "It contains 3 events and lasted 40 seconds. "
+            "Score 45 because error-level events were present and "
+            "3 to 4 related events were grouped together.",
+        )
+
+    def test_build_incident_summary_text_formats_multiple_score_reasons(self):
+        base_time = datetime(2026, 8, 19, 12, 0, 0)
+        events = [
+            make_event(
+                provider="DCOM",
+                event_id=10016,
+                time_generated=base_time,
+                level="Warning",
+                message="Permission warning one.",
+            ),
+            make_event(
+                provider="DCOM",
+                event_id=10016,
+                time_generated=base_time + timedelta(minutes=5),
+                level="Warning",
+                message="Permission warning two.",
+            ),
+            make_event(
+                provider="DCOM",
+                event_id=10016,
+                time_generated=base_time + timedelta(minutes=15),
+                level="Warning",
+                message="Permission warning three.",
+            ),
+            make_event(
+                provider="DCOM",
+                event_id=10016,
+                time_generated=base_time + timedelta(minutes=45),
+                level="Warning",
+                message="Permission warning four.",
+            ),
+            make_event(
+                provider="DCOM",
+                event_id=10016,
+                time_generated=base_time + timedelta(hours=1, minutes=5),
+                level="Warning",
+                message="Permission warning five.",
+            ),
+        ]
+
+        summary = build_incident(events)
+
+        self.assertEqual(summary["incident_score"], 55)
+        self.assertEqual(summary["incident_priority"], "Medium")
+        self.assertEqual(
+            summary["incident_score_reasons"],
+            [
+                "Warning-level incident detected",
+                "Moderate event count (5-9)",
+                "Incident duration > 1 hour",
+            ],
+        )
+        self.assertEqual(
+            summary["summary_text"],
+            "Medium-priority DCOM Permission Warning incident in the "
+            "System log on Test-PC involving Distributed COM. "
+            "It contains 5 events and lasted 1 hour and 5 minutes. "
+            "Score 55 because warning-level events were present, "
+            "5 to 9 related events were grouped together, and "
+            "the incident lasted longer than 1 hour.",
+        )
 
 
 if __name__ == "__main__":

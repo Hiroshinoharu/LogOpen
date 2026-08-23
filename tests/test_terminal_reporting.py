@@ -27,7 +27,10 @@ class TerminalReportingTests(unittest.TestCase):
         output = buffer.getvalue()
 
         self.assertIn("Incident 1:", output)
-        self.assertIn("Summary: Warning DNS Resolution Timeout", output)
+        self.assertIn(
+            "Summary: Low-priority DNS Resolution Timeout incident",
+            output,
+        )
         self.assertIn("Incident Classification: DNS Resolution Timeout", output)
         self.assertIn("Provider Classifications:", output)
         self.assertIn("Name resolution timed out.", output)

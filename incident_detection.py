@@ -1,10 +1,11 @@
 """Incident detection and summarization helpers."""
 
-from collections import Counter
 import re
+from collections import Counter
 
 from config import EVENT_SIMILARITY_THRESHOLD, INCIDENT_BUNDLE_TIMEDELTA
 from incident_classification import classify_event, classify_incident
+from incident_scoring import calculate_incident_score, get_incident_priority
 
 SEVERITY_RANK = {
     "Unknown": 0,
@@ -37,6 +38,72 @@ def _join_readable(values):
     if len(values) == 2:
         return f"{values[0]} and {values[1]}"
     return f"{', '.join(values[:-1])}, and {values[-1]}"
+
+
+def _format_duration(duration):
+    """Return a concise natural-language representation of a timedelta."""
+
+    total_seconds = max(int(duration.total_seconds()), 0)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    parts = []
+
+    if hours:
+        hour_label = "hour" if hours == 1 else "hours"
+        parts.append(f"{hours} {hour_label}")
+    if minutes:
+        minute_label = "minute" if minutes == 1 else "minutes"
+        parts.append(f"{minutes} {minute_label}")
+    if seconds or not parts:
+        second_label = "second" if seconds == 1 else "seconds"
+        parts.append(f"{seconds} {second_label}")
+
+    return _join_readable(parts)
+
+
+def _format_score_reasons(reasons):
+    """Return a readable explanation of the incident score reasons."""
+
+    if not reasons:
+        return "no additional scoring factors applied"
+
+    readable_reasons = {
+        "Error-level incident detected": "error-level events were present",
+        "Warning-level incident detected": "warning-level events were present",
+        "High event count (>10)": "more than 10 related events were grouped together",
+        "Moderate event count (5-9)": "5 to 9 related events were grouped together",
+        "Low event count (3-4)": "3 to 4 related events were grouped together",
+        "Incident duration > 1 hour": "the incident lasted longer than 1 hour",
+    }
+    formatted_reasons = [
+        readable_reasons.get(reason, reason[:1].lower() + reason[1:])
+        for reason in reasons
+    ]
+    return _join_readable(formatted_reasons)
+
+
+def _build_summary_text(incident_summary):
+    """Return the human-readable incident summary text."""
+
+    provider_labels = sorted(
+        incident_summary["provider_classifications"].values()
+    )
+    event_count = incident_summary["event_count"]
+    event_label = "event" if event_count == 1 else "events"
+    duration_label = _format_duration(incident_summary["incident_duration"])
+    score_reasons = _format_score_reasons(
+        incident_summary["incident_score_reasons"]
+    )
+
+    return (
+        f"{incident_summary['incident_priority']}-priority "
+        f"{incident_summary['incident_classification']} incident in the "
+        f"{incident_summary['log_type']} log on "
+        f"{incident_summary['computer_name']} involving "
+        f"{_join_readable(provider_labels)}. "
+        f"It contains {event_count} {event_label} and lasted {duration_label}. "
+        f"Score {incident_summary['incident_score']} because {score_reasons}."
+    )
 
 
 def normalize_component_name(value):
@@ -163,7 +230,8 @@ def build_incident(events):
     most_common_classification = event_classification_counts.most_common(1)
     if most_common_classification:
         most_common_classification = most_common_classification[0][0]
-
+    
+    # Build the incident summary dictionary
     first_event = events[0]
     last_event = events[-1]
     incident_summary = {
@@ -186,15 +254,14 @@ def build_incident(events):
     incident_summary["provider_classifications"] = classify_incident(
         incident_summary
     )
-    provider_labels = sorted(incident_summary["provider_classifications"].values())
-    event_label = "event" if incident_summary["event_count"] == 1 else "events"
-    incident_summary["summary_text"] = (
-        f"{incident_summary['highest_severity']} "
-        f"{incident_summary['incident_classification']} in the "
-        f"{incident_summary['log_type']} log on "
-        f"{incident_summary['computer_name']} involving "
-        f"{_join_readable(provider_labels)} "
-        f"({incident_summary['event_count']} {event_label} over "
-        f"{incident_summary['incident_duration']})."
-    )
+    
+    # Calculate the incident score and reasons
+    score, reasons = calculate_incident_score(incident_summary)
+    
+    # Add the score and priority to the incident summary
+    incident_summary["incident_score"] = score
+    incident_summary["incident_priority"] = get_incident_priority(score)
+    incident_summary["incident_score_reasons"] = reasons
+    
+    incident_summary["summary_text"] = _build_summary_text(incident_summary)
     return incident_summary
