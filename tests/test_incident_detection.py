@@ -150,13 +150,14 @@ class IncidentDetectionTests(unittest.TestCase):
 
         self.assertEqual(summary["highest_severity"], "Error")
         self.assertEqual(summary["incident_classification"], "DNS Resolution Timeout")
-        self.assertEqual(summary["incident_score"], 45)
+        self.assertEqual(summary["incident_score"], 50)
         self.assertEqual(summary["incident_priority"], "Medium")
         self.assertEqual(
             summary["incident_score_reasons"],
             [
                 "Error-level incident detected",
                 "Low event count (3-4)",
+                "Incident classification 'DNS Resolution Timeout' has an impact score of 5",
             ],
         )
         self.assertEqual(
@@ -171,8 +172,10 @@ class IncidentDetectionTests(unittest.TestCase):
             "Medium-priority DNS Resolution Timeout incident in the "
             "System log on Test-PC involving DNS Client and Distributed COM. "
             "It contains 3 events and lasted 40 seconds. "
-            "Score 45 because error-level events were present and "
-            "3 to 4 related events were grouped together.",
+            "Score 50 because error-level events were present, "
+            "3 to 4 related events were grouped together, and "
+            "incident classification 'DNS Resolution Timeout' has an "
+            "impact score of 5.",
         )
 
     def test_build_incident_summary_text_formats_multiple_score_reasons(self):

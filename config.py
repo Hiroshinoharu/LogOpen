@@ -1,4 +1,4 @@
-"""Project configuration values."""
+"""Central configuration for LogOpen's input logs and incident rules."""
 
 from datetime import timedelta
 

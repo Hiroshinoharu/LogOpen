@@ -1,4 +1,4 @@
-"""Classification helpers for providers, events, and incidents."""
+"""Maps Windows event providers and patterns to readable incident labels."""
 
 from config import PROVIDER_CLASSIFICATIONS
 

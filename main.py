@@ -1,9 +1,14 @@
-"""Read recent Windows event log entries and filter them for inspection."""
+"""Run the LogOpen workflow from Windows Event Log collection to reporting."""
 
 import config
 from event_collection import get_recent_events
 from event_filtering import filter_events, filter_events_by_time
-from incident_detection import build_incident, bundle_incidents
+from incident_detection import (
+    build_incident,
+    bundle_incidents,
+    refresh_incident_summary,
+)
+from incident_recurrence import apply_recurrence_metadata
 from json_reporting import export_incidents_to_json
 from terminal_reporting import display_incident_reports
 
@@ -37,6 +42,9 @@ def main():
     incident_summaries = [
         build_incident(incident) for incident in incidents
     ]
+    apply_recurrence_metadata(incident_summaries)
+    for summary in incident_summaries:
+        refresh_incident_summary(summary)
 
     log_types_label = format_log_types_label(config.LOG_TYPES)
     print(
@@ -48,7 +56,7 @@ def main():
         f"{config.INCIDENT_BUNDLE_TIMEDELTA} time window."
     )
     print()
-    display_incident_reports(incidents)
+    display_incident_reports(incident_summaries)
 
     # Export incidents to JSON file
     export_incidents_to_json(incident_summaries, "reports/incidents.json")

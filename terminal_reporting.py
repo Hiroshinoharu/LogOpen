@@ -1,4 +1,4 @@
-"""Terminal reporting helpers."""
+"""Renders incident summaries and source event messages for the terminal."""
 
 import sys
 
@@ -79,7 +79,9 @@ def display_incident_reports(incidents, out=None):
         return
 
     for index, incident in enumerate(incidents, start=1):
-        incident_summary = build_incident(incident)
+        incident_summary = (
+            incident if isinstance(incident, dict) else build_incident(incident)
+        )
         if incident_summary is None:
             continue
 

@@ -1,4 +1,4 @@
-"""Incident detection and summarization helpers."""
+"""Groups related events into incidents and builds their summary dictionaries."""
 
 import re
 from collections import Counter
@@ -104,6 +104,17 @@ def _build_summary_text(incident_summary):
         f"It contains {event_count} {event_label} and lasted {duration_label}. "
         f"Score {incident_summary['incident_score']} because {score_reasons}."
     )
+
+
+def refresh_incident_summary(incident_summary):
+    """Refresh score-derived fields after enriching an incident summary."""
+
+    score, reasons = calculate_incident_score(incident_summary)
+    incident_summary["incident_score"] = score
+    incident_summary["incident_priority"] = get_incident_priority(score)
+    incident_summary["incident_score_reasons"] = reasons
+    incident_summary["summary_text"] = _build_summary_text(incident_summary)
+    return incident_summary
 
 
 def normalize_component_name(value):
@@ -255,13 +266,4 @@ def build_incident(events):
         incident_summary
     )
     
-    # Calculate the incident score and reasons
-    score, reasons = calculate_incident_score(incident_summary)
-    
-    # Add the score and priority to the incident summary
-    incident_summary["incident_score"] = score
-    incident_summary["incident_priority"] = get_incident_priority(score)
-    incident_summary["incident_score_reasons"] = reasons
-    
-    incident_summary["summary_text"] = _build_summary_text(incident_summary)
-    return incident_summary
+    return refresh_incident_summary(incident_summary)

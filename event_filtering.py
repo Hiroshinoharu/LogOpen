@@ -1,4 +1,4 @@
-"""Event filtering helpers."""
+"""Filters collected event dictionaries by severity and recency."""
 
 from datetime import datetime, timedelta
 

@@ -40,12 +40,16 @@
         "provider_classifications": {
             "Microsoft-Windows-DNS-Client": "DNS Client"
         },
-        "incident_score": 20,
+        "incident_score": 25,
         "incident_priority": "Low",
         "incident_score_reasons": [
-            "Warning-level incident detected"
+            "Warning-level incident detected",
+            "Incident classification 'DNS Resolution Timeout' has an impact score of 5"
         ],
-        "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 25 because warning-level events were present and incident classification 'DNS Resolution Timeout' has an impact score of 5.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "Application",
@@ -105,7 +109,10 @@
         "incident_score_reasons": [
             "Error-level incident detected"
         ],
-        "summary_text": "Medium-priority Perflib incident in the Application log on Maxs-PC involving Perflib. It contains 2 events and lasted 0 seconds. Score 40 because error-level events were present."
+        "summary_text": "Medium-priority Perflib incident in the Application log on Maxs-PC involving Perflib. It contains 2 events and lasted 0 seconds. Score 40 because error-level events were present.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "Application",
@@ -153,7 +160,10 @@
         "incident_score_reasons": [
             "Error-level incident detected"
         ],
-        "summary_text": "Medium-priority CertEnroll incident in the Application log on Maxs-PC involving CertEnroll. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present."
+        "summary_text": "Medium-priority CertEnroll incident in the Application log on Maxs-PC involving CertEnroll. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -240,7 +250,10 @@
             "Warning-level incident detected",
             "Moderate event count (5-9)"
         ],
-        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 5 events and lasted 15 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together."
+        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 5 events and lasted 15 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -297,7 +310,10 @@
         "incident_score_reasons": [
             "Warning-level incident detected"
         ],
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 2 events and lasted 55 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 2 events and lasted 55 seconds. Score 20 because warning-level events were present.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "Application",
@@ -340,12 +356,16 @@
         "provider_classifications": {
             "Application Hang": "Application Hang"
         },
-        "incident_score": 40,
+        "incident_score": 50,
         "incident_priority": "Medium",
         "incident_score_reasons": [
-            "Error-level incident detected"
+            "Error-level incident detected",
+            "Incident classification 'Application Hang' has an impact score of 10"
         ],
-        "summary_text": "Medium-priority Application Hang incident in the Application log on Maxs-PC involving Application Hang. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present."
+        "summary_text": "Medium-priority Application Hang incident in the Application log on Maxs-PC involving Application Hang. It contains 1 event and lasted 0 seconds. Score 50 because error-level events were present and incident classification 'Application Hang' has an impact score of 10.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -421,7 +441,10 @@
             "Warning-level incident detected",
             "Low event count (3-4)"
         ],
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 25 because warning-level events were present and 3 to 4 related events were grouped together."
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 25 because warning-level events were present and 3 to 4 related events were grouped together.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -469,7 +492,10 @@
         "incident_score_reasons": [
             "Warning-level incident detected"
         ],
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -517,7 +543,10 @@
         "incident_score_reasons": [
             "Warning-level incident detected"
         ],
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -565,7 +594,10 @@
         "incident_score_reasons": [
             "Warning-level incident detected"
         ],
-        "summary_text": "Low-priority WLAN Module Stopped incident in the System log on Maxs-PC involving WLAN AutoConfig. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority WLAN Module Stopped incident in the System log on Maxs-PC involving WLAN AutoConfig. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -608,12 +640,16 @@
         "provider_classifications": {
             "Microsoft-Windows-DNS-Client": "DNS Client"
         },
-        "incident_score": 20,
+        "incident_score": 25,
         "incident_priority": "Low",
         "incident_score_reasons": [
-            "Warning-level incident detected"
+            "Warning-level incident detected",
+            "Incident classification 'DNS Resolution Timeout' has an impact score of 5"
         ],
-        "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present."
+        "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 25 because warning-level events were present and incident classification 'DNS Resolution Timeout' has an impact score of 5.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
     },
     {
         "log_type": "Application",
@@ -661,7 +697,10 @@
         "incident_score_reasons": [
             "Error-level incident detected"
         ],
-        "summary_text": "Medium-priority CertEnroll incident in the Application log on Maxs-PC involving CertEnroll. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present."
+        "summary_text": "Medium-priority CertEnroll incident in the Application log on Maxs-PC involving CertEnroll. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -757,7 +796,10 @@
             "Warning-level incident detected",
             "Moderate event count (5-9)"
         ],
-        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 6 events and lasted 57 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together."
+        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 6 events and lasted 57 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
     },
     {
         "log_type": "System",
@@ -827,12 +869,16 @@
         "provider_classifications": {
             "DCOM": "Distributed COM"
         },
-        "incident_score": 25,
+        "incident_score": 35,
         "incident_priority": "Low",
         "incident_score_reasons": [
             "Warning-level incident detected",
-            "Low event count (3-4)"
+            "Low event count (3-4)",
+            "Classification occurred 3 times in the last 24 hours"
         ],
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 25 because warning-level events were present and 3 to 4 related events were grouped together."
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 35 because warning-level events were present, 3 to 4 related events were grouped together, and classification occurred 3 times in the last 24 hours.",
+        "recurrence_count_24h": 3,
+        "recurrence_count_7d": 3,
+        "is_recurring": true
     }
 ]

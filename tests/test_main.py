@@ -128,7 +128,9 @@ class MainWorkflowTests(unittest.TestCase):
             [("System", 500), ("Application", 500)],
         )
         self.assertEqual(bundle_inputs, [["System", "Application"]])
-        self.assertEqual(displayed_incidents, [[system_event, application_event]])
+        self.assertEqual(len(displayed_incidents), 1)
+        self.assertEqual(displayed_incidents[0]["event_count"], 2)
+        self.assertEqual(displayed_incidents[0]["recurrence_count_24h"], 1)
         self.assertEqual(len(exported_incidents), 1)
         exported_payload, exported_path = exported_incidents[0]
         self.assertEqual(exported_path, "reports/incidents.json")

@@ -1,5 +1,14 @@
 from datetime import timedelta
 
+CLASSIFICATION_WEIGHTS = {
+    "Application Hang": 10,
+    "UDP Ephemeral Port Exhaustion": 15,
+    "Defender Service Crash": 20,
+    "TPM Hardware Error": 20,
+    "DNS Resolution Timeout": 5,
+    "DCOM Permission Warning": 0,
+}
+
 def  get_incident_priority(score):
     """Determine the priority level of an incident based on its score.
 
@@ -60,5 +69,30 @@ def calculate_incident_score(incident):
     if incident["incident_duration"] > timedelta(hours=1):
         score += 20
         reasons.append("Incident duration > 1 hour")
-    
+
+    recurrence_count_24h = incident.get("recurrence_count_24h", 1)
+    recurrence_count_7d = incident.get("recurrence_count_7d", 1)
+
+    if recurrence_count_24h >= 3:
+        score += 10
+        reasons.append(
+            "Classification occurred "
+            f"{recurrence_count_24h} times in the last 24 hours"
+        )
+
+    if recurrence_count_7d >= 5:
+        score += 20
+        reasons.append(
+            "Classification occurred "
+            f"{recurrence_count_7d} times in the last 7 days"
+        )
+
+    classification = incident["incident_classification"]
+
+    impact_score = CLASSIFICATION_WEIGHTS.get(classification, 0)
+
+    if impact_score > 0:
+        score += impact_score
+        reasons.append(f"Incident classification '{classification}' has an impact score of {impact_score}")
+
     return score, reasons
