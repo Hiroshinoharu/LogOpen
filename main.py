@@ -11,6 +11,7 @@ from incident_detection import (
 from incident_recurrence import apply_recurrence_metadata
 from json_reporting import export_incidents_to_json
 from terminal_reporting import display_incident_reports
+from llm_analysis import analyse_incident_with_llm
 
 
 def format_log_types_label(log_types):
@@ -23,6 +24,38 @@ def format_log_types_label(log_types):
     if len(log_types) == 2:
         return f"{log_types[0]} and {log_types[1]} logs"
     return f"{', '.join(log_types[:-1])}, and {log_types[-1]} logs"
+
+
+def display_llm_analysis(analysis):
+    """Print a validated LLM analysis in a readable format."""
+
+    print("\nLLM Analysis Results:")
+    print("Explanation:", analysis["explanation"])
+    print("Likely Causes:", "; ".join(analysis["likely_causes"]) or "None")
+    print(
+        "Recommended Actions:",
+        "; ".join(analysis["recommended_actions"]) or "None",
+    )
+    print(
+        "Remediation Notes:",
+        "; ".join(analysis["remediation_notes"]) or "None",
+    )
+
+
+def add_llm_analyses(incident_summaries):
+    """Add serializable LLM analysis to each incident summary."""
+
+    for incident in incident_summaries:
+        try:
+            analysis = analyse_incident_with_llm(incident)
+        except Exception as exc:
+            incident["llm_analysis"] = None
+            incident["llm_analysis_error"] = str(exc)
+            continue
+
+        incident["llm_analysis"] = (
+            analysis.model_dump(mode="json") if analysis is not None else None
+        )
 
 
 def main():
@@ -58,8 +91,20 @@ def main():
     print()
     display_incident_reports(incident_summaries)
 
-    # Export incidents to JSON file
+    if not incident_summaries:
+        print("\nSkipping LLM analysis because no incidents were found.")
+    else:
+        add_llm_analyses(incident_summaries)
+
+    # Export after LLM enrichment so the report contains the analysis results.
     export_incidents_to_json(incident_summaries, "reports/incidents.json")
+
+    for incident in incident_summaries:
+        if incident is None:
+            continue
+        analysis_data = incident.get("llm_analysis")
+        if analysis_data is not None:
+            display_llm_analysis(analysis_data)
 
 if __name__ == "__main__":
     main()

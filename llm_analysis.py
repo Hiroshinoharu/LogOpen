@@ -1,14 +1,54 @@
-from openai import OpenAI
+from typing import Any
 
 from incident_classification import classify_event
 from models.incident_analysis import IncidentAnalysis
 
-
-client = OpenAI()
-
-
 MAX_CONTEXT_EVENTS = 25
 MAX_MESSAGE_LENGTH = 1_500
+DEFAULT_ANALYSIS_MODEL = "gpt-5.6-luna"
+
+ANALYSIS_INSTRUCTIONS = """
+You are an expert in troubleshooting PC issues, particularly Windows operating systems.
+You are also an expert in analyzing and interpreting event logs, system logs, and other
+diagnostic information to identify potential issues and recommend resolutions.
+
+Analyze the incident context and return a structured response containing exactly these
+four fields:
+- explanation: A clear explanation of what the incident indicates and its likely impact.
+- likely_causes: A list of the most likely root causes, ordered from most to least plausible
+  based on the supplied evidence.
+- recommended_actions: A prioritized list of practical diagnostic or corrective actions.
+- remediation_notes: Additional cautions, verification steps, and relevant follow-up notes.
+
+Base the response only on the supplied incident evidence.
+
+Clearly distinguish confirmed facts from hypotheses.
+
+Do not invent:
+- Event IDs
+- providers
+- services
+- applications
+- registry keys
+- commands
+- configuration values
+- causes that are unsupported by the supplied evidence
+
+If the evidence is insufficient to determine a specific cause, explicitly say that the
+cause is uncertain rather than guessing.
+
+Prefer safe, non-destructive diagnostic steps before recommending configuration changes
+or other potentially disruptive actions.
+
+When suggesting remediation:
+- prioritize verification and diagnosis first
+- explain why an action may help
+- avoid destructive actions unless strongly justified by the supplied evidence
+- mention when administrator privileges, backups, or additional investigation may be needed
+
+Keep the explanation concise and technically accurate.
+Do not repeat the raw incident data unnecessarily.
+"""
 
 
 def _format_mapping(values):
@@ -110,6 +150,16 @@ def build_incident_context(incident):
         )
     )
 
+def _coerce_incident_analysis(parsed_output: Any) -> IncidentAnalysis | None:
+    """Validate structured model output before returning it to callers."""
+
+    if isinstance(parsed_output, IncidentAnalysis):
+        return parsed_output
+    if isinstance(parsed_output, dict):
+        return IncidentAnalysis.model_validate(parsed_output)
+    return None
+
+
 def analyse_incident_with_llm(incident):
     """
     Analyse an incident using a large language model (LLM) to provide insights and recommendations.
@@ -118,8 +168,21 @@ def analyse_incident_with_llm(incident):
         incident (dict): The incident data to be analysed.
         
     Returns:
-        IncidentAnalysis: An instance of the IncidentAnalysis class containing the analysis results.
+        IncidentAnalysis | None: The validated structured analysis, if available.
     """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return None
+
     context = build_incident_context(incident)
-    # Placeholder for the actual implementation of the LLM analysis logic
-    return None  # Replace with actual analysis results from the LLM
+    client = OpenAI()
+
+    response = client.responses.parse(
+        model=DEFAULT_ANALYSIS_MODEL,
+        instructions=ANALYSIS_INSTRUCTIONS,
+        input=f"Analyze the following LogOpen incident:\n{context}",
+        text_format=IncidentAnalysis,
+    )
+
+    return _coerce_incident_analysis(getattr(response, "output_parsed", None))

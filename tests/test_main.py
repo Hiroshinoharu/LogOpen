@@ -74,6 +74,16 @@ class MainWorkflowTests(unittest.TestCase):
         displayed_incidents = []
         exported_incidents = []
         print_calls = []
+        llm_analysis = {
+            "explanation": "A test analysis.",
+            "likely_causes": ["A test cause."],
+            "recommended_actions": ["A test action."],
+            "remediation_notes": ["A test note."],
+        }
+
+        class FakeAnalysis:
+            def model_dump(self, *, mode):
+                return llm_analysis
 
         def fake_get_recent_events(log_type, limit):
             get_recent_calls.append((log_type, limit))
@@ -120,6 +130,10 @@ class MainWorkflowTests(unittest.TestCase):
             main_module,
             "export_incidents_to_json",
             side_effect=fake_export_incidents_to_json,
+        ), patch.object(
+            main_module,
+            "analyse_incident_with_llm",
+            return_value=FakeAnalysis(),
         ), patch("builtins.print", side_effect=fake_print):
             main_module.main()
 
@@ -138,6 +152,7 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertEqual(exported_payload[0]["event_count"], 2)
         self.assertEqual(exported_payload[0]["providers"], ["SharedProvider"])
         self.assertEqual(exported_payload[0]["log_type"], "System")
+        self.assertEqual(exported_payload[0]["llm_analysis"], llm_analysis)
         self.assertTrue(
             any("the System and Application logs" in call for call in print_calls)
         )
