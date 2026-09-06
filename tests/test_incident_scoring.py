@@ -106,7 +106,7 @@ class IncidentScoringTests(unittest.TestCase):
             reasons,
             [
                 "Error-level incident detected",
-                "High event count (>10)",
+                "High event count (10+)",
                 "Incident lasted over 15 minutes",
                 "Classification occurred 3 times in the last 24 hours",
                 "Classification occurred 5 times in the last 7 days",
@@ -137,6 +137,33 @@ class IncidentScoringTests(unittest.TestCase):
                 "Moderate event count (5-9)",
             ],
         )
+
+    def test_nine_events_uses_the_moderate_event_count_tier(self):
+        score, reasons, breakdown = calculate_incident_score(
+            make_incident(event_count=9)
+        )
+
+        self.assertEqual(score, 15)
+        self.assertEqual(breakdown["event_count"], 15)
+        self.assertEqual(reasons, ["Moderate event count (5-9)"])
+
+    def test_ten_events_uses_the_high_event_count_tier(self):
+        score, reasons, breakdown = calculate_incident_score(
+            make_incident(event_count=10)
+        )
+
+        self.assertEqual(score, 30)
+        self.assertEqual(breakdown["event_count"], 30)
+        self.assertEqual(reasons, ["High event count (10+)"])
+
+    def test_eleven_events_uses_the_high_event_count_tier(self):
+        score, reasons, breakdown = calculate_incident_score(
+            make_incident(event_count=11)
+        )
+
+        self.assertEqual(score, 30)
+        self.assertEqual(breakdown["event_count"], 30)
+        self.assertEqual(reasons, ["High event count (10+)"])
 
     def test_get_incident_priority_uses_all_threshold_boundaries(self):
         self.assertEqual(get_incident_priority(0), "Low")

@@ -6,15 +6,8 @@ from typing import Any
 
 import config
 from incident_classification import classify_event
+from models.incident_analysis import IncidentAnalysis
 from pydantic import ValidationError
-
-try:
-    from models.incident_analysis import IncidentAnalysis
-except ImportError as exc:
-    IncidentAnalysis = None
-    _MODEL_IMPORT_ERROR = exc
-else:
-    _MODEL_IMPORT_ERROR = None
 
 
 def _format_mapping(values):
@@ -140,8 +133,6 @@ def build_incident_context(incident):
 def _coerce_incident_analysis(parsed_output: Any) -> IncidentAnalysis | None:
     """Validate structured model output before returning it to callers."""
 
-    if IncidentAnalysis is None:
-        return None
     if isinstance(parsed_output, IncidentAnalysis):
         return parsed_output
     if isinstance(parsed_output, dict):
@@ -182,6 +173,23 @@ def should_analyse_incident_with_llm(incident):
 
     return incident.get("event_count", 0) >= config.LLM_ANALYSIS_MIN_EVENTS
 
+def select_incidents_for_llm(incidents):
+    """
+    Select incidents that meet the criteria for LLM analysis.
+
+    Args:
+        incidents (list): A list of incident dictionaries.
+    """
+    # Filter incidents based on the criteria defined in should_analyse_incident_with_llm
+    selected_incidents = []
+    for incident in  incidents:
+        if should_analyse_incident_with_llm(incident):
+            selected_incidents.append(incident)
+    
+    # Sort the selected incidents by incident_score in descending order and limit to MAX_LLM_ANALYSES_PER_RUN
+    selected_incidents.sort(key=lambda incident: incident.get("incident_score", 0), reverse=True)
+    return selected_incidents[:config.MAX_LLM_ANALYSES_PER_RUN]
+
 
 def analyse_incident_with_llm(incident):
     """
@@ -196,9 +204,7 @@ def analyse_incident_with_llm(incident):
     if not isinstance(incident, dict):
         _log_llm_failure("incident data is invalid.")
         return None
-    if _MODEL_IMPORT_ERROR is not None:
-        _log_llm_failure("the incident analysis model is unavailable.")
-        return None
+    analysis_model = IncidentAnalysis
     if not os.getenv("OPENAI_API_KEY"):
         _log_llm_failure("OpenAI API credentials are not configured.")
         return None
@@ -224,7 +230,7 @@ def analyse_incident_with_llm(incident):
             model=config.DEFAULT_ANALYSIS_MODEL,
             instructions=config.ANALYSIS_INSTRUCTIONS,
             input=f"Analyze the following LogOpen incident:\n{context}",
-            text_format=IncidentAnalysis,
+            text_format=analysis_model,
         )
     except AuthenticationError:
         _log_llm_failure("OpenAI authentication failed.")

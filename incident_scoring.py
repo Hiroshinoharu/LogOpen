@@ -89,7 +89,7 @@ def calculate_incident_score(incident):
             reasons,
             "event_count",
             30,
-            "High event count (>10)",
+            "High event count (10+)",
         )
     elif incident["event_count"] >= 5:
         _add_score(

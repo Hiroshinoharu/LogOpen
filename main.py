@@ -13,8 +13,11 @@ from incident_detection import (
 )
 from incident_recurrence import apply_recurrence_metadata
 from json_reporting import export_incidents_to_json
+from llm_analysis import (
+    analyse_incident_with_llm,
+    select_incidents_for_llm,
+)
 from terminal_reporting import display_incident_reports
-from llm_analysis import analyse_incident_with_llm
 
 
 def format_log_types_label(log_types):
@@ -55,9 +58,11 @@ def _write_status(message, *, error=False):
 
 
 def add_llm_analyses(incident_summaries):
-    """Add serializable LLM analysis to each incident summary."""
+    """Add serializable LLM analysis to selected incident summaries."""
+    
+    selected_incidents = select_incidents_for_llm(incident_summaries)
 
-    for incident in incident_summaries:
+    for incident in selected_incidents:
         try:
             analysis = analyse_incident_with_llm(incident)
             incident["llm_analysis"] = (
@@ -65,7 +70,7 @@ def add_llm_analyses(incident_summaries):
                 if analysis is not None
                 else None
             )
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
             incident["llm_analysis"] = None
             incident["llm_analysis_error"] = describe_error(exc)
             _write_status(
@@ -104,7 +109,7 @@ def _run_workflow():
                 ["Error", "Warning"],
             )
             problem_events.extend(log_problem_events)
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
             error_message = f"{log_type}: {describe_error(exc)}"
             collection_errors.append(error_message)
             _write_status(
@@ -181,7 +186,7 @@ def main():
         return 130
     except BrokenPipeError:
         return 0
-    except Exception as exc:
+    except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
         _write_status(
             f"Error: LogOpen could not complete: {describe_error(exc)}",
             error=True,
