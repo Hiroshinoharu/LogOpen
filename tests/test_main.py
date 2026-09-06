@@ -156,3 +156,108 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertTrue(
             any("the System and Application logs" in call for call in print_calls)
         )
+
+    def test_main_continues_when_one_configured_log_cannot_be_read(self):
+        main_module = _load_main_module()
+        application_event = make_event(log_type="Application")
+
+        def fake_get_recent_events(log_type, limit):
+            self.assertEqual(limit, 500)
+            if log_type == "System":
+                raise PermissionError("access denied")
+            return [application_event]
+
+        with patch.object(
+            main_module.config,
+            "LOG_TYPES",
+            ["System", "Application"],
+        ), patch.object(
+            main_module,
+            "get_recent_events",
+            side_effect=fake_get_recent_events,
+        ), patch.object(
+            main_module,
+            "filter_events_by_time",
+            side_effect=lambda events, _hours: events,
+        ), patch.object(
+            main_module,
+            "filter_events",
+            side_effect=lambda events, _levels: events,
+        ), patch.object(
+            main_module,
+            "display_incident_reports",
+        ), patch.object(
+            main_module,
+            "analyse_incident_with_llm",
+            return_value=None,
+        ), patch.object(
+            main_module,
+            "export_incidents_to_json",
+        ) as export_report, patch.object(main_module, "_write_status") as status:
+            exit_code = main_module.main()
+
+        self.assertEqual(exit_code, 0)
+        exported_incidents = export_report.call_args.args[0]
+        self.assertEqual(len(exported_incidents), 1)
+        self.assertEqual(exported_incidents[0]["log_type"], "Application")
+        self.assertTrue(
+            any("System log" in call.args[0] for call in status.call_args_list)
+        )
+
+    def test_main_returns_failure_when_no_configured_log_can_be_read(self):
+        main_module = _load_main_module()
+
+        with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
+            main_module,
+            "get_recent_events",
+            side_effect=PermissionError("access denied"),
+        ), patch.object(
+            main_module,
+            "export_incidents_to_json",
+        ) as export_report, patch.object(main_module, "_write_status") as status:
+            exit_code = main_module.main()
+
+        self.assertEqual(exit_code, 1)
+        export_report.assert_not_called()
+        self.assertTrue(
+            any(
+                call.args[0].startswith("Error: LogOpen could not complete")
+                for call in status.call_args_list
+            )
+        )
+
+    def test_add_llm_analyses_records_empty_exception_messages(self):
+        main_module = _load_main_module()
+        incident = {}
+
+        with patch.object(
+            main_module,
+            "analyse_incident_with_llm",
+            side_effect=RuntimeError(),
+        ), patch.object(main_module, "_write_status"):
+            main_module.add_llm_analyses([incident])
+
+        self.assertIsNone(incident["llm_analysis"])
+        self.assertEqual(incident["llm_analysis_error"], "RuntimeError")
+
+    def test_add_llm_analyses_handles_model_serialization_failure(self):
+        main_module = _load_main_module()
+        incident = {}
+
+        class InvalidAnalysis:
+            def model_dump(_analysis, *, mode):
+                self.assertEqual(mode, "json")
+                raise ValueError("invalid structured response")
+
+        with patch.object(
+            main_module,
+            "analyse_incident_with_llm",
+            return_value=InvalidAnalysis(),
+        ), patch.object(main_module, "_write_status"):
+            main_module.add_llm_analyses([incident])
+
+        self.assertIsNone(incident["llm_analysis"])
+        self.assertEqual(
+            incident["llm_analysis_error"],
+            "invalid structured response",
+        )

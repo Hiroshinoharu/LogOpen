@@ -7,7 +7,12 @@ to JSON files.
 """
 
 import json
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+from errors import ReportExportError, describe_error
 
 
 def make_json_safe(value):
@@ -40,7 +45,7 @@ def make_json_safe(value):
     elif isinstance(value, datetime):
         return value.isoformat()
 
-    elif isinstance(value,  timedelta):
+    elif isinstance(value, timedelta):
         return str(value)
 
     else:
@@ -62,11 +67,38 @@ def export_incidents_to_json(incidents, file_path):
     Returns:
         None
     """
-    json_safe_incidents = make_json_safe(incidents)
+    temporary_path = None
+    try:
+        output_path = Path(file_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        json_safe_incidents = make_json_safe(incidents)
 
-    with open(file_path, "w", encoding="utf-8") as json_file:
-        json.dump(
-            json_safe_incidents,
-            json_file,
-            indent=4
-        )
+        # Write beside the destination and replace it only after JSON serialization
+        # succeeds, preserving the previous report if anything goes wrong.
+        with NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as json_file:
+            temporary_path = Path(json_file.name)
+            json.dump(json_safe_incidents, json_file, indent=4)
+            json_file.write("\n")
+            json_file.flush()
+            os.fsync(json_file.fileno())
+
+        os.replace(temporary_path, output_path)
+        temporary_path = None
+    except Exception as exc:
+        raise ReportExportError(
+            f"Could not write the JSON report to {file_path!s}: "
+            f"{describe_error(exc)}"
+        ) from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass

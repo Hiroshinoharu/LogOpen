@@ -6,6 +6,8 @@ import sys
 from types import ModuleType, SimpleNamespace
 import unittest
 
+from errors import EventCollectionError
+
 
 def _load_event_collection(win32evtlog_module, win32evtlogutil_module):
     """Import ``event_collection`` with stubbed win32 modules."""
@@ -104,3 +106,64 @@ class EventCollectionTests(unittest.TestCase):
                 "message": "Application:ExampleProvider",
             }],
         )
+
+    def test_get_recent_events_wraps_read_errors_and_closes_the_log(self):
+        close_calls = []
+        fake_win32evtlog = ModuleType("win32evtlog")
+        fake_win32evtlog.EVENTLOG_AUDIT_FAILURE = 1
+        fake_win32evtlog.EVENTLOG_AUDIT_SUCCESS = 2
+        fake_win32evtlog.EVENTLOG_INFORMATION_TYPE = 4
+        fake_win32evtlog.EVENTLOG_WARNING_TYPE = 8
+        fake_win32evtlog.EVENTLOG_ERROR_TYPE = 16
+        fake_win32evtlog.EVENTLOG_SEQUENTIAL_READ = 32
+        fake_win32evtlog.EVENTLOG_BACKWARDS_READ = 64
+        fake_win32evtlog.OpenEventLog = lambda *_args: "handle"
+        fake_win32evtlog.ReadEventLog = (
+            lambda *_args: (_ for _ in ()).throw(PermissionError("access denied"))
+        )
+        fake_win32evtlog.CloseEventLog = close_calls.append
+
+        fake_win32evtlogutil = ModuleType("win32evtlogutil")
+        fake_win32evtlogutil.SafeFormatMessage = lambda *_args: "message"
+        event_collection = _load_event_collection(
+            fake_win32evtlog,
+            fake_win32evtlogutil,
+        )
+
+        with self.assertRaisesRegex(
+            EventCollectionError,
+            "Could not read the System log: access denied",
+        ):
+            event_collection.get_recent_events("System", limit=5)
+
+        self.assertEqual(close_calls, ["handle"])
+
+    def test_parse_event_keeps_event_when_message_formatting_fails(self):
+        fake_win32evtlog = ModuleType("win32evtlog")
+        fake_win32evtlog.EVENTLOG_AUDIT_FAILURE = 1
+        fake_win32evtlog.EVENTLOG_AUDIT_SUCCESS = 2
+        fake_win32evtlog.EVENTLOG_INFORMATION_TYPE = 4
+        fake_win32evtlog.EVENTLOG_WARNING_TYPE = 8
+        fake_win32evtlog.EVENTLOG_ERROR_TYPE = 16
+        raw_event = SimpleNamespace(
+            ComputerName="Test-PC",
+            SourceName="ExampleProvider",
+            EventID=42,
+            TimeGenerated=datetime(2026, 8, 19, 11, 59, 0),
+            EventType=fake_win32evtlog.EVENTLOG_ERROR_TYPE,
+        )
+
+        fake_win32evtlogutil = ModuleType("win32evtlogutil")
+        fake_win32evtlogutil.SafeFormatMessage = (
+            lambda *_args: (_ for _ in ()).throw(OSError("message DLL missing"))
+        )
+        event_collection = _load_event_collection(
+            fake_win32evtlog,
+            fake_win32evtlogutil,
+        )
+
+        with self.assertLogs("event_collection", level="WARNING"):
+            event = event_collection.parse_event("System", raw_event)
+
+        self.assertEqual(event["event_id"], 42)
+        self.assertEqual(event["message"], "Event message could not be formatted.")

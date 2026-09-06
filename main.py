@@ -1,6 +1,9 @@
 """Run the LogOpen workflow from Windows Event Log collection to reporting."""
 
+import sys
+
 import config
+from errors import describe_error
 from event_collection import get_recent_events
 from event_filtering import filter_events, filter_events_by_time
 from incident_detection import (
@@ -42,39 +45,98 @@ def display_llm_analysis(analysis):
     )
 
 
+def _write_status(message, *, error=False):
+    """Write a status message without risking a second error during cleanup."""
+
+    try:
+        print(message, file=sys.stderr if error else sys.stdout)
+    except (BrokenPipeError, OSError):
+        pass
+
+
 def add_llm_analyses(incident_summaries):
     """Add serializable LLM analysis to each incident summary."""
 
     for incident in incident_summaries:
         try:
             analysis = analyse_incident_with_llm(incident)
+            incident["llm_analysis"] = (
+                analysis.model_dump(mode="json")
+                if analysis is not None
+                else None
+            )
         except Exception as exc:
             incident["llm_analysis"] = None
-            incident["llm_analysis_error"] = str(exc)
+            incident["llm_analysis_error"] = describe_error(exc)
+            _write_status(
+                "Warning: AI analysis was skipped for an incident: "
+                f"{describe_error(exc)}",
+                error=True,
+            )
             continue
 
-        incident["llm_analysis"] = (
-            analysis.model_dump(mode="json") if analysis is not None else None
-        )
+
+def _validate_log_types(log_types):
+    """Validate the configured log list before starting collection."""
+
+    if isinstance(log_types, str) or not isinstance(log_types, (list, tuple)):
+        raise ValueError("config.LOG_TYPES must be a list or tuple of log names")
+    if not log_types:
+        raise ValueError("config.LOG_TYPES must contain at least one log name")
+    if any(not isinstance(name, str) or not name.strip() for name in log_types):
+        raise ValueError("each configured log name must be a non-empty string")
 
 
-def main():
+def _run_workflow():
     """Print recent warning and error events from the configured Windows logs."""
 
+    _validate_log_types(config.LOG_TYPES)
     problem_events = []
+    collection_errors = []
 
     for log_type in config.LOG_TYPES:
-        events = get_recent_events(log_type, limit=500)
-        events.sort(key=lambda event: event["time_generated"])
-        log_problem_events = filter_events_by_time(events, 24)
-        log_problem_events = filter_events(log_problem_events, ["Error", "Warning"])
-        problem_events.extend(log_problem_events)
+        try:
+            events = get_recent_events(log_type, limit=500)
+            events.sort(key=lambda event: event["time_generated"])
+            log_problem_events = filter_events_by_time(events, 24)
+            log_problem_events = filter_events(
+                log_problem_events,
+                ["Error", "Warning"],
+            )
+            problem_events.extend(log_problem_events)
+        except Exception as exc:
+            error_message = f"{log_type}: {describe_error(exc)}"
+            collection_errors.append(error_message)
+            _write_status(
+                f"Warning: could not process the {log_type} log: "
+                f"{describe_error(exc)}",
+                error=True,
+            )
+
+    if len(collection_errors) == len(config.LOG_TYPES):
+        raise RuntimeError(
+            "none of the configured event logs could be processed ("
+            + "; ".join(collection_errors)
+            + ")"
+        )
+
     problem_events.sort(key=lambda event: event["time_generated"])
     incidents = bundle_incidents(problem_events)
-    
-    incident_summaries = [
-        build_incident(incident) for incident in incidents
-    ]
+
+    incident_summaries = []
+    for incident_number, incident in enumerate(incidents, start=1):
+        try:
+            summary = build_incident(incident)
+        except Exception as exc:
+            _write_status(
+                f"Warning: incident {incident_number} was skipped because it "
+                f"could not be summarized: {describe_error(exc)}",
+                error=True,
+            )
+            continue
+        if summary is not None:
+            incident_summaries.append(summary)
+
     apply_recurrence_metadata(incident_summaries)
     for summary in incident_summaries:
         refresh_incident_summary(summary)
@@ -106,5 +168,26 @@ def main():
         if analysis_data is not None:
             display_llm_analysis(analysis_data)
 
+    return 0
+
+
+def main():
+    """Run LogOpen and translate failures into concise user-facing messages."""
+
+    try:
+        return _run_workflow()
+    except KeyboardInterrupt:
+        _write_status("LogOpen was cancelled by the user.", error=True)
+        return 130
+    except BrokenPipeError:
+        return 0
+    except Exception as exc:
+        _write_status(
+            f"Error: LogOpen could not complete: {describe_error(exc)}",
+            error=True,
+        )
+        return 1
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
