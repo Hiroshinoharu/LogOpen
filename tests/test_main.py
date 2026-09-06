@@ -134,6 +134,10 @@ class MainWorkflowTests(unittest.TestCase):
             main_module,
             "analyse_incident_with_llm",
             return_value=FakeAnalysis(),
+        ), patch.object(
+            main_module,
+            "select_incidents_for_llm",
+            side_effect=lambda incidents: incidents,
         ), patch("builtins.print", side_effect=fake_print):
             main_module.main()
 
@@ -228,7 +232,7 @@ class MainWorkflowTests(unittest.TestCase):
 
     def test_add_llm_analyses_records_empty_exception_messages(self):
         main_module = _load_main_module()
-        incident = {}
+        incident = {"incident_priority": "High", "llm_analysis": None}
 
         with patch.object(
             main_module,
@@ -242,7 +246,7 @@ class MainWorkflowTests(unittest.TestCase):
 
     def test_add_llm_analyses_handles_model_serialization_failure(self):
         main_module = _load_main_module()
-        incident = {}
+        incident = {"incident_priority": "High", "llm_analysis": None}
 
         class InvalidAnalysis:
             def model_dump(_analysis, *, mode):
