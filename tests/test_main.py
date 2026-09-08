@@ -56,6 +56,82 @@ def _load_main_module():
 
 
 class MainWorkflowTests(unittest.TestCase):
+    def test_scan_system_returns_incident_summaries(self):
+        main_module = _load_main_module()
+        event = make_event()
+
+        with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
+            main_module, "get_recent_events", return_value=[event]
+        ), patch.object(
+            main_module, "filter_events_by_time", side_effect=lambda events, _hours: events
+        ), patch.object(
+            main_module, "add_llm_analyses"
+        ), patch.object(
+            main_module, "export_incidents_to_json"
+        ) as export_report, patch("builtins.print"):
+            incidents = main_module.scan_system()
+
+        self.assertIsInstance(incidents, list)
+        self.assertEqual(len(incidents), 1)
+        self.assertEqual(incidents[0]["events"], [event])
+        self.assertIn("incident_priority", incidents[0])
+        self.assertIn("incident_classification", incidents[0])
+        self.assertIn("incident_score", incidents[0])
+        self.assertIs(export_report.call_args.args[0], incidents)
+
+    def test_scan_system_returns_empty_list_when_no_events_are_found(self):
+        main_module = _load_main_module()
+
+        with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
+            main_module, "get_recent_events", return_value=[]
+        ), patch.object(
+            main_module, "add_llm_analyses"
+        ) as analyse, patch.object(
+            main_module, "export_incidents_to_json"
+        ), patch("builtins.print"):
+            incidents = main_module.scan_system()
+
+        self.assertEqual(incidents, [])
+        analyse.assert_not_called()
+
+    def test_scan_system_raises_when_no_configured_log_can_be_read(self):
+        main_module = _load_main_module()
+
+        with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
+            main_module, "get_recent_events", side_effect=PermissionError("access denied")
+        ), patch.object(main_module, "_write_status"):
+            with self.assertRaisesRegex(RuntimeError, "none of the configured event logs"):
+                main_module.scan_system()
+
+    def test_scan_system_propagates_interrupts_and_output_failures(self):
+        main_module = _load_main_module()
+
+        for error in (KeyboardInterrupt(), BrokenPipeError()):
+            with self.subTest(error=type(error).__name__), patch.object(
+                main_module, "_run_workflow", side_effect=error
+            ):
+                with self.assertRaises(type(error)):
+                    main_module.scan_system()
+
+    def test_main_returns_exit_codes(self):
+        main_module = _load_main_module()
+
+        for incidents in ([], [{"incident_priority": "Low"}]):
+            with self.subTest(incidents=incidents), patch.object(
+                main_module, "scan_system", return_value=incidents
+            ):
+                self.assertEqual(main_module.main(), 0)
+
+        for error, expected_code in (
+            (KeyboardInterrupt(), 130),
+            (BrokenPipeError(), 0),
+            (RuntimeError("scan failed"), 1),
+        ):
+            with self.subTest(error=type(error).__name__), patch.object(
+                main_module, "scan_system", side_effect=error
+            ), patch.object(main_module, "_write_status"):
+                self.assertEqual(main_module.main(), expected_code)
+
     def test_main_collects_and_bundles_each_log_type_separately(self):
         main_module = _load_main_module()
         system_event = make_event(

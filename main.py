@@ -1,6 +1,7 @@
 """Run the LogOpen workflow from Windows Event Log collection to reporting."""
 
 import sys
+from typing import Any
 
 import config
 from errors import describe_error
@@ -92,8 +93,8 @@ def _validate_log_types(log_types):
         raise ValueError("each configured log name must be a non-empty string")
 
 
-def _run_workflow():
-    """Print recent warning and error events from the configured Windows logs."""
+def _run_workflow() -> list[dict[str, Any]]:
+    """Report recent Windows warning and error events and return their incidents."""
 
     _validate_log_types(config.LOG_TYPES)
     problem_events = []
@@ -128,7 +129,7 @@ def _run_workflow():
     problem_events.sort(key=lambda event: event["time_generated"])
     incidents = bundle_incidents(problem_events)
 
-    incident_summaries = []
+    incident_summaries: list[dict[str, Any]] = []
     for incident_number, incident in enumerate(incidents, start=1):
         try:
             summary = build_incident(incident)
@@ -173,14 +174,21 @@ def _run_workflow():
         if analysis_data is not None:
             display_llm_analysis(analysis_data)
 
-    return 0
+    return incident_summaries
 
 
-def main():
+def scan_system() -> list[dict[str, Any]]:
+    """Return incident summaries, allowing scan failures to reach the caller."""
+
+    return _run_workflow()
+
+
+def main() -> int:
     """Run LogOpen and translate failures into concise user-facing messages."""
 
     try:
-        return _run_workflow()
+        scan_system()
+        return 0
     except KeyboardInterrupt:
         _write_status("LogOpen was cancelled by the user.", error=True)
         return 130
