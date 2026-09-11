@@ -178,14 +178,17 @@ class MainWindow(QMainWindow):
         """Display the returned summaries without changing their data or order."""
         self._clear_incidents()
         self._incidents = list(incidents)
+        sorting_enabled = self.incident_table.isSortingEnabled()
+        self.incident_table.setSortingEnabled(False)
         self.incident_table.setRowCount(len(incidents))
         for row, incident in enumerate(incidents):
+            recurring = incident.get("is_recurring")
             values = (
                 incident.get("incident_priority", "Unknown"),
                 incident.get("incident_classification", "Unknown"),
                 f"{incident.get('incident_score', '—')} / 100",
+                "Yes" if recurring is True else "No" if recurring is False else "—",
                 incident.get("event_count", "—"),
-                incident.get("log_type", "—"),
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
@@ -193,7 +196,7 @@ class MainWindow(QMainWindow):
                 if column == 0:
                     # Store a source index so row sorting cannot change the mapping.
                     item.setData(Qt.ItemDataRole.UserRole, row)
-                if column in (2, 3):
+                if column in (2, 4):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 # Qt tooltips can interpret HTML; source text must stay literal.
                 preview = str(value)
@@ -201,13 +204,14 @@ class MainWindow(QMainWindow):
                     preview = preview[:157] + "…"
                 item.setToolTip("<qt>" + escape(preview) + "</qt>")
                 self.incident_table.setItem(row, column, item)
+        self.incident_table.setSortingEnabled(sorting_enabled)
 
     def _clear_incidents(self):
         self._incidents = []
         self.incident_table.setRowCount(0)
         self.incident_detail.set_incident(None)
         self.detail_button.setEnabled(False)
-        self._set_incident_list_header()
+        self.page_stack.setCurrentWidget(self.dashboard)
 
     def _selected_incident(self):
         selected_rows = self.incident_table.selectionModel().selectedRows()
@@ -228,20 +232,12 @@ class MainWindow(QMainWindow):
         if incident is None:
             return
         self.incident_detail.set_incident(incident)
-        self.results_title.setText("Incident details")
-        self.results_hint.setText("Summary, scoring, AI analysis, and source events.")
-        self.detail_button.hide()
-        self.results_stack.setCurrentWidget(self.incident_detail)
+        self.page_stack.setCurrentWidget(self.incident_detail)
         self.incident_detail.back_button.setFocus()
-
-    def _set_incident_list_header(self):
-        self.results_title.setText("Incidents")
-        self.results_hint.setText("Double-click a row or press Enter to view incident details.")
-        self.detail_button.show()
 
     @pyqtSlot()
     def _show_incident_list(self):
-        self._set_incident_list_header()
+        self.page_stack.setCurrentWidget(self.dashboard)
         if self._incidents:
             self.results_stack.setCurrentWidget(self.incident_table)
             self.incident_table.setFocus()
@@ -309,6 +305,14 @@ class MainWindow(QMainWindow):
         divider.setFixedHeight(1)
         layout.addWidget(divider)
 
+        self.page_stack = QStackedWidget()
+        self.dashboard = QWidget()
+        dashboard_layout = QVBoxLayout(self.dashboard)
+        dashboard_layout.setContentsMargins(0, 0, 0, 0)
+        dashboard_layout.setSpacing(18)
+        self.page_stack.addWidget(self.dashboard)
+        layout.addWidget(self.page_stack, 1)
+
         heading_row = QHBoxLayout()
         heading_row.setSpacing(24)
         heading_text = QVBoxLayout()
@@ -328,7 +332,7 @@ class MainWindow(QMainWindow):
         self.scan_button.setAccessibleName("Scan for Incidents")
         self.scan_button.clicked.connect(self.run_scan)
         heading_row.addWidget(self.scan_button)
-        layout.addLayout(heading_row)
+        dashboard_layout.addLayout(heading_row)
 
         metrics = QHBoxLayout()
         metrics.setSpacing(14)
@@ -342,7 +346,7 @@ class MainWindow(QMainWindow):
             "EVENTS GROUPED", "Warnings & errors in incidents", "teal"
         )
         metrics.addWidget(card, 1)
-        layout.addLayout(metrics)
+        dashboard_layout.addLayout(metrics)
 
         results_panel = QFrame()
         results_panel.setObjectName("resultsPanel")
@@ -375,9 +379,9 @@ class MainWindow(QMainWindow):
         self.incident_table = QTableWidget(0, 5)
         self.incident_table.setObjectName("incidentTable")
         self.incident_table.setHorizontalHeaderLabels(
-            ["Priority", "Classification", "Score", "Events", "Log"]
+            ["Priority", "Classification", "Score", "Recurring", "Events"]
         )
-        for column in (2, 3):
+        for column in (2, 4):
             self.incident_table.horizontalHeaderItem(column).setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )
@@ -399,7 +403,7 @@ class MainWindow(QMainWindow):
         header.setMinimumSectionSize(70)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 108), (2, 100), (3, 76), (4, 128)):
+        for column, width in ((0, 108), (2, 100), (3, 100), (4, 76)):
             self.incident_table.setColumnWidth(column, width)
         rows = self.incident_table.verticalHeader()
         rows.hide()
@@ -418,7 +422,7 @@ class MainWindow(QMainWindow):
 
         self.incident_detail = IncidentDetailWidget()
         self.incident_detail.back_requested.connect(self._show_incident_list)
-        self.results_stack.addWidget(self.incident_detail)
+        self.page_stack.addWidget(self.incident_detail)
 
         self.empty_state = QWidget()
         empty_layout = QVBoxLayout(self.empty_state)
@@ -443,7 +447,7 @@ class MainWindow(QMainWindow):
             "grouped into incidents that are easier to understand.",
         )
         results_layout.addWidget(self.results_stack, 1)
-        layout.addWidget(results_panel, 1)
+        dashboard_layout.addWidget(results_panel, 1)
 
         footer = QHBoxLayout()
         footer.setSpacing(16)
@@ -455,7 +459,7 @@ class MainWindow(QMainWindow):
         footer.addWidget(scope, 1)
         self.last_scan = _label("No scans yet", "mutedLabel")
         footer.addWidget(self.last_scan)
-        layout.addLayout(footer)
+        dashboard_layout.addLayout(footer)
         self.setTabOrder(self.scan_button, self.incident_table)
         self.setTabOrder(self.incident_table, self.detail_button)
 

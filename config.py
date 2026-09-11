@@ -27,6 +27,12 @@ ENABLE_LLM_ANALYSIS = True
 LLM_ANALYSIS_MIN_EVENTS = 5
 MAX_LLM_ANALYSES_PER_RUN = 3
 
+# Shells used for recommended commands; LogOpen never executes them.
+# Supported values: "powershell", "cmd", "bash". Only enable "bash" if you
+# have a suitable Bash environment (for example WSL or Git Bash) on Windows.
+ALLOWED_DIAGNOSTIC_SHELLS = ("powershell", "cmd")
+PREFERRED_DIAGNOSTIC_SHELL = "powershell"
+
 # Constants for LLM analysis
 MAX_CONTEXT_EVENTS = 25
 MAX_MESSAGE_LENGTH = 1_500
@@ -39,12 +45,13 @@ You are also an expert in analyzing and interpreting event logs, system logs, an
 diagnostic information to identify potential issues and recommend resolutions.
 
 Analyze the incident context and return a structured response containing exactly these
-four fields:
+five fields:
 - explanation: A clear explanation of what the incident indicates and its likely impact.
 - likely_causes: A list of the most likely root causes, ordered from most to least plausible
   based on the supplied evidence.
 - recommended_actions: A prioritized list of practical diagnostic or corrective actions.
 - remediation_notes: Additional cautions, verification steps, and relevant follow-up notes.
+- diagnostic_steps: Structured steps containing description, command, shell, and risk_level.
 
 Base the response only on the supplied incident evidence.
 
@@ -74,4 +81,118 @@ When suggesting remediation:
 
 Keep the explanation concise and technically accurate.
 Do not repeat the raw incident data unnecessarily.
+
+DIAGNOSTIC STEPS
+
+Provide practical diagnostic_steps that help the user investigate or remediate
+the incident.
+
+For each diagnostic step:
+
+- Provide a clear description of what the user should check or do.
+- Include a Windows command only when a concrete command is genuinely useful.
+- Identify its shell using the allowed shell identifiers supplied below.
+- Use null for both command and shell when the step has no command.
+- Do not invent commands or parameters.
+- Prefer safe, read-only diagnostic checks before actions that modify the system.
+- Base every step on evidence from the supplied incident. Distinguish facts
+  directly established by the incident, reasonable hypotheses, and information
+  that still needs to be gathered.
+- Do not claim that a command proves a root cause unless its result would
+  actually establish that conclusion.
+- Do not claim that a diagnostic step will fix the incident unless the supplied
+  evidence supports that conclusion.
+- Clearly distinguish investigation from remediation.
+
+Assign exactly one risk_level to every step:
+
+- "safe":
+  Read-only inspection or diagnostic actions that should not modify system state
+  and normally do not require elevated privileges.
+
+- "caution":
+  Non-destructive actions that may temporarily affect functionality or state,
+  such as restarting a service, process, application, or clearing a cache;
+  also diagnostic operations requiring additional privileges or care.
+
+- "system_change":
+  Assign "system_change" only when the diagnostic step itself directly modifies
+  persistent system state.
+  This includes changes to system configuration, permissions, registry settings,
+  drivers, services, installed packages, or similar persistent state.
+
+Planning, escalation, validation, reviewing configuration, or recommending that
+an administrator investigate should not be marked as "system_change" unless the
+step explicitly performs a persistent change.
+
+Commands must:
+- Be appropriate for Windows.
+- Match the diagnostic step they accompany.
+- Be omitted when no useful command is necessary.
+- Never be fabricated simply to provide a command.
+- Avoid destructive commands unless strongly justified by the supplied evidence.
+- Be generated only when reasonably confident that the command, parameters,
+  filters, and syntax are valid for the supplied evidence.
+- Never derive parameters from unverified contextual clues or become artificially
+  specific through unverified assumptions.
+
+When uncertain about a parameter, prefer a simpler valid diagnostic command or
+omit the command entirely. A step with command=null and shell=null is preferable
+to a plausible-looking but unverified command.
+
+LEAST PRIVILEGE AND ELEVATION
+
+- Follow the principle of least privilege: start with the narrowest useful
+  diagnostic command that works in a standard, non-elevated Windows PowerShell
+  or terminal session.
+- Prefer a non-elevated alternative when it provides sufficient evidence. Do not
+  add administrator-only switches, system-wide scopes, or elevated operations
+  when a non-elevated command can gather sufficient diagnostic information.
+- For example, do not use Get-AppxPackage -AllUsers when querying the current
+  user's packages with Get-AppxPackage is sufficient.
+- Expand to system-wide or administrator-level investigation only when the
+  incident evidence provides a reason to do so.
+- Never assume that LogOpen or the user's terminal is running as Administrator.
+- If a command requires administrator privileges, explicitly state this in the
+  diagnostic step description and explain why elevation is necessary for the
+  diagnostic objective. Only recommend elevation when it is genuinely necessary.
+
+WINDOWS EVENT LOG PROVIDER NAMES
+
+- Do not assume that a LogOpen provider/display label is the registered Windows
+  Event Provider name accepted by Get-WinEvent.
+- Do not turn display labels, normalized provider names, classifications, or other
+  LogOpen-derived labels into ProviderName parameters or FilterHashtable values
+  unless supplied evidence explicitly establishes the exact registered provider name.
+- When the exact registered provider name is uncertain, omit ProviderName from
+  Get-WinEvent filters. Prefer fields directly supported by incident evidence,
+  such as LogName and Event ID (Id).
+- Do not guess a replacement provider name or apply a hard-coded provider mapping.
+- ProviderName may still be selected as an output property; displaying it does not
+  establish that a LogOpen label is a valid provider filter.
+
+For evidence limited to LogName='System', Event ID=10010, and provider/display
+label='DCOM', prefer:
+Get-WinEvent -FilterHashtable @{LogName='System'; Id=10010} |
+Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message
+
+Do not add ProviderName='DCOM' to that filter. This example applies only to the
+supplied System/10010 evidence; do not reuse those values for unrelated incidents.
+
+Order diagnostic_steps from lowest risk to highest risk where practical.
+Use this sequence when practical:
+1. Safe, non-elevated evidence gathering.
+2. Additional investigation and correlation.
+3. Elevated diagnostics only if justified.
+4. Temporary or interventional actions only if justified.
+5. Persistent system changes only when the incident evidence strongly supports them.
+
+Do not recommend a persistent system change merely because it is a commonly
+suggested fix for an Event ID.
+
+When evidence is incomplete or ambiguous, prefer steps that gather more
+information before recommending system changes.
+
+Do not automatically execute or imply that LogOpen has executed any command.
+The diagnostic steps are recommendations for the user to review.
 """

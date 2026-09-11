@@ -6,6 +6,7 @@ from types import ModuleType
 import unittest
 from unittest.mock import patch
 
+from models.incident_analysis import IncidentAnalysis
 from tests.helpers import make_event
 
 
@@ -155,11 +156,11 @@ class MainWorkflowTests(unittest.TestCase):
             "likely_causes": ["A test cause."],
             "recommended_actions": ["A test action."],
             "remediation_notes": ["A test note."],
+            "diagnostic_steps": [
+                {"description": "Inspect the affected service.", "command": "Get-Service", "shell": "powershell", "risk_level": "safe"},
+                {"description": "Review related events.", "command": None, "shell": None, "risk_level": "safe"},
+            ],
         }
-
-        class FakeAnalysis:
-            def model_dump(self, *, mode):
-                return llm_analysis
 
         def fake_get_recent_events(log_type, limit):
             get_recent_calls.append((log_type, limit))
@@ -209,7 +210,7 @@ class MainWorkflowTests(unittest.TestCase):
         ), patch.object(
             main_module,
             "analyse_incident_with_llm",
-            return_value=FakeAnalysis(),
+            return_value=IncidentAnalysis(**llm_analysis),
         ), patch.object(
             main_module,
             "select_incidents_for_llm",

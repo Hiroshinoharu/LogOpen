@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any
+from typing import Any, get_args
 
 import config
 from incident_classification import classify_event
-from models.incident_analysis import IncidentAnalysis
+from models.incident_analysis import DiagnosticShell, IncidentAnalysis
 from pydantic import ValidationError
 
 
@@ -191,6 +191,30 @@ def select_incidents_for_llm(incidents):
     return selected_incidents[:config.MAX_LLM_ANALYSES_PER_RUN]
 
 
+def build_analysis_instructions():
+    """Include the current shell preferences without guessing installed shells."""
+    allowed = config.ALLOWED_DIAGNOSTIC_SHELLS
+    preferred = config.PREFERRED_DIAGNOSTIC_SHELL
+    if not isinstance(allowed, (list, tuple)) or not allowed:
+        raise ValueError("ALLOWED_DIAGNOSTIC_SHELLS must be a non-empty list or tuple")
+    if any(shell not in get_args(DiagnosticShell) for shell in allowed):
+        raise ValueError("ALLOWED_DIAGNOSTIC_SHELLS supports powershell, cmd, and bash")
+    if preferred not in allowed:
+        raise ValueError("PREFERRED_DIAGNOSTIC_SHELL must be in ALLOWED_DIAGNOSTIC_SHELLS")
+    return config.ANALYSIS_INSTRUCTIONS + (
+        "\nDIAGNOSTIC COMMAND SHELLS\n"
+        f"Allowed shells: {', '.join(allowed)}.\n"
+        f"Preferred shell: {preferred}.\n"
+        "Use only an allowed shell. Prefer the preferred shell when it is suitable.\n"
+        "Use powershell for PowerShell, cmd for Command Prompt, and bash for Bash.\n"
+        "Every command must include its shell and use syntax appropriate for that shell.\n"
+        "Windows Terminal is a host application, not a shell identifier.\n"
+        "Bash commands must suit the configured Windows environment; do not assume Linux services.\n"
+        "If no command is needed, return null for both command and shell.\n"
+        "Commands are recommendations to display and copy; never claim they were executed.\n"
+    )
+
+
 def analyse_incident_with_llm(incident):
     """
     Analyse an incident using a large language model (LLM) to provide insights and recommendations.
@@ -207,6 +231,12 @@ def analyse_incident_with_llm(incident):
     analysis_model = IncidentAnalysis
     if not os.getenv("OPENAI_API_KEY"):
         _log_llm_failure("OpenAI API credentials are not configured.")
+        return None
+
+    try:
+        instructions = build_analysis_instructions()
+    except ValueError as exc:
+        _log_llm_failure(f"invalid diagnostic shell configuration: {exc}")
         return None
 
     try:
@@ -228,7 +258,7 @@ def analyse_incident_with_llm(incident):
         client = OpenAI()
         response = client.responses.parse(
             model=config.DEFAULT_ANALYSIS_MODEL,
-            instructions=config.ANALYSIS_INSTRUCTIONS,
+            instructions=instructions,
             input=f"Analyze the following LogOpen incident:\n{context}",
             text_format=analysis_model,
         )
@@ -261,4 +291,10 @@ def analyse_incident_with_llm(incident):
 
     if analysis is None:
         _log_llm_failure("the LLM response did not contain valid structured output.")
+    elif any(
+        step.command and step.command.strip() and step.shell not in config.ALLOWED_DIAGNOSTIC_SHELLS
+        for step in analysis.diagnostic_steps
+    ):
+        _log_llm_failure("a diagnostic command has a missing or disallowed shell.")
+        return None
     return analysis

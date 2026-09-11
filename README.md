@@ -24,6 +24,25 @@ Run the test suite with:
 python -m unittest
 ```
 
+## Diagnostic command shells
+
+Configure the shells used for new AI diagnostic recommendations in `config.py`:
+
+```python
+ALLOWED_DIAGNOSTIC_SHELLS = ("powershell", "cmd")
+PREFERRED_DIAGNOSTIC_SHELL = "powershell"
+```
+
+Supported identifiers are `powershell`, `cmd`, and `bash`. The preferred shell
+must be in the allowed list. Enable `bash` only when you have a suitable Bash
+environment on Windows, such as WSL or Git Bash. Restart LogOpen after editing
+the settings; existing analyses keep their original shell metadata.
+
+Each diagnostic command is labeled PowerShell, Command Prompt, or Bash in the
+AI analysis tab. Older commands without metadata show “Shell not specified”.
+Steps without commands use `shell: null`. Commands can be selected and copied;
+LogOpen does not execute them or install shells.
+
 ## Processing flow
 
 ```text
