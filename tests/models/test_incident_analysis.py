@@ -11,6 +11,8 @@ from unittest.mock import Mock, patch
 from pydantic import ValidationError
 
 from models.incident_analysis import DiagnosticStep, IncidentAnalysis
+from settings.app_settings import AISettings
+import config
 
 
 def make_incident():
@@ -61,6 +63,8 @@ def import_llm_analysis(mock_client):
     class RateLimitError(APIStatusError):
         pass
 
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
     mock_openai = ModuleType("openai")
     mock_openai.OpenAI = Mock(return_value=mock_client)
     mock_openai.OpenAIError = OpenAIError
@@ -136,6 +140,17 @@ class DiagnosticStepTests(unittest.TestCase):
 
 
 class IncidentAnalysisTests(unittest.TestCase):
+    def setUp(self):
+        # unittest runs must also avoid the real user's settings and key store.
+        for mocked in (
+            patch("settings.app_settings.AppSettings.load", return_value=AISettings(
+                True, config.DEFAULT_ANALYSIS_MODEL, 3,
+            )),
+            patch("settings.credential_store.get_openai_api_key", return_value=None),
+        ):
+            mocked.start()
+            self.addCleanup(mocked.stop)
+
     def test_incident_analysis_accepts_complete_analysis(self):
         data = make_analysis_data()
         analysis = IncidentAnalysis(**data)
@@ -261,7 +276,9 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertEqual(result, expected)
         self.assertIsInstance(result.diagnostic_steps[0], DiagnosticStep)
         self.assertIsNone(result.diagnostic_steps[0].command)
-        mock_openai.OpenAI.assert_called_once_with()
+        mock_openai.OpenAI.assert_called_once_with(
+            api_key="test-key", base_url="https://api.openai.com/v1", timeout=60.0, max_retries=2,
+        )
         mock_client.responses.parse.assert_called_once()
 
 

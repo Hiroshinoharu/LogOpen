@@ -3,319 +3,56 @@
         "log_type": "System",
         "computer_name": "Maxs-PC",
         "providers": [
-            "Microsoft-Windows-DNS-Client"
-        ],
-        "providers_counts": {
-            "Microsoft-Windows-DNS-Client": 1
-        },
-        "event_ids": [
-            1014
-        ],
-        "event_ids_counts": {
-            "1014": 1
-        },
-        "time_generated_start": "2026-09-10T18:55:34",
-        "time_generated_end": "2026-09-10T18:55:34",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "DNS Resolution Timeout",
-        "event_classification_counts": {
-            "DNS Resolution Timeout": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "Microsoft-Windows-DNS-Client",
-                "event_id": 1014,
-                "time_generated": "2026-09-10T18:55:34",
-                "level": "Warning",
-                "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 3048.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "Microsoft-Windows-DNS-Client": "DNS Client"
-        },
-        "incident_score": 25,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Incident classification 'DNS Resolution Timeout' has an impact score of 5"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 5,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 25 because warning-level events were present and incident classification 'DNS Resolution Timeout' has an impact score of 5.",
-        "recurrence_count_24h": 1,
-        "recurrence_count_7d": 1,
-        "is_recurring": false
-    },
-    {
-        "log_type": "Application",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "Microsoft-Windows-Perflib"
-        ],
-        "providers_counts": {
-            "Microsoft-Windows-Perflib": 2
-        },
-        "event_ids": [
-            1008,
-            1023
-        ],
-        "event_ids_counts": {
-            "1023": 1,
-            "1008": 1
-        },
-        "time_generated_start": "2026-09-10T18:55:47",
-        "time_generated_end": "2026-09-10T18:55:47",
-        "levels": [
-            "Error",
-            "Warning"
-        ],
-        "highest_severity": "Error",
-        "incident_classification": "Perflib",
-        "event_classification_counts": {
-            "Perflib": 2
-        },
-        "event_count": 2,
-        "events": [
-            {
-                "log_type": "Application",
-                "computer_name": "Maxs-PC",
-                "provider": "Microsoft-Windows-Perflib",
-                "event_id": 1023,
-                "time_generated": "2026-09-10T18:55:47",
-                "level": "Error",
-                "message": "Windows cannot load the extensible counter DLL \"C:\\WINDOWS\\system32\\sysmain.dll\" (Win32 error code 126).\r\n"
-            },
-            {
-                "log_type": "Application",
-                "computer_name": "Maxs-PC",
-                "provider": "Microsoft-Windows-Perflib",
-                "event_id": 1008,
-                "time_generated": "2026-09-10T18:55:47",
-                "level": "Warning",
-                "message": "The Open procedure for service \"BITS\" in DLL \"C:\\Windows\\System32\\bitsperf.dll\" failed with error code 2. Performance data for this service will not be available.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "Microsoft-Windows-Perflib": "Perflib"
-        },
-        "incident_score": 40,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Error-level incident detected"
-        ],
-        "incident_score_breakdown": {
-            "severity": 40,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority Perflib incident in the Application log on Maxs-PC involving Perflib. It contains 2 events and lasted 0 seconds. Score 40 because error-level events were present.",
-        "recurrence_count_24h": 1,
-        "recurrence_count_7d": 1,
-        "is_recurring": false
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
             "DCOM"
         ],
         "providers_counts": {
-            "DCOM": 6
+            "DCOM": 1
         },
         "event_ids": [
             10016
         ],
         "event_ids_counts": {
-            "10016": 6
+            "10016": 1
         },
-        "time_generated_start": "2026-09-10T18:56:44",
-        "time_generated_end": "2026-09-10T18:57:22",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Security Center DCOM Permission Warning",
-        "event_classification_counts": {
-            "DCOM Permission Warning": 2,
-            "Security Center DCOM Permission Warning": 3,
-            "ChatGPT Desktop DCOM Permission Warning": 1
-        },
-        "event_count": 6,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:56:44",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:57:21",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {9EA82395-E31B-41CA-8DF7-EC1CEE7194DF}, {2ED83BAA-B2FD-43B1-99BF-E6149C622692}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:57:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscDataProtection, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:57:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.SecurityAppBroker, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:57:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscBrokerManager, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T18:57:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.ChatGPT-Desktop_1.2026.190.0_x64__2p2nqsd0c76g0, Unavailable'.>"
-            }
-        ],
-        "incident_duration": "0:00:38",
-        "provider_classifications": {
-            "DCOM": "Distributed COM"
-        },
-        "incident_score": 35,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Moderate event count (5-9)"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 15,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 6 events and lasted 38 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together.",
-        "recurrence_count_24h": 1,
-        "recurrence_count_7d": 1,
-        "is_recurring": false
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "DCOM"
-        ],
-        "providers_counts": {
-            "DCOM": 4
-        },
-        "event_ids": [
-            10016
-        ],
-        "event_ids_counts": {
-            "10016": 4
-        },
-        "time_generated_start": "2026-09-10T20:39:22",
-        "time_generated_end": "2026-09-10T20:39:22",
+        "time_generated_start": "2026-09-13T02:35:50",
+        "time_generated_end": "2026-09-13T02:35:50",
         "levels": [
             "Warning"
         ],
         "highest_severity": "Warning",
         "incident_classification": "DCOM Permission Warning",
         "event_classification_counts": {
-            "DCOM Permission Warning": 4
+            "DCOM Permission Warning": 1
         },
-        "event_count": 4,
+        "event_count": 1,
         "events": [
             {
                 "log_type": "System",
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-10T20:39:22",
+                "time_generated": "2026-09-13T02:35:50",
                 "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {C2F03A33-21F5-47FA-B4BB-156362A2F239}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T20:39:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {6B3B8D23-FA8D-40B9-8DBD-B950333E2C52}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T20:39:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {C2F03A33-21F5-47FA-B4BB-156362A2F239}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-10T20:39:22",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {6B3B8D23-FA8D-40B9-8DBD-B950333E2C52}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             }
         ],
         "incident_duration": "0:00:00",
         "provider_classifications": {
             "DCOM": "Distributed COM"
         },
-        "incident_score": 25,
+        "incident_score": 20,
         "incident_priority": "Low",
         "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Low event count (3-4)"
+            "Warning-level incident detected"
         ],
         "incident_score_breakdown": {
             "severity": 20,
-            "event_count": 5,
+            "event_count": 0,
             "classification_impact": 0,
             "recurrence": 0,
             "duration": 0
         },
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 25 because warning-level events were present and 3 to 4 related events were grouped together.",
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present.",
         "recurrence_count_24h": 1,
         "recurrence_count_7d": 1,
         "is_recurring": false
@@ -324,200 +61,161 @@
         "log_type": "System",
         "computer_name": "Maxs-PC",
         "providers": [
-            "TPM"
-        ],
-        "providers_counts": {
-            "TPM": 6
-        },
-        "event_ids": [
-            14
-        ],
-        "event_ids_counts": {
-            "14": 6
-        },
-        "time_generated_start": "2026-09-10T21:45:19",
-        "time_generated_end": "2026-09-10T21:45:19",
-        "levels": [
-            "Error"
-        ],
-        "highest_severity": "Error",
-        "incident_classification": "TPM",
-        "event_classification_counts": {
-            "TPM": 6
-        },
-        "event_count": 6,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "TPM",
-                "event_id": 14,
-                "time_generated": "2026-09-10T21:45:19",
-                "level": "Error",
-                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "TPM": "TPM"
-        },
-        "incident_score": 55,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Error-level incident detected",
-            "Moderate event count (5-9)"
-        ],
-        "incident_score_breakdown": {
-            "severity": 40,
-            "event_count": 15,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority TPM incident in the System log on Maxs-PC involving TPM. It contains 6 events and lasted 0 seconds. Score 55 because error-level events were present and 5 to 9 related events were grouped together.",
-        "recurrence_count_24h": 1,
-        "recurrence_count_7d": 1,
-        "is_recurring": false,
-        "llm_analysis": {
-            "explanation": "The System log contains six identical Error-level TPM Event ID 14 entries at the same timestamp. The TPM driver reported a non-recoverable error in TPM hardware, indicating that TPM-dependent services may be unavailable. The evidence confirms a TPM access or hardware error, but does not establish whether the underlying cause is defective hardware, firmware, or a driver/firmware communication problem. The incident is not shown to be recurring because only one occurrence was reported in the supplied time windows.",
-            "likely_causes": [
-                "A TPM hardware fault or an unrecoverable TPM internal state; this is the condition explicitly reported by the event message, but physical hardware failure is not independently proven.",
-                "TPM firmware or system firmware incompatibility or corruption causing the driver to be unable to communicate with the TPM; this is a plausible hypothesis not confirmed by the evidence.",
-                "A TPM driver or firmware communication problem; possible, but the supplied events do not identify a driver version, firmware version, or preceding event that would confirm it.",
-                "The six entries may represent repeated logging of the same single failure rather than six separate failures, because all have the same timestamp and the incident duration is zero seconds."
-            ],
-            "recommended_actions": [
-                "Check the current TPM status and correlate nearby System log entries to determine whether the TPM is currently usable and whether related errors occurred before or after the reported timestamp.",
-                "If the device uses encryption or other TPM-dependent security features, verify that recovery information is available before performing any TPM reset, clearing operation, firmware change, or other intervention.",
-                "Review the computer manufacturer's support documentation for the exact model and check for applicable BIOS, TPM firmware, chipset, or TPM-driver updates. Apply changes only through the manufacturer's documented process and after appropriate backups.",
-                "If the TPM remains unavailable, contact the computer manufacturer or hardware support provider. Provide the six Event ID 14 entries, the computer model, and the results of the TPM status checks.",
-                "Do not clear or reset the TPM solely because of this event. Such actions can affect TPM-protected keys and may cause loss of access to protected data if recovery information is unavailable."
-            ],
-            "remediation_notes": [
-                "Confirmed: six Error-level events from the supplied TPM provider classification, all Event ID 14, occurred at 2026-09-10 21:45:19.",
-                "Confirmed: the event message states that TPM services such as data encryption are prevented from being used at the time of the error. It does not confirm that data encryption was actively in use or that encrypted data was lost.",
-                "The supplied evidence does not include TPM status, device-manager status, driver versions, firmware versions, BIOS settings, or manufacturer/model details, so the specific root cause remains uncertain.",
-                "Because recurrence is reported as false with one occurrence in 24 hours and seven days, monitor for additional events after any investigation or approved remediation.",
-                "A TPM reset, clear, BIOS change, firmware update, or driver replacement may require administrator access and can have security or data-access consequences. Obtain recovery keys or equivalent recovery material and follow vendor procedures first."
-            ],
-            "diagnostic_steps": [
-                {
-                    "description": "Review the System log entries with Event ID 14 and inspect their full messages, timestamps, level, and registered ProviderName. This confirms whether the supplied six entries are the only matching records and helps identify nearby related events without assuming that the displayed provider label is a valid filter name.",
-                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=14} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
-                    "shell": "powershell",
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Query the current TPM state and capability information. This can show whether Windows currently detects and can use the TPM, but it will not by itself prove whether the original failure was hardware, firmware, or driver related.",
-                    "command": "Get-Tpm",
-                    "shell": "powershell",
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Inspect currently present security-class devices for status information. Compare any TPM-related device status with the event time and TPM query results; a device status result alone does not establish the root cause.",
-                    "command": "Get-PnpDevice -Class Security -PresentOnly | Select-Object Status, Class, FriendlyName, InstanceId",
-                    "shell": "powershell",
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Identify the exact computer model and consult the manufacturer's documented TPM, BIOS, firmware, and driver guidance. No configuration change should be made until compatibility and recovery requirements are understood.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "If TPM-dependent encryption or protected credentials are in use, verify recovery material and document it before any TPM clear/reset or firmware intervention. This is a preparation and verification step, not a TPM reset.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "caution"
-                },
-                {
-                    "description": "If the TPM remains unavailable after non-destructive checks, escalate to the computer manufacturer or qualified hardware support. An administrator or vendor may need to perform further firmware or hardware diagnostics; do not apply a persistent TPM or BIOS change without vendor-specific instructions.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "caution"
-                }
-            ]
-        }
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
             "DCOM"
         ],
         "providers_counts": {
-            "DCOM": 3
+            "DCOM": 17
         },
         "event_ids": [
             10010
         ],
         "event_ids_counts": {
-            "10010": 3
+            "10010": 17
         },
-        "time_generated_start": "2026-09-11T01:55:58",
-        "time_generated_end": "2026-09-11T01:55:58",
+        "time_generated_start": "2026-09-13T02:49:31",
+        "time_generated_end": "2026-09-13T02:49:34",
         "levels": [
             "Error"
         ],
         "highest_severity": "Error",
         "incident_classification": "DCOM Server Start Timeout",
         "event_classification_counts": {
-            "DCOM Server Start Timeout": 3
+            "DCOM Server Start Timeout": 17
         },
-        "event_count": 3,
+        "event_count": 17,
         "events": [
             {
                 "log_type": "System",
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10010,
-                "time_generated": "2026-09-11T01:55:58",
+                "time_generated": "2026-09-13T02:49:31",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{3E11DF0F-42EB-4747-9A35-802D98B5BCF0}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:31",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{6FA05A24-B1DF-4155-909E-7B424F2D2BB5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:31",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{6FA05A24-B1DF-4155-909E-7B424F2D2BB5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:31",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{6FA05A24-B1DF-4155-909E-7B424F2D2BB5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:32",
+                "level": "Error",
+                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10010,
+                "time_generated": "2026-09-13T02:49:34",
                 "level": "Error",
                 "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'Microsoft.AAD.BrokerPlugin_1000.19580.1000.2_neutral_neutral_cw5n1h2txyewy!Windows.Security.Authentication.Web.Core.BackgroundGetTokenTask.ClassId.WebAccountProvider'.>"
             },
@@ -526,7 +224,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10010,
-                "time_generated": "2026-09-11T01:55:58",
+                "time_generated": "2026-09-13T02:49:34",
                 "level": "Error",
                 "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'Microsoft.AAD.BrokerPlugin_1000.19580.1000.2_neutral_neutral_cw5n1h2txyewy!Windows.Security.Authentication.Web.Core.BackgroundGetTokenTask.ClassId.WebAccountProvider'.>"
             },
@@ -535,397 +233,12 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10010,
-                "time_generated": "2026-09-11T01:55:58",
+                "time_generated": "2026-09-13T02:49:34",
                 "level": "Error",
                 "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'Microsoft.AAD.BrokerPlugin_1000.19580.1000.2_neutral_neutral_cw5n1h2txyewy!Windows.Security.Authentication.Web.Core.BackgroundGetTokenTask.ClassId.WebAccountProvider'.>"
             }
         ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "DCOM": "Distributed COM"
-        },
-        "incident_score": 45,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Error-level incident detected",
-            "Low event count (3-4)"
-        ],
-        "incident_score_breakdown": {
-            "severity": 40,
-            "event_count": 5,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority DCOM Server Start Timeout incident in the System log on Maxs-PC involving Distributed COM. It contains 3 events and lasted 0 seconds. Score 45 because error-level events were present and 3 to 4 related events were grouped together.",
-        "recurrence_count_24h": 1,
-        "recurrence_count_7d": 1,
-        "is_recurring": false
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            100
-        ],
-        "event_ids_counts": {
-            "100": 1
-        },
-        "time_generated_start": "2026-09-11T01:55:59",
-        "time_generated_end": "2026-09-11T01:55:59",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 100,
-                "time_generated": "2026-09-11T01:55:59",
-                "level": "Warning",
-                "message": "Process C:\\Program Files (x86)\\MSI\\MSI Center\\MSI.TerminalServer.exe is delaying system shutdown after 5032 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 30,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 3 times in the last 24 hours"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 10,
-            "duration": 0
-        },
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 30 because warning-level events were present and classification occurred 3 times in the last 24 hours.",
-        "recurrence_count_24h": 3,
-        "recurrence_count_7d": 3,
-        "is_recurring": true
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            100
-        ],
-        "event_ids_counts": {
-            "100": 1
-        },
-        "time_generated_start": "2026-09-11T01:55:59",
-        "time_generated_end": "2026-09-11T01:55:59",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 100,
-                "time_generated": "2026-09-11T01:55:59",
-                "level": "Warning",
-                "message": "Process C:\\Users\\maxce\\AppData\\Local\\Microsoft\\OneDrive\\26.153.0809.0004\\OneDrive.Sync.Service.exe is delaying system shutdown after 5032 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 30,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 3 times in the last 24 hours"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 10,
-            "duration": 0
-        },
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 30 because warning-level events were present and classification occurred 3 times in the last 24 hours.",
-        "recurrence_count_24h": 3,
-        "recurrence_count_7d": 3,
-        "is_recurring": true
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            100
-        ],
-        "event_ids_counts": {
-            "100": 1
-        },
-        "time_generated_start": "2026-09-11T01:55:59",
-        "time_generated_end": "2026-09-11T01:55:59",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 100,
-                "time_generated": "2026-09-11T01:55:59",
-                "level": "Warning",
-                "message": "Process C:\\Program Files (x86)\\MSI\\MSI Center\\Mystic Light\\LEDKeeper2.exe is delaying system shutdown after 5032 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 30,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 3 times in the last 24 hours"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 10,
-            "duration": 0
-        },
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 30 because warning-level events were present and classification occurred 3 times in the last 24 hours.",
-        "recurrence_count_24h": 3,
-        "recurrence_count_7d": 3,
-        "is_recurring": true
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            100
-        ],
-        "event_ids_counts": {
-            "100": 1
-        },
-        "time_generated_start": "2026-09-11T01:56:05",
-        "time_generated_end": "2026-09-11T01:56:05",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 100,
-                "time_generated": "2026-09-11T01:56:05",
-                "level": "Warning",
-                "message": "Process C:\\Program Files (x86)\\Steam\\bin\\cef\\cef.win64\\steamwebhelper.exe is delaying system shutdown after 5000 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 30,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 4 times in the last 24 hours"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 10,
-            "duration": 0
-        },
-        "summary_text": "Low-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 30 because warning-level events were present and classification occurred 4 times in the last 24 hours.",
-        "recurrence_count_24h": 4,
-        "recurrence_count_7d": 4,
-        "is_recurring": true
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "DCOM"
-        ],
-        "providers_counts": {
-            "DCOM": 11
-        },
-        "event_ids": [
-            10010
-        ],
-        "event_ids_counts": {
-            "10010": 11
-        },
-        "time_generated_start": "2026-09-11T01:56:06",
-        "time_generated_end": "2026-09-11T01:56:06",
-        "levels": [
-            "Error"
-        ],
-        "highest_severity": "Error",
-        "incident_classification": "DCOM Server Start Timeout",
-        "event_classification_counts": {
-            "DCOM Server Start Timeout": 11
-        },
-        "event_count": 11,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'MicrosoftWindows.Client.CBS_1000.26100.360.0_x64__cw5n1h2txyewy!Global.DesktopSpotlight.AppXmakp9w4re9tj70pp8mcdrt273xajen0x.mca'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10010,
-                "time_generated": "2026-09-11T01:56:06",
-                "level": "Error",
-                "message": "<The description for Event ID ( 10010 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'{AB8902B4-09CA-4BB6-B78D-A8F59079A8D5}'.>"
-            }
-        ],
-        "incident_duration": "0:00:00",
+        "incident_duration": "0:00:03",
         "provider_classifications": {
             "DCOM": "Distributed COM"
         },
@@ -942,305 +255,71 @@
             "recurrence": 0,
             "duration": 0
         },
-        "summary_text": "High-priority DCOM Server Start Timeout incident in the System log on Maxs-PC involving Distributed COM. It contains 11 events and lasted 0 seconds. Score 70 because error-level events were present and high event count (10+).",
-        "recurrence_count_24h": 2,
-        "recurrence_count_7d": 2,
+        "summary_text": "High-priority DCOM Server Start Timeout incident in the System log on Maxs-PC involving Distributed COM. It contains 17 events and lasted 3 seconds. Score 70 because error-level events were present and high event count (10+).",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
         "is_recurring": false,
         "llm_analysis": {
-            "explanation": "The System log contains 11 error-level DCOM Event ID 10010 entries at the same timestamp, classified as DCOM Server Start Timeout. The events identify an AppX-related component named MicrosoftWindows.Client.CBS...Global.DesktopSpotlight.AppX... and a repeated GUID, but the event description itself could not be resolved. This confirms a failed or delayed DCOM-activated server start at that time; it does not establish the precise component, failure mechanism, or user-visible impact. The incident is marked non-recurring in the supplied grouping, although two occurrences were reported within 24 hours.",
+            "explanation": "The System log records 17 error-level Event ID 10010 entries classified as DCOM Server Start Timeout within three seconds. This confirms that one or more COM-activated components did not respond within the expected startup period during that window. The affected identities include several GUIDs and, in the final three events, the Microsoft.AAD.BrokerPlugin authentication component. The incident was not recurring in the supplied history, so it may have been transient. The event text cannot identify the exact failing component because the event description was unavailable; the root cause therefore remains uncertain.",
             "likely_causes": [
-                "The DesktopSpotlight-related AppX component identified in one insertion string failed or was delayed while being activated through DCOM. This is the strongest hypothesis, not a confirmed root cause.",
-                "A problem with the registration, deployment, or runtime activation of the referenced MicrosoftWindows.Client.CBS AppX package may have prevented the DCOM server from starting; the supplied events do not distinguish among these possibilities.",
-                "A transient startup, sign-in, resource, or dependency condition may have caused the timeout. No evidence supplied confirms resource exhaustion, a dependency failure, or a broader system fault.",
-                "The repeated GUID may identify the affected COM activation target, but its mapping is not provided and should not be guessed from the incident data."
+                "A transient failure or delay while starting a COM component, supported by the tightly grouped events and the absence of recurrence in the supplied history.",
+                "A problem involving Microsoft.AAD.BrokerPlugin or an authentication-related background task, because the final three events identify that component; the evidence does not establish whether it caused all 17 events.",
+                "A startup dependency, resource contention, or component responsiveness issue affecting the GUID-identified COM servers; no supporting evidence identifies which dependency or resource was involved.",
+                "Incomplete event-message rendering or missing event metadata, which prevents reliable mapping of the GUIDs to specific applications or services. This explains the missing descriptions but does not itself prove the startup timeout cause."
             ],
             "recommended_actions": [
-                "Correlate the 01:56:06 events with nearby System and application/deployment events to determine whether the timeout coincided with sign-in, update activity, package registration, or another failure.",
-                "Verify whether the referenced MicrosoftWindows.Client.CBS package and its DesktopSpotlight component are installed and healthy for the affected user context.",
-                "Check whether Desktop Spotlight or another related Windows feature is visibly malfunctioning. If there is no user-facing impact and the event does not recur, monitor rather than making system-wide changes.",
-                "If the package is missing, damaged, or repeatedly fails activation, use supported Windows repair or package-repair procedures appropriate to the device's management policy. Obtain administrator approval and preserve relevant logs before making changes.",
-                "Do not change DCOM permissions, registry configuration, services, or the event-log provider configuration solely because Event ID 10010 occurred; the evidence does not identify such a change as necessary."
+                "Review the raw System events and nearby Application events to determine whether additional error details, application names, or correlated failures were logged at the same time.",
+                "Inspect the event XML and insertion data for the GUIDs and the Microsoft.AAD.BrokerPlugin identifier. Use this to distinguish the affected components before making changes.",
+                "If users experienced sign-in, account, or application failures at 02:49:31\u201302:49:34, investigate the Microsoft.AAD.BrokerPlugin package for the affected user and compare its installed version and state with the incident time.",
+                "Check whether the same Event ID or the same identifiers recur after the supplied incident. A recurrence pattern would make a persistent component or package problem more likely.",
+                "Do not change DCOM permissions, registry settings, timeout values, or disable the authentication component based solely on these events. Such changes are not supported by the supplied evidence."
             ],
             "remediation_notes": [
-                "Confirmed: 11 error-level Event ID 10010 entries were recorded in the System log at one timestamp, and all were classified as DCOM Server Start Timeout.",
-                "Confirmed: one event insertion string contains a MicrosoftWindows.Client.CBS package identity and a DesktopSpotlight-related activation name; the remaining entries contain the same GUID.",
-                "Uncertain: the event messages state that the description could not be found, so the exact server, failure reason, timeout duration, and impact cannot be determined from these records alone.",
-                "The grouping reports two occurrences in 24 hours but marks the incident as non-recurring; review the underlying timestamps before treating this as a persistent problem.",
-                "Avoid removing or re-registering AppX packages until package state and user impact are verified. Such actions may affect the user profile and can require administrator privileges or recovery planning."
+                "Confirmed facts are limited to 17 System-log errors, Event ID 10010, the listed insertion strings, and one occurrence in the supplied 24-hour and 7-day summaries.",
+                "The provider is reported as DCOM by the incident, but the event message is not fully rendered. The exact registered provider metadata and the component associated with each GUID should be verified from the raw event record.",
+                "The repeated AB8902B4 GUID entries may represent repeated activation attempts, but the evidence does not prove that interpretation.",
+                "The Microsoft.AAD.BrokerPlugin identifier appears only in the final three events; do not attribute the earlier 14 events to it without additional correlation.",
+                "If remediation later requires repairing or reinstalling a package, changing configuration, or using elevated tools, first preserve relevant logs and confirm the affected component. Validate sign-in and application behavior afterward."
             ],
             "diagnostic_steps": [
                 {
-                    "description": "Review the underlying System Event ID 10010 records, including their resolved ProviderName and full messages, without filtering on the supplied display label. This confirms whether the grouped records contain additional details not preserved in the incident summary.",
+                    "description": "Retrieve the recent System Event ID 10010 records without filtering on the displayed DCOM provider label. Review the rendered provider name, messages, timestamps, and any additional fields available in the local event records.",
                     "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10010} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
                     "shell": "powershell",
                     "risk_level": "safe"
                 },
                 {
-                    "description": "Check the current user's installed AppX packages for the exact MicrosoftWindows.Client.CBS package identity shown in the event. This is an inspection only and may not reflect packages installed for other users.",
-                    "command": "Get-AppxPackage | Where-Object { $_.PackageFullName -eq 'MicrosoftWindows.Client.CBS_1000.26100.360.0_x64__cw5n1h2txyewy' } | Select-Object Name, PackageFullName, Status, InstallLocation",
+                    "description": "Inspect Application-log events in the same three-second window for correlated application, package, or authentication errors. Correlation may identify the component that the System event text does not name.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=[datetime]'2026-09-13 02:49:31'; EndTime=[datetime]'2026-09-13 02:49:34'} | Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message",
                     "shell": "powershell",
                     "risk_level": "safe"
                 },
                 {
-                    "description": "Inspect nearby System events around the reported timestamp to correlate the timeout with other system activity. The result may reveal context, but absence of related events will not prove that the DCOM component was healthy.",
-                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=[datetime]'2026-09-11 01:50:00'; EndTime=[datetime]'2026-09-11 02:05:00'} | Sort-Object TimeCreated | Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                    "description": "Inspect the raw XML for the relevant System events. This can expose structured event data or insertion values that are not shown in the rendered message and may help map the GUIDs to a component.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10010; StartTime=[datetime]'2026-09-13 02:49:31'; EndTime=[datetime]'2026-09-13 02:49:34'} | Select-Object -First 50 TimeCreated, ProviderName, Id, MachineName, @{Name='Xml';Expression={$_.ToXml()}}",
                     "shell": "powershell",
                     "risk_level": "safe"
                 },
                 {
-                    "description": "Inspect the current user's AppX package inventory for DesktopSpotlight-related entries and compare package status and version with the identity in the event. This helps determine whether the referenced component is present without changing package state.",
-                    "command": "Get-AppxPackage | Where-Object { $_.PackageFullName -like '*DesktopSpotlight*' -or $_.Name -like '*DesktopSpotlight*' } | Select-Object Name, PackageFullName, Status, InstallLocation",
+                    "description": "For the current user, check whether the Microsoft.AAD.BrokerPlugin package is installed and record its package name, version, full package name, and installation location. This is an inspection step and does not establish that the package caused every timeout.",
+                    "command": "Get-AppxPackage | Where-Object {$_.Name -like 'Microsoft.AAD.BrokerPlugin*'} | Select-Object Name, Version, PackageFullName, InstallLocation",
                     "shell": "powershell",
                     "risk_level": "safe"
                 },
                 {
-                    "description": "Check whether the same Event ID 10010 pattern appears at other times and whether it is still occurring. Interpret recurrence together with user-visible symptoms rather than treating event count alone as proof of an ongoing fault.",
-                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10010} | Group-Object { $_.TimeCreated.Date } | Select-Object Name, Count",
+                    "description": "Check whether the same timeout recurs after the incident by reviewing later System Event ID 10010 records and comparing their insertion strings with the three GUIDs and the Microsoft.AAD.BrokerPlugin identifier supplied here.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10010} | Select-Object TimeCreated, Id, ProviderName, Message",
                     "shell": "powershell",
                     "risk_level": "safe"
                 },
                 {
-                    "description": "If package state is absent, inconsistent, or the event recurs with an observable Desktop Spotlight problem, gather system-wide package and deployment information with an administrator, because some package and deployment diagnostics may require elevation. Do not modify or remove the package during this step.",
+                    "description": "If the event correlates with a user-visible authentication or application failure, collect the affected application's or sign-in workflow's own error details before attempting repair. No persistent configuration change is justified until the responsible component is identified.",
                     "command": null,
                     "shell": null,
                     "risk_level": "caution"
                 }
             ]
         }
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            100
-        ],
-        "event_ids_counts": {
-            "100": 1
-        },
-        "time_generated_start": "2026-09-11T01:56:10",
-        "time_generated_end": "2026-09-11T01:56:10",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 100,
-                "time_generated": "2026-09-11T01:56:10",
-                "level": "Warning",
-                "message": "Process C:\\Program Files (x86)\\MSI\\MSI Center\\LAN Manager\\MSI_LAN_Manager_Tool.exe is delaying system shutdown after 5531 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 50,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 6 times in the last 24 hours",
-            "Classification occurred 6 times in the last 7 days"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 30,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 50 because warning-level events were present, classification occurred 6 times in the last 24 hours, and classification occurred 6 times in the last 7 days.",
-        "recurrence_count_24h": 6,
-        "recurrence_count_7d": 6,
-        "is_recurring": true,
-        "llm_analysis": {
-            "explanation": "The event confirms that `C:\\Program Files (x86)\\MSI\\MSI Center\\LAN Manager\\MSI_LAN_Manager_Tool.exe` delayed system shutdown by 5,531 milliseconds. This is a short delay, but the classification recurred six times in the last 24 hours and six times in the last 7 days, indicating a repeated shutdown-related behavior. The evidence does not establish why the process delayed shutdown or whether it caused any failed or significantly prolonged shutdowns.",
-            "likely_causes": [
-                "The MSI Center LAN Manager Tool was still performing work or not responding promptly during shutdown. This is directly associated with the reported event, but the underlying reason is unconfirmed.",
-                "A recurring MSI Center or LAN Manager Tool condition, such as background activity or an application-specific shutdown-handling issue. This is a hypothesis supported only by the recurrence and executable path.",
-                "The exact root cause is uncertain from the single supplied event; the evidence does not establish whether Windows configuration, another application, or system resource conditions contributed."
-            ],
-            "recommended_actions": [
-                "Review the full System log around the six reported occurrences and compare their messages, timestamps, and shutdown context to determine whether the same executable is consistently involved.",
-                "Check whether MSI Center and its LAN Manager Tool are running during or shortly before shutdown, and record their versions and relevant application activity.",
-                "If the behavior is consistently attributable to MSI Center, check the vendor-supported MSI Center updates or known issues before changing Windows shutdown settings.",
-                "If shutdown delays are only approximately five seconds and there is no user-visible impact, monitor the recurrence rather than applying an unverified system change.",
-                "Escalate to MSI support or the system administrator if the delay increases, shutdown fails, or the event continues after supported application updates or other vendor guidance."
-            ],
-            "remediation_notes": [
-                "Confirmed: the event is warning-level, Event ID 100, and identifies the MSI LAN Manager Tool as delaying shutdown by 5,531 milliseconds.",
-                "Confirmed: six classifications occurred in the last 24 hours and six in the last 7 days. The supplied incident window itself contains only one event.",
-                "The event does not prove that the process is malicious, faulty, or the sole cause of the shutdown delay.",
-                "Do not disable services, terminate the process, alter shutdown timeouts, or remove MSI Center based only on this event. Such changes could affect MSI hardware-management or network-related functionality and are not justified by the supplied evidence.",
-                "If an application update, repair, or removal is later considered, follow vendor procedures, obtain appropriate administrative approval, and verify shutdown behavior afterward."
-            ],
-            "diagnostic_steps": [
-                {
-                    "description": "Retrieve recent System log events with Event ID 100 and inspect their messages, timestamps, levels, and registered provider names. Do not filter by the supplied provider label because the evidence does not establish that it is the exact registered provider name accepted by the event-log filter.",
-                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=100} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
-                    "shell": "powershell",
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Check whether the named executable is currently running and capture its process path and command line when available. A result can show current presence, but absence does not rule out that it ran during shutdown.",
-                    "command": "Get-CimInstance Win32_Process -Filter \"Name='MSI_LAN_Manager_Tool.exe'\" | Select-Object ProcessId, Name, ExecutablePath, CommandLine",
-                    "shell": "powershell",
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Review the MSI Center installation and application history using the organization\u2019s normal software inventory or vendor documentation, and record the installed version and any recent updates. No specific installation location, service, or configuration is established beyond the executable path in the event.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "Correlate the event timestamps with user-reported shutdown duration, failed shutdowns, and other System log warnings or errors. This determines whether the five-second delay is merely logged or has a material operational impact.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "safe"
-                },
-                {
-                    "description": "If the same MSI Center component is confirmed as the recurring source and the delay is operationally significant, have an administrator or system owner evaluate vendor-supported updates, repair, or configuration guidance. Validate shutdown behavior after any approved change and preserve a rollback path.",
-                    "command": null,
-                    "shell": null,
-                    "risk_level": "caution"
-                }
-            ]
-        }
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            101
-        ],
-        "event_ids_counts": {
-            "101": 1
-        },
-        "time_generated_start": "2026-09-11T01:56:10",
-        "time_generated_end": "2026-09-11T01:56:10",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 101,
-                "time_generated": "2026-09-11T01:56:10",
-                "level": "Warning",
-                "message": "Process C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\152.0.4191.66\\msedgewebview2.exe from package Raycast.Raycast_2.2.0.0_x64__qypenmj9wpt2a is delaying system shutdown after 5015 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 50,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 6 times in the last 24 hours",
-            "Classification occurred 6 times in the last 7 days"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 30,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 50 because warning-level events were present, classification occurred 6 times in the last 24 hours, and classification occurred 6 times in the last 7 days.",
-        "recurrence_count_24h": 6,
-        "recurrence_count_7d": 6,
-        "is_recurring": true
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "winsrvext"
-        ],
-        "providers_counts": {
-            "winsrvext": 1
-        },
-        "event_ids": [
-            101
-        ],
-        "event_ids_counts": {
-            "101": 1
-        },
-        "time_generated_start": "2026-09-11T01:56:11",
-        "time_generated_end": "2026-09-11T01:56:11",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "Application Delayed System Shutdown",
-        "event_classification_counts": {
-            "Application Delayed System Shutdown": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "winsrvext",
-                "event_id": 101,
-                "time_generated": "2026-09-11T01:56:11",
-                "level": "Warning",
-                "message": "Process C:\\Program Files\\WindowsApps\\Raycast.Raycast_2.2.0.0_x64__qypenmj9wpt2a\\Raycast\\backend\\node.exe from package Raycast.Raycast_2.2.0.0_x64__qypenmj9wpt2a is delaying system shutdown after 5765 milliseconds.\r\n"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "winsrvext": "Windows Server Extension"
-        },
-        "incident_score": 50,
-        "incident_priority": "Medium",
-        "incident_score_reasons": [
-            "Warning-level incident detected",
-            "Classification occurred 7 times in the last 24 hours",
-            "Classification occurred 7 times in the last 7 days"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 30,
-            "duration": 0
-        },
-        "summary_text": "Medium-priority Application Delayed System Shutdown incident in the System log on Maxs-PC involving Windows Server Extension. It contains 1 event and lasted 0 seconds. Score 50 because warning-level events were present, classification occurred 7 times in the last 24 hours, and classification occurred 7 times in the last 7 days.",
-        "recurrence_count_24h": 7,
-        "recurrence_count_7d": 7,
-        "is_recurring": true
     },
     {
         "log_type": "System",
@@ -1257,8 +336,8 @@
         "event_ids_counts": {
             "10002": 1
         },
-        "time_generated_start": "2026-09-11T01:56:16",
-        "time_generated_end": "2026-09-11T01:56:16",
+        "time_generated_start": "2026-09-13T02:49:38",
+        "time_generated_end": "2026-09-13T02:49:38",
         "levels": [
             "Warning"
         ],
@@ -1274,7 +353,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "Microsoft-Windows-WLAN-AutoConfig",
                 "event_id": 10002,
-                "time_generated": "2026-09-11T01:56:16",
+                "time_generated": "2026-09-13T02:49:38",
                 "level": "Warning",
                 "message": "WLAN Extensibility Module has stopped.\r\n\r\nModule Path: C:\\WINDOWS\\system32\\mtkihvx.dll\r\n\r\n"
             }
@@ -1315,8 +394,8 @@
         "event_ids_counts": {
             "1014": 1
         },
-        "time_generated_start": "2026-09-11T16:41:44",
-        "time_generated_end": "2026-09-11T16:41:44",
+        "time_generated_start": "2026-09-13T18:28:44",
+        "time_generated_end": "2026-09-13T18:28:44",
         "levels": [
             "Warning"
         ],
@@ -1332,9 +411,9 @@
                 "computer_name": "Maxs-PC",
                 "provider": "Microsoft-Windows-DNS-Client",
                 "event_id": 1014,
-                "time_generated": "2026-09-11T16:41:44",
+                "time_generated": "2026-09-13T18:28:44",
                 "level": "Warning",
-                "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 3100.\r\n"
+                "message": "Name resolution for the name wpad timed out after none of the configured DNS servers responded. Client PID 3124.\r\n"
             }
         ],
         "incident_duration": "0:00:00",
@@ -1355,50 +434,50 @@
             "duration": 0
         },
         "summary_text": "Low-priority DNS Resolution Timeout incident in the System log on Maxs-PC involving DNS Client. It contains 1 event and lasted 0 seconds. Score 25 because warning-level events were present and incident classification 'DNS Resolution Timeout' has an impact score of 5.",
-        "recurrence_count_24h": 2,
-        "recurrence_count_7d": 2,
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
         "is_recurring": false
     },
     {
-        "log_type": "Application",
+        "log_type": "System",
         "computer_name": "Maxs-PC",
         "providers": [
-            "SteelSeries GG Update Service Proxy"
+            "Microsoft-Windows-DeviceAssociationService"
         ],
         "providers_counts": {
-            "SteelSeries GG Update Service Proxy": 1
+            "Microsoft-Windows-DeviceAssociationService": 1
         },
         "event_ids": [
-            0
+            3503
         ],
         "event_ids_counts": {
-            "0": 1
+            "3503": 1
         },
-        "time_generated_start": "2026-09-11T16:43:23",
-        "time_generated_end": "2026-09-11T16:43:23",
+        "time_generated_start": "2026-09-13T18:29:12",
+        "time_generated_end": "2026-09-13T18:29:12",
         "levels": [
             "Error"
         ],
         "highest_severity": "Error",
-        "incident_classification": "SteelSeries GG Update Service Proxy",
+        "incident_classification": "DeviceAssociationService",
         "event_classification_counts": {
-            "SteelSeries GG Update Service Proxy": 1
+            "DeviceAssociationService": 1
         },
         "event_count": 1,
         "events": [
             {
-                "log_type": "Application",
+                "log_type": "System",
                 "computer_name": "Maxs-PC",
-                "provider": "SteelSeries GG Update Service Proxy",
-                "event_id": 0,
-                "time_generated": "2026-09-11T16:43:23",
+                "provider": "Microsoft-Windows-DeviceAssociationService",
+                "event_id": 3503,
+                "time_generated": "2026-09-13T18:29:12",
                 "level": "Error",
-                "message": "Service cannot be started. The handle is invalid\r\n"
+                "message": "Device Association Service detected an endpoint discovery failure.\r\n"
             }
         ],
         "incident_duration": "0:00:00",
         "provider_classifications": {
-            "SteelSeries GG Update Service Proxy": "SteelSeries GG Update Service Proxy"
+            "Microsoft-Windows-DeviceAssociationService": "DeviceAssociationService"
         },
         "incident_score": 40,
         "incident_priority": "Medium",
@@ -1412,7 +491,7 @@
             "recurrence": 0,
             "duration": 0
         },
-        "summary_text": "Medium-priority SteelSeries GG Update Service Proxy incident in the Application log on Maxs-PC involving SteelSeries GG Update Service Proxy. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present.",
+        "summary_text": "Medium-priority DeviceAssociationService incident in the System log on Maxs-PC involving DeviceAssociationService. It contains 1 event and lasted 0 seconds. Score 40 because error-level events were present.",
         "recurrence_count_24h": 1,
         "recurrence_count_7d": 1,
         "is_recurring": false
@@ -1432,16 +511,17 @@
         "event_ids_counts": {
             "10016": 5
         },
-        "time_generated_start": "2026-09-11T16:43:38",
-        "time_generated_end": "2026-09-11T16:43:39",
+        "time_generated_start": "2026-09-13T18:30:37",
+        "time_generated_end": "2026-09-13T18:31:02",
         "levels": [
             "Warning"
         ],
         "highest_severity": "Warning",
         "incident_classification": "Security Center DCOM Permission Warning",
         "event_classification_counts": {
-            "DCOM Permission Warning": 2,
-            "Security Center DCOM Permission Warning": 3
+            "DCOM Permission Warning": 1,
+            "Security Center DCOM Permission Warning": 3,
+            "ChatGPT Desktop DCOM Permission Warning": 1
         },
         "event_count": 5,
         "events": [
@@ -1450,7 +530,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:43:38",
+                "time_generated": "2026-09-13T18:30:37",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {9EA82395-E31B-41CA-8DF7-EC1CEE7194DF}, {2ED83BAA-B2FD-43B1-99BF-E6149C622692}, NT AUTHORITY, NETWORK SERVICE, S-1-5-20, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1459,16 +539,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:43:39",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-11T16:43:39",
+                "time_generated": "2026-09-13T18:30:39",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscDataProtection, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1477,7 +548,16 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:43:39",
+                "time_generated": "2026-09-13T18:30:39",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.SecurityAppBroker, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-09-13T18:30:39",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.WscBrokerManager, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1486,12 +566,12 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:43:39",
+                "time_generated": "2026-09-13T18:31:02",
                 "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Launch, Windows.SecurityCenter.SecurityAppBroker, Unavailable, NT AUTHORITY, SYSTEM, S-1-5-18, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.ChatGPT-Desktop_1.2026.190.0_x64__2p2nqsd0c76g0, Unavailable'.>"
             }
         ],
-        "incident_duration": "0:00:01",
+        "incident_duration": "0:00:25",
         "provider_classifications": {
             "DCOM": "Distributed COM"
         },
@@ -1508,135 +588,9 @@
             "recurrence": 0,
             "duration": 0
         },
-        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 5 events and lasted 1 second. Score 35 because warning-level events were present and 5 to 9 related events were grouped together.",
-        "recurrence_count_24h": 2,
-        "recurrence_count_7d": 2,
-        "is_recurring": false
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "DCOM"
-        ],
-        "providers_counts": {
-            "DCOM": 2
-        },
-        "event_ids": [
-            10016
-        ],
-        "event_ids_counts": {
-            "10016": 2
-        },
-        "time_generated_start": "2026-09-11T16:44:47",
-        "time_generated_end": "2026-09-11T16:45:35",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "ChatGPT Desktop DCOM Permission Warning",
-        "event_classification_counts": {
-            "ChatGPT Desktop DCOM Permission Warning": 1,
-            "DCOM Permission Warning": 1
-        },
-        "event_count": 2,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-11T16:44:47",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), OpenAI.ChatGPT-Desktop_1.2026.190.0_x64__2p2nqsd0c76g0, Unavailable'.>"
-            },
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-11T16:45:35",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            }
-        ],
-        "incident_duration": "0:00:48",
-        "provider_classifications": {
-            "DCOM": "Distributed COM"
-        },
-        "incident_score": 20,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Low-priority ChatGPT Desktop DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 2 events and lasted 48 seconds. Score 20 because warning-level events were present.",
+        "summary_text": "Low-priority Security Center DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 5 events and lasted 25 seconds. Score 35 because warning-level events were present and 5 to 9 related events were grouped together.",
         "recurrence_count_24h": 1,
         "recurrence_count_7d": 1,
-        "is_recurring": false
-    },
-    {
-        "log_type": "System",
-        "computer_name": "Maxs-PC",
-        "providers": [
-            "DCOM"
-        ],
-        "providers_counts": {
-            "DCOM": 1
-        },
-        "event_ids": [
-            10016
-        ],
-        "event_ids_counts": {
-            "10016": 1
-        },
-        "time_generated_start": "2026-09-11T16:48:20",
-        "time_generated_end": "2026-09-11T16:48:20",
-        "levels": [
-            "Warning"
-        ],
-        "highest_severity": "Warning",
-        "incident_classification": "DCOM Permission Warning",
-        "event_classification_counts": {
-            "DCOM Permission Warning": 1
-        },
-        "event_count": 1,
-        "events": [
-            {
-                "log_type": "System",
-                "computer_name": "Maxs-PC",
-                "provider": "DCOM",
-                "event_id": 10016,
-                "time_generated": "2026-09-11T16:48:20",
-                "level": "Warning",
-                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
-            }
-        ],
-        "incident_duration": "0:00:00",
-        "provider_classifications": {
-            "DCOM": "Distributed COM"
-        },
-        "incident_score": 20,
-        "incident_priority": "Low",
-        "incident_score_reasons": [
-            "Warning-level incident detected"
-        ],
-        "incident_score_breakdown": {
-            "severity": 20,
-            "event_count": 0,
-            "classification_impact": 0,
-            "recurrence": 0,
-            "duration": 0
-        },
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 1 event and lasted 0 seconds. Score 20 because warning-level events were present.",
-        "recurrence_count_24h": 2,
-        "recurrence_count_7d": 2,
         "is_recurring": false
     },
     {
@@ -1654,8 +608,8 @@
         "event_ids_counts": {
             "10016": 4
         },
-        "time_generated_start": "2026-09-11T16:55:11",
-        "time_generated_end": "2026-09-11T16:55:11",
+        "time_generated_start": "2026-09-13T18:34:24",
+        "time_generated_end": "2026-09-13T18:34:24",
         "levels": [
             "Warning"
         ],
@@ -1671,7 +625,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:55:11",
+                "time_generated": "2026-09-13T18:34:24",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {C2F03A33-21F5-47FA-B4BB-156362A2F239}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1680,7 +634,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:55:11",
+                "time_generated": "2026-09-13T18:34:24",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {6B3B8D23-FA8D-40B9-8DBD-B950333E2C52}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1689,7 +643,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:55:11",
+                "time_generated": "2026-09-13T18:34:24",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'machine-default, Local, Activation, {C2F03A33-21F5-47FA-B4BB-156362A2F239}, {316CDED5-E4AE-4B15-9113-7055D84DCC97}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             },
@@ -1698,7 +652,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "DCOM",
                 "event_id": 10016,
-                "time_generated": "2026-09-11T16:55:11",
+                "time_generated": "2026-09-13T18:34:24",
                 "level": "Warning",
                 "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {6B3B8D23-FA8D-40B9-8DBD-B950333E2C52}, {4839DDB7-58C2-48F5-8283-E1D1807D0D7D}, NT AUTHORITY, LOCAL SERVICE, S-1-5-19, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
             }
@@ -1707,24 +661,190 @@
         "provider_classifications": {
             "DCOM": "Distributed COM"
         },
-        "incident_score": 35,
+        "incident_score": 25,
         "incident_priority": "Low",
         "incident_score_reasons": [
             "Warning-level incident detected",
-            "Low event count (3-4)",
-            "Classification occurred 3 times in the last 24 hours"
+            "Low event count (3-4)"
         ],
         "incident_score_breakdown": {
             "severity": 20,
             "event_count": 5,
             "classification_impact": 0,
-            "recurrence": 10,
+            "recurrence": 0,
             "duration": 0
         },
-        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 35 because warning-level events were present, 3 to 4 related events were grouped together, and classification occurred 3 times in the last 24 hours.",
-        "recurrence_count_24h": 3,
-        "recurrence_count_7d": 3,
-        "is_recurring": true
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 4 events and lasted 0 seconds. Score 25 because warning-level events were present and 3 to 4 related events were grouped together.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false
+    },
+    {
+        "log_type": "System",
+        "computer_name": "Maxs-PC",
+        "providers": [
+            "TPM"
+        ],
+        "providers_counts": {
+            "TPM": 6
+        },
+        "event_ids": [
+            14
+        ],
+        "event_ids_counts": {
+            "14": 6
+        },
+        "time_generated_start": "2026-09-13T18:51:04",
+        "time_generated_end": "2026-09-13T18:51:04",
+        "levels": [
+            "Error"
+        ],
+        "highest_severity": "Error",
+        "incident_classification": "TPM",
+        "event_classification_counts": {
+            "TPM": 6
+        },
+        "event_count": 6,
+        "events": [
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T18:51:04",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            }
+        ],
+        "incident_duration": "0:00:00",
+        "provider_classifications": {
+            "TPM": "TPM"
+        },
+        "incident_score": 55,
+        "incident_priority": "Medium",
+        "incident_score_reasons": [
+            "Error-level incident detected",
+            "Moderate event count (5-9)"
+        ],
+        "incident_score_breakdown": {
+            "severity": 40,
+            "event_count": 15,
+            "classification_impact": 0,
+            "recurrence": 0,
+            "duration": 0
+        },
+        "summary_text": "Medium-priority TPM incident in the System log on Maxs-PC involving TPM. It contains 6 events and lasted 0 seconds. Score 55 because error-level events were present and 5 to 9 related events were grouped together.",
+        "recurrence_count_24h": 1,
+        "recurrence_count_7d": 1,
+        "is_recurring": false,
+        "llm_analysis": {
+            "explanation": "The System log contains six identical Error-level TPM Event ID 14 entries at the same timestamp. The TPM device driver reported a non-recoverable error in TPM hardware, and the event explicitly states that TPM-dependent services, including data encryption, cannot be used. This confirms a TPM availability failure at that time, but the evidence does not establish whether the underlying cause is defective hardware, TPM firmware, system firmware, or a driver/OS interaction. The incident was not recurring in the supplied 24-hour or 7-day summaries.",
+            "likely_causes": [
+                "A TPM hardware fault or an internal TPM failure, because the event message explicitly reports a non-recoverable error in TPM hardware.",
+                "A TPM or system-firmware problem that caused the TPM to become unavailable; the evidence does not identify the firmware version or confirm this cause.",
+                "A TPM driver or operating-system interaction affecting TPM access; the event identifies the device driver as reporting the failure, but does not prove that the driver itself is defective.",
+                "A transient TPM initialization or communication failure is possible, but recurrence data shows only one grouped occurrence and does not confirm this hypothesis."
+            ],
+            "recommended_actions": [
+                "Check whether the TPM is currently available and record its reported state before making any changes.",
+                "Review nearby System log entries around the incident time for additional TPM, firmware, boot, or device errors that may identify the trigger.",
+                "Determine whether encryption or other security features depend on the TPM, and ensure recovery information is available before considering TPM reset or firmware changes.",
+                "Restart the computer only if operationally acceptable, then check whether the TPM error recurs. A single occurrence may have been transient, while recurrence would increase concern about hardware or firmware failure.",
+                "Check the computer manufacturer's support information for applicable BIOS, TPM firmware, chipset, or system updates. Apply updates only after confirming model compatibility and following the manufacturer's recovery precautions.",
+                "If the TPM remains unavailable, errors recur, or encryption functionality is affected, escalate to the computer manufacturer or qualified hardware support. Do not clear or reset the TPM without verified recovery keys and a documented reason."
+            ],
+            "remediation_notes": [
+                "Confirmed: six identical Error-level Event ID 14 records from the displayed TPM provider label occurred at one timestamp.",
+                "Confirmed: the event message says TPM services cannot be used because of a non-recoverable TPM hardware error.",
+                "Not confirmed: physical TPM failure, a specific driver defect, firmware involvement, data loss, or BitLocker impact. These require additional evidence.",
+                "Clearing or resetting the TPM can invalidate stored keys and may cause loss of access to protected data if recovery material is unavailable. It should not be used as an initial troubleshooting step.",
+                "Before BIOS, TPM firmware, or TPM reset work, suspend or otherwise prepare encryption according to the manufacturer's and organization's procedures, verify recovery keys, and ensure a backup exists. These actions may require administrator access and can affect boot or authentication.",
+                "Because the incident is marked non-recurring, verify current TPM status and monitor for recurrence before concluding that hardware replacement is required."
+            ],
+            "diagnostic_steps": [
+                {
+                    "description": "Review the matching System log events and inspect their full messages, timestamps, and registered ProviderName values. This confirms the incident details from Windows and may reveal whether additional context exists without assuming that the displayed provider label is a valid provider filter.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=14} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Query the current TPM state and capability information. Compare the result with the event's reported loss of TPM availability; this check can show whether the problem is still present but cannot by itself prove the root cause.",
+                    "command": "Get-Tpm | Format-List *",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Inspect System log entries immediately before and after the incident time for related device, firmware, boot, or security errors. Correlation may identify a triggering event, but absence of related events will not rule out a TPM hardware problem.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=[datetime]'2026-09-13 18:46:04'; EndTime=[datetime]'2026-09-13 18:56:04'} | Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Check whether the TPM is used by encryption, authentication, or other security functions, and verify that recovery information is available before any TPM reset, firmware update, or other intervention. This is an investigation and preparation step; no system change is performed.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Restart the computer during an approved maintenance window, then repeat the TPM-state and event-log checks. This may clear a transient initialization condition, but it can temporarily interrupt work and will not repair confirmed hardware failure.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "caution"
+                },
+                {
+                    "description": "If the TPM remains unavailable or the Event ID 14 error recurs, have an administrator or the computer manufacturer review the exact computer model, BIOS/TPM firmware, and driver support status and apply only vendor-approved updates. Confirm backups and recovery keys first; firmware changes can affect boot and security functions.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "system_change"
+                }
+            ]
+        }
     },
     {
         "log_type": "System",
@@ -1741,8 +861,8 @@
         "event_ids_counts": {
             "4266": 1
         },
-        "time_generated_start": "2026-09-11T16:56:51",
-        "time_generated_end": "2026-09-11T16:56:51",
+        "time_generated_start": "2026-09-13T19:27:59",
+        "time_generated_end": "2026-09-13T19:27:59",
         "levels": [
             "Warning"
         ],
@@ -1758,7 +878,7 @@
                 "computer_name": "Maxs-PC",
                 "provider": "Tcpip",
                 "event_id": 4266,
-                "time_generated": "2026-09-11T16:56:51",
+                "time_generated": "2026-09-13T19:27:59",
                 "level": "Warning",
                 "message": "A request to allocate an ephemeral port number from the global UDP port space has failed due to all such ports being in use.\r\n"
             }
@@ -1784,5 +904,230 @@
         "recurrence_count_24h": 1,
         "recurrence_count_7d": 1,
         "is_recurring": false
+    },
+    {
+        "log_type": "System",
+        "computer_name": "Maxs-PC",
+        "providers": [
+            "TPM"
+        ],
+        "providers_counts": {
+            "TPM": 6
+        },
+        "event_ids": [
+            14
+        ],
+        "event_ids_counts": {
+            "14": 6
+        },
+        "time_generated_start": "2026-09-13T21:21:56",
+        "time_generated_end": "2026-09-13T21:21:56",
+        "levels": [
+            "Error"
+        ],
+        "highest_severity": "Error",
+        "incident_classification": "TPM",
+        "event_classification_counts": {
+            "TPM": 6
+        },
+        "event_count": 6,
+        "events": [
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            },
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "TPM",
+                "event_id": 14,
+                "time_generated": "2026-09-13T21:21:56",
+                "level": "Error",
+                "message": "The device driver for the Trusted Platform Module (TPM) encountered a non-recoverable error in the TPM hardware, which prevents TPM services (such as data encryption) from being used. For further help, please contact the computer manufacturer.\r\n"
+            }
+        ],
+        "incident_duration": "0:00:00",
+        "provider_classifications": {
+            "TPM": "TPM"
+        },
+        "incident_score": 55,
+        "incident_priority": "Medium",
+        "incident_score_reasons": [
+            "Error-level incident detected",
+            "Moderate event count (5-9)"
+        ],
+        "incident_score_breakdown": {
+            "severity": 40,
+            "event_count": 15,
+            "classification_impact": 0,
+            "recurrence": 0,
+            "duration": 0
+        },
+        "summary_text": "Medium-priority TPM incident in the System log on Maxs-PC involving TPM. It contains 6 events and lasted 0 seconds. Score 55 because error-level events were present and 5 to 9 related events were grouped together.",
+        "recurrence_count_24h": 2,
+        "recurrence_count_7d": 2,
+        "is_recurring": false,
+        "llm_analysis": {
+            "explanation": "The System log contains six identical Error-level Event ID 14 entries from the TPM at the same timestamp. The message explicitly reports a non-recoverable error in TPM hardware and states that TPM-dependent services, including data-encryption functions, may be unavailable. This confirms a TPM-related failure was reported, but it does not by itself establish whether the underlying cause is defective hardware, firmware, or a driver/communication problem. The incident is marked non-recurring, although the supplied aggregate reports two occurrences within both 24 hours and 7 days; that recurrence information should be verified.",
+            "likely_causes": [
+                "A TPM hardware fault or failure state, because the event message explicitly identifies a non-recoverable error in the TPM hardware.",
+                "TPM firmware or system firmware incompatibility or corruption affecting TPM initialization; this is a hypothesis requiring firmware and vendor-specific investigation.",
+                "A TPM device-driver or operating-system communication problem; the message references the driver, but the supplied evidence does not prove that the driver is the root cause.",
+                "The TPM may be temporarily unavailable or in an inconsistent state, but the evidence is insufficient to determine whether this is transient."
+            ],
+            "recommended_actions": [
+                "Verify the current TPM status and whether Windows can communicate with it before making changes.",
+                "Review the surrounding System-log events and confirm whether Event ID 14 occurred only at the reported time or appears elsewhere. Correlate this with any boot, firmware, security, or encryption symptoms observed by the user.",
+                "Identify the computer manufacturer, model, BIOS/UEFI version, and TPM status, then check the manufacturer\u2019s support guidance for this specific system. Apply firmware or driver updates only after confirming they are applicable and following the vendor\u2019s recovery instructions.",
+                "Confirm whether any TPM-dependent function, such as encryption or authentication, is currently failing. Preserve any available recovery information before making TPM changes.",
+                "If the TPM remains unavailable or the event recurs after applicable updates and a normal restart, escalate to the computer manufacturer or hardware support. Do not assume the TPM should be cleared or replaced solely from this event."
+            ],
+            "remediation_notes": [
+                "The six entries are duplicates at one timestamp and may represent one TPM failure reported repeatedly rather than six independent hardware failures.",
+                "The incident data identifies the provider as TPM, but it does not establish the exact registered provider name needed for provider-specific event-log filtering; use the log name and event ID for investigation.",
+                "Clearing or resetting the TPM can remove or invalidate protected keys and may affect encryption, sign-in, or other security functions. Do not perform it without confirming recovery material, understanding the consequences, and following manufacturer or organizational procedures.",
+                "A firmware update or hardware replacement may require administrator access, downtime, backups, and vendor-specific instructions. The supplied evidence does not justify a persistent configuration change by itself.",
+                "The event timestamp is in the future relative to the current date context, so verify the system clock and log time interpretation if the timestamp appears implausible.",
+                "The supplied recurrence fields conflict with the 'Recurring: False' classification. Confirm recurrence directly from the System log before treating this as an ongoing pattern."
+            ],
+            "diagnostic_steps": [
+                {
+                    "description": "Query recent System-log entries with Event ID 14 and inspect the full message, provider name, severity, and timestamps. This verifies whether the six reported entries are isolated or part of a broader pattern without assuming the display label is a valid provider filter.",
+                    "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=14} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Read the local TPM status and capabilities. Compare the result with the reported failure; an unavailable, unhealthy, or inaccessible TPM would support the incident, but this check alone may not distinguish hardware, firmware, and driver causes.",
+                    "command": "Get-Tpm | Format-List *",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Inspect the computer manufacturer, model, and BIOS information so that any later firmware or hardware investigation uses the correct vendor documentation rather than a generic TPM procedure.",
+                    "command": "Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model; Get-CimInstance Win32_BIOS | Select-Object Manufacturer, SMBIOSBIOSVersion, ReleaseDate",
+                    "shell": "powershell",
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "Use the TPM management interface or the organization\u2019s approved security-management tools to determine whether encryption or other TPM-dependent functions are currently affected. Record any recovery information before considering TPM reset or replacement.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "safe"
+                },
+                {
+                    "description": "After collecting the TPM status and system details, review the manufacturer\u2019s support documentation for applicable BIOS/UEFI, TPM firmware, or device-driver updates and their recovery requirements. Do not install an update or reset the TPM until applicability, backups, and recovery access have been confirmed.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "caution"
+                },
+                {
+                    "description": "If the TPM remains unavailable or Event ID 14 recurs, provide the event details, TPM status, system model, firmware version, and recurrence findings to the computer manufacturer or qualified administrator for hardware-level diagnosis. A TPM reset, firmware recovery, or hardware replacement should be performed only under approved procedures.",
+                    "command": null,
+                    "shell": null,
+                    "risk_level": "caution"
+                }
+            ]
+        }
+    },
+    {
+        "log_type": "System",
+        "computer_name": "Maxs-PC",
+        "providers": [
+            "DCOM"
+        ],
+        "providers_counts": {
+            "DCOM": 1
+        },
+        "event_ids": [
+            10016
+        ],
+        "event_ids_counts": {
+            "10016": 1
+        },
+        "time_generated_start": "2026-09-13T23:26:16",
+        "time_generated_end": "2026-09-13T23:26:16",
+        "levels": [
+            "Warning"
+        ],
+        "highest_severity": "Warning",
+        "incident_classification": "DCOM Permission Warning",
+        "event_classification_counts": {
+            "DCOM Permission Warning": 1
+        },
+        "event_count": 1,
+        "events": [
+            {
+                "log_type": "System",
+                "computer_name": "Maxs-PC",
+                "provider": "DCOM",
+                "event_id": 10016,
+                "time_generated": "2026-09-13T23:26:16",
+                "level": "Warning",
+                "message": "<The description for Event ID ( 10016 ) in Source ( 'DCOM' ) could not be found. It contains the following insertion string(s):'application-specific, Local, Activation, {2593F8B9-4EAF-457C-B68A-50F6B8EA6B54}, {15C20B67-12E7-4BB6-92BB-7AFF07997402}, Maxs-PC, maxce, S-1-5-21-3205169176-1917081287-320141211-1001, LocalHost (Using LRPC), Unavailable, Unavailable'.>"
+            }
+        ],
+        "incident_duration": "0:00:00",
+        "provider_classifications": {
+            "DCOM": "Distributed COM"
+        },
+        "incident_score": 30,
+        "incident_priority": "Low",
+        "incident_score_reasons": [
+            "Warning-level incident detected",
+            "Classification occurred 3 times in the last 24 hours"
+        ],
+        "incident_score_breakdown": {
+            "severity": 20,
+            "event_count": 0,
+            "classification_impact": 0,
+            "recurrence": 10,
+            "duration": 0
+        },
+        "summary_text": "Low-priority DCOM Permission Warning incident in the System log on Maxs-PC involving Distributed COM. It contains 1 event and lasted 0 seconds. Score 30 because warning-level events were present and classification occurred 3 times in the last 24 hours.",
+        "recurrence_count_24h": 3,
+        "recurrence_count_7d": 3,
+        "is_recurring": true
     }
 ]

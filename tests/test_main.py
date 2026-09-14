@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 from models.incident_analysis import IncidentAnalysis
 from tests.helpers import make_event
+from settings.app_settings import AISettings
+import config
 
 
 def _load_main_module():
@@ -57,6 +59,13 @@ def _load_main_module():
 
 
 class MainWorkflowTests(unittest.TestCase):
+    def setUp(self):
+        settings_patch = patch("settings.app_settings.AppSettings.load", return_value=AISettings(
+            True, config.DEFAULT_ANALYSIS_MODEL, 3,
+        ))
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
+
     def test_scan_system_returns_incident_summaries(self):
         main_module = _load_main_module()
         event = make_event()
@@ -214,7 +223,7 @@ class MainWorkflowTests(unittest.TestCase):
         ), patch.object(
             main_module,
             "select_incidents_for_llm",
-            side_effect=lambda incidents: incidents,
+            side_effect=lambda incidents, **_kwargs: incidents,
         ), patch("builtins.print", side_effect=fake_print):
             main_module.main()
 
@@ -319,7 +328,7 @@ class MainWorkflowTests(unittest.TestCase):
             main_module.add_llm_analyses([incident])
 
         self.assertIsNone(incident["llm_analysis"])
-        self.assertEqual(incident["llm_analysis_error"], "RuntimeError")
+        self.assertEqual(incident["llm_analysis_error"], "AI analysis could not be completed. Check AI Settings.")
 
     def test_add_llm_analyses_handles_model_serialization_failure(self):
         main_module = _load_main_module()
@@ -340,5 +349,5 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertIsNone(incident["llm_analysis"])
         self.assertEqual(
             incident["llm_analysis_error"],
-            "invalid structured response",
+            "AI analysis could not be completed. Check AI Settings.",
         )

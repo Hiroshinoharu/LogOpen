@@ -3,7 +3,7 @@ from datetime import datetime
 from html import escape
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -25,6 +25,7 @@ import config
 from errors import describe_error
 from main import scan_system
 from ui.incident_detail import IncidentDetailWidget
+from ui.settings_dialog import SettingsDialog
 
 
 def _label(text, name):
@@ -78,6 +79,7 @@ class MainWindow(QMainWindow):
             return
 
         self.scan_button.setEnabled(False)
+        self.settings_button.setEnabled(False)
         self.scan_button.setText("Scanning system…")
         self.status_label.setText("Scanning system...")
         self._clear_incidents()
@@ -149,11 +151,17 @@ class MainWindow(QMainWindow):
         self._scan_worker = None
         self._scan_thread = None
         self.scan_button.setEnabled(True)
+        self.settings_button.setEnabled(True)
         self.scan_button.setText("Scan for Incidents")
         if self._close_pending:
             self.close()
 
     def closeEvent(self, event):
+        if self._settings_dialog is not None:
+            self._close_pending = True
+            self._settings_dialog.reject()
+            event.ignore()
+            return
         if self._scan_thread is not None:
             # Let the scan finish while the UI keeps processing Qt events.
             self._close_pending = True
@@ -161,6 +169,21 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         super().closeEvent(event)
+
+    @pyqtSlot()
+    def _open_settings(self):
+        if self._scan_thread is not None or self._settings_dialog is not None:
+            return
+        self._settings_dialog = SettingsDialog(self)
+        self._settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._settings_dialog.finished.connect(self._settings_closed)
+        self._settings_dialog.open()
+
+    @pyqtSlot(int)
+    def _settings_closed(self, _result):
+        self._settings_dialog = None
+        if self._close_pending:
+            QTimer.singleShot(0, self.close)
 
     def _set_state(self, state, text):
         self.state_badge.setText(text)
@@ -266,6 +289,7 @@ class MainWindow(QMainWindow):
 
         self._scan_thread = None
         self._scan_worker = None
+        self._settings_dialog = None
         self._close_pending = False
         self._incidents = []
 
@@ -295,6 +319,12 @@ class MainWindow(QMainWindow):
         brand_text.addWidget(self.subtitle)
         brand_row.addLayout(brand_text)
         brand_row.addStretch()
+        self.settings_button = QPushButton("Settings")
+        self.settings_button.setObjectName("secondaryButton")
+        self.settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.settings_button.setToolTip("Configure AI analysis and your OpenAI API key")
+        self.settings_button.clicked.connect(self._open_settings)
+        brand_row.addWidget(self.settings_button)
         self.state_badge = _label("READY TO SCAN", "stateBadge")
         self.state_badge.setProperty("state", "ready")
         brand_row.addWidget(self.state_badge)

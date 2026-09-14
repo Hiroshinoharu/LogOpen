@@ -19,6 +19,7 @@ from llm_analysis import (
     select_incidents_for_llm,
 )
 from terminal_reporting import display_incident_reports
+from settings.app_settings import AppSettings
 
 
 def format_log_types_label(log_types):
@@ -61,22 +62,27 @@ def _write_status(message, *, error=False):
 def add_llm_analyses(incident_summaries):
     """Add serializable LLM analysis to selected incident summaries."""
     
-    selected_incidents = select_incidents_for_llm(incident_summaries)
+    settings = AppSettings().load()
+    if not settings.enabled:
+        _write_status("AI analysis is disabled. Deterministic analysis is complete.")
+        return
+    selected_incidents = select_incidents_for_llm(incident_summaries, settings=settings)
 
     for incident in selected_incidents:
         try:
-            analysis = analyse_incident_with_llm(incident)
+            analysis = analyse_incident_with_llm(incident, settings=settings)
             incident["llm_analysis"] = (
                 analysis.model_dump(mode="json")
                 if analysis is not None
                 else None
             )
-        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
+        except Exception:
             incident["llm_analysis"] = None
-            incident["llm_analysis_error"] = describe_error(exc)
+            # SDK/validation exceptions may contain credentials or request data.
+            incident["llm_analysis_error"] = "AI analysis could not be completed. Check AI Settings."
             _write_status(
                 "Warning: AI analysis was skipped for an incident: "
-                f"{describe_error(exc)}",
+                f"{incident['llm_analysis_error']}",
                 error=True,
             )
             continue

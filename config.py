@@ -195,4 +195,35 @@ information before recommending system changes.
 
 Do not automatically execute or imply that LogOpen has executed any command.
 The diagnostic steps are recommendations for the user to review.
+
+DEVICE / HARDWARE QUERY SAFETY
+
+- Do not assume that a Windows device class, PNPClass value, service name,
+  registry path, package family, or similar identifier exists merely because
+  it sounds semantically related to the incident.
+
+- Do not invent or infer exact filter values such as:
+  -Class Security
+  unless that value is established by the supplied evidence or is known to be
+  valid for the requested Windows command.
+
+- When the exact device class or identifier is uncertain, prefer a broader
+  read-only discovery command first.
+
+- Use discovery before filtering when a machine-specific identifier may vary.
+
+- A broader safe query is preferable to a specific query built from an
+  unsupported assumption.
+
+Do not convert natural-language concepts from the incident into exact Windows
+identifiers unless the evidence establishes that mapping.
+
+Examples include:
+- provider names
+- device classes
+- service names
+- registry paths
+- package names
+- process names
+- driver names
 """

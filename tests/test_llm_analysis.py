@@ -3,7 +3,7 @@ import sys
 from copy import deepcopy
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -48,7 +48,8 @@ def install_openai_mock(monkeypatch, *, output_parsed=None, side_effect=None):
     class RateLimitError(APIStatusError):
         pass
 
-    client = Mock()
+    client = MagicMock()
+    client.__enter__.return_value = client
     client.responses.parse.return_value = SimpleNamespace(
         output_parsed=output_parsed
     )

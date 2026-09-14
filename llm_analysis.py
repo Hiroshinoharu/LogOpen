@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from typing import Any, get_args
 
@@ -8,6 +7,9 @@ import config
 from incident_classification import classify_event
 from models.incident_analysis import DiagnosticShell, IncidentAnalysis
 from pydantic import ValidationError
+from settings.app_settings import AppSettings
+from settings.ai_service import MissingCredentialsError, create_openai_client
+from settings.credential_store import CredentialStoreError
 
 
 def _format_mapping(values):
@@ -149,7 +151,7 @@ def _log_llm_failure(message):
         pass
 
 
-def should_analyse_incident_with_llm(incident):
+def should_analyse_incident_with_llm(incident, *, settings=None):
     """
     Determine whether an incident should be analysed with a large language model (LLM).
 
@@ -159,7 +161,8 @@ def should_analyse_incident_with_llm(incident):
     Returns:
         bool: True if the incident should be analysed, False otherwise.
     """
-    if not isinstance(incident, dict) or not config.ENABLE_LLM_ANALYSIS:
+    settings = settings if settings is not None else AppSettings().load()
+    if not isinstance(incident, dict) or not settings.enabled:
         return False
 
     if incident.get("llm_analysis") is not None:
@@ -173,22 +176,23 @@ def should_analyse_incident_with_llm(incident):
 
     return incident.get("event_count", 0) >= config.LLM_ANALYSIS_MIN_EVENTS
 
-def select_incidents_for_llm(incidents):
+def select_incidents_for_llm(incidents, *, settings=None):
     """
     Select incidents that meet the criteria for LLM analysis.
 
     Args:
         incidents (list): A list of incident dictionaries.
     """
+    settings = settings if settings is not None else AppSettings().load()
     # Filter incidents based on the criteria defined in should_analyse_incident_with_llm
     selected_incidents = []
     for incident in  incidents:
-        if should_analyse_incident_with_llm(incident):
+        if should_analyse_incident_with_llm(incident, settings=settings):
             selected_incidents.append(incident)
     
     # Sort the selected incidents by incident_score in descending order and limit to MAX_LLM_ANALYSES_PER_RUN
     selected_incidents.sort(key=lambda incident: incident.get("incident_score", 0), reverse=True)
-    return selected_incidents[:config.MAX_LLM_ANALYSES_PER_RUN]
+    return selected_incidents[:settings.max_analyses]
 
 
 def build_analysis_instructions():
@@ -215,7 +219,7 @@ def build_analysis_instructions():
     )
 
 
-def analyse_incident_with_llm(incident):
+def analyse_incident_with_llm(incident, *, settings=None):
     """
     Analyse an incident using a large language model (LLM) to provide insights and recommendations.
 
@@ -225,18 +229,17 @@ def analyse_incident_with_llm(incident):
     Returns:
         IncidentAnalysis | None: The validated structured analysis, if available.
     """
+    settings = settings if settings is not None else AppSettings().load()
+    if not settings.enabled:
+        return None
     if not isinstance(incident, dict):
         _log_llm_failure("incident data is invalid.")
         return None
     analysis_model = IncidentAnalysis
-    if not os.getenv("OPENAI_API_KEY"):
-        _log_llm_failure("OpenAI API credentials are not configured.")
-        return None
-
     try:
         instructions = build_analysis_instructions()
-    except ValueError as exc:
-        _log_llm_failure(f"invalid diagnostic shell configuration: {exc}")
+    except ValueError:
+        _log_llm_failure("invalid diagnostic shell configuration.")
         return None
 
     try:
@@ -245,7 +248,6 @@ def analyse_incident_with_llm(incident):
             APIStatusError,
             APITimeoutError,
             AuthenticationError,
-            OpenAI,
             OpenAIError,
             RateLimitError,
         )
@@ -255,13 +257,19 @@ def analyse_incident_with_llm(incident):
 
     try:
         context = build_incident_context(incident)
-        client = OpenAI()
-        response = client.responses.parse(
-            model=config.DEFAULT_ANALYSIS_MODEL,
-            instructions=instructions,
-            input=f"Analyze the following LogOpen incident:\n{context}",
-            text_format=analysis_model,
-        )
+        with create_openai_client() as client:
+            response = client.responses.parse(
+                model=settings.model,
+                instructions=instructions,
+                input=f"Analyze the following LogOpen incident:\n{context}",
+                text_format=analysis_model,
+            )
+    except MissingCredentialsError:
+        _log_llm_failure("OpenAI API credentials are not configured. Open Settings to add a key.")
+        return None
+    except CredentialStoreError:
+        _log_llm_failure("secure credential storage is unavailable. Open Settings to check credentials.")
+        return None
     except AuthenticationError:
         _log_llm_failure("OpenAI authentication failed.")
         return None
@@ -279,6 +287,9 @@ def analyse_incident_with_llm(incident):
         return None
     except (AttributeError, TypeError):
         _log_llm_failure("incident data could not be formatted for analysis.")
+        return None
+    except Exception:
+        _log_llm_failure("the AI request could not be completed. Check AI Settings.")
         return None
 
     try:
