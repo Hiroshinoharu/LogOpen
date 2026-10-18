@@ -6,6 +6,7 @@ the native handle. Importing this module does not read any event logs.
 """
 
 import logging
+import math
 from datetime import datetime, timedelta
 
 from errors import EventCollectionError, describe_error
@@ -28,10 +29,10 @@ class CollectedEvents(list):
     """List of parsed event dictionaries with per-log collection metadata.
 
     Attributes:
-        complete: False if a cap, invalid record, or read error reduced coverage.
+        complete: False if cancellation, a cap, invalid record, or read error reduced coverage.
         records_read: Number of raw records examined, including filtered records.
         oldest_time: Timestamp of the last inspected record, or None initially.
-        stop_reason: end_of_log, time_boundary, record_limit, or read_error.
+        stop_reason: end_of_log, time_boundary, record_limit, read_error, or cancelled.
         warnings: Deduplicated messages explaining incomplete coverage.
 
     An empty list can still represent an incomplete scan; inspect the metadata.
@@ -114,7 +115,8 @@ def parse_event(log_type, event):
     Returns:
         dict: log_type, computer_name, provider, event_id, time_generated,
         level, and message. The timestamp is retained as a datetime and the
-        event ID is masked with 0x1FFFFFFF.
+        event ID is masked with 0x1FFFFFFF. A native integer RecordNumber is
+        retained as record_number to distinguish identical historical evidence.
 
     Raises:
         EventCollectionError: Dependencies or required record fields are invalid.
@@ -133,6 +135,9 @@ def parse_event(log_type, event):
             "time_generated": event.TimeGenerated,
             "level": log_event_level(event),
         }
+        record_number = getattr(event, "RecordNumber", None)
+        if type(record_number) is int:
+            parsed_event["record_number"] = record_number
     except Exception as exc:
         raise EventCollectionError(
             f"Could not parse an event from the {log_type} log: "
@@ -157,7 +162,7 @@ def parse_event(log_type, event):
     return parsed_event
 
 
-def get_recent_events(log_type, limit, *, hours=None, levels=None):
+def get_classic_events(log_type, limit, *, hours=None, levels=None, cancel_event=None, progress=None):
     """Read a local log backward until its time boundary, EOF, or record cap.
 
     Args:
@@ -167,6 +172,10 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
         hours: Positive lookback window, or None to omit time filtering.
             Records at or before the cutoff are excluded.
         levels: Accepted severity labels, or None to retain every severity.
+        cancel_event: Optional threading.Event-like token. Cancellation is
+            checked before opening the log and between batches and records.
+        progress: Optional callback receiving the examined-record count after
+            each batch. It runs on the calling thread, never a GUI thread here.
 
     Returns:
         CollectedEvents: Matching events in read order, newest first, with
@@ -186,12 +195,25 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
     _require_event_log_dependencies()
     if not isinstance(log_type, str) or not log_type.strip():
         raise ValueError("log_type must be a non-empty string")
+    if log_type.casefold() not in {"system", "application", "security"}:
+        raise ValueError("The compatibility reader only supports System, Application, and Security.")
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
         raise ValueError("limit must be a non-negative integer")
-    if hours is not None and (isinstance(hours, bool) or not isinstance(hours, (int, float)) or hours <= 0):
+    if hours is not None and (isinstance(hours, bool) or not isinstance(hours, (int, float)) or not math.isfinite(hours) or hours <= 0):
         raise ValueError("hours must be a positive number")
     window = timedelta(hours=hours) if hours is not None else None
     parsed_events = CollectedEvents()
+
+    def cancellation_requested():
+        """Mark retained records incomplete when the caller's cancellation token is set."""
+        if cancel_event is not None and cancel_event.is_set():
+            parsed_events.stop_reason = "cancelled"
+            parsed_events.warn(f"{log_type}: collection cancelled; retained records may be incomplete.")
+            return True
+        return False
+
+    if cancellation_requested():
+        return parsed_events
     if limit == 0:
         parsed_events.stop_reason = "record_limit"
         parsed_events.warn(f"{log_type}: no records read because the record limit is zero.")
@@ -208,6 +230,8 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
         time_threshold = None
         stopped = False
         while not stopped:
+            if cancellation_requested():
+                break
             try:
                 events = win32evtlog.ReadEventLog(hand, flags, 0)
             except Exception as exc:
@@ -223,6 +247,9 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
                 break
 
             for event in events:
+                if cancellation_requested():
+                    stopped = True
+                    break
                 parsed_events.records_read += 1
                 try:
                     generated = event.TimeGenerated
@@ -247,6 +274,8 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
                     )
                     stopped = True
                     break
+            if progress is not None:
+                progress(parsed_events.records_read)
     except EventCollectionError:
         raise
     except Exception as exc:
@@ -267,3 +296,19 @@ def get_recent_events(log_type, limit, *, hours=None, levels=None):
                 )
 
     return parsed_events
+
+
+def get_recent_events(log_type, limit, *, hours=None, levels=None, cancel_event=None,
+                      progress=None, event_matcher=None):
+    """Read a channel using EvtQuery, including operational and audit channels.
+
+    The raw record cap applies to all events within the requested time window.
+    ``event_matcher`` may retain specific informational/audit events alongside
+    ``levels``. It receives structured evidence before message formatting.
+    Cancellation, partial coverage, and errors follow CollectedEvents semantics.
+    No fallback to a different channel occurs when access or lookup fails.
+    """
+    from windows_events import collect_events
+    return collect_events(log_type, limit, hours=hours, levels=levels,
+                          cancel_event=cancel_event, progress=progress,
+                          event_matcher=event_matcher)

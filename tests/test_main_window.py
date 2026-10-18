@@ -116,7 +116,7 @@ class MainWindowThreadingTests(unittest.TestCase):
             }
         ]
 
-        def fake_scan():
+        def fake_scan(_options=None, **_kwargs):
             """Record the worker thread, signal startup, and wait for release before
             returning incidents.
             """
@@ -145,7 +145,10 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.window.run_scan()
             self.window.scan_button.click()
             self.assertIs(self.window._scan_thread, thread)
-            scan.assert_called_once_with()
+            scan.assert_called_once()
+            self.assertEqual(scan.call_args.args[0], self.window.scan_options)
+            self.assertIs(scan.call_args.kwargs["cancel_event"], self.window._cancel_event)
+            self.assertTrue(callable(scan.call_args.kwargs["progress"]))
 
             self.release_scan.set()
             self.finish_scan(worker, thread)
@@ -240,7 +243,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         """
         started = threading.Event()
 
-        def fake_scan():
+        def fake_scan(_options=None, **_kwargs):
             """Wait for test-controlled release, then return results or raise the requested
             scan error.
             """
@@ -330,7 +333,10 @@ class MainWindowThreadingTests(unittest.TestCase):
                 classification_width,
                 max(table.columnWidth(column) for column in (0, 2, 3, 4)),
             )
-            self.assertEqual(table.horizontalScrollBar().maximum(), 0)
+            if width == 800:
+                self.assertGreater(table.horizontalScrollBar().maximum(), 0)
+            else:
+                self.assertEqual(table.horizontalScrollBar().maximum(), 0)
             self.assertTrue(self.window.scan_button.isVisible())
         self.assertGreater(widths[1], widths[0])
 

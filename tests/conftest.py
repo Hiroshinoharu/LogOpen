@@ -15,6 +15,7 @@ def isolated_ai_settings(monkeypatch, tmp_path):
     blocked network connections.
     """
     settings_path = str(tmp_path / "preferences.ini")
+    monkeypatch.setenv("LOGOPEN_DATA_DIR", str(tmp_path / "app-data"))
     monkeypatch.setattr(app_settings, "_create_qsettings", lambda: QSettings(
         settings_path, QSettings.Format.IniFormat,
     ))

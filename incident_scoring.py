@@ -16,6 +16,9 @@ PRIORITY_THRESHOLDS = (
 )
 
 CLASSIFICATION_WEIGHTS = {
+    "Defender Threat Detected": 20,
+    "Defender Real-Time Protection Disabled": 20,
+    "Security Audit Log Cleared": 20,
     "Application Hang": 10,
     "UDP Ephemeral Port Exhaustion": 15,
     "Defender Service Crash": 20,
@@ -91,13 +94,15 @@ def calculate_incident_score(incident):
     }
 
     # Score based on highest severity
-    if incident["highest_severity"] == "Error":
+    if incident["highest_severity"] == "Critical":
+        _add_score(breakdown, reasons, "severity", 60, "Critical event or detection rule")
+    elif incident["highest_severity"] in ("Error", "Failure Audit"):
         _add_score(
             breakdown,
             reasons,
             "severity",
             40,
-            "Error-level incident detected",
+            "Error-level incident detected" if incident["highest_severity"] == "Error" else "Failure audit recorded",
         )
     elif incident["highest_severity"] == "Warning":
         _add_score(

@@ -69,6 +69,8 @@ def classify_event(event):
     unmatched events use classify_provider. Returns a label without mutation.
     """
 
+    if event.get("detection_classification"):
+        return event["detection_classification"]
     provider = event["provider"]
     event_id = event["event_id"]
     message = event["message"].lower()

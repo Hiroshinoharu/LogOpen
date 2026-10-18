@@ -54,7 +54,7 @@ def test_collection_finds_error_after_500_informational_records(log_backend):
         information[:250], information[250:],
         [raw_event(hours=2, level=16), raw_event(hours=25, level=16)],
     ]
-    events = event_collection.get_recent_events("System", 10_000, hours=24, levels=("Error", "Warning"))
+    events = event_collection.get_classic_events("System", 10_000, hours=24, levels=("Error", "Warning"))
     assert len(events) == 1 and events[0]["level"] == "Error"
     assert events.complete and events.stop_reason == "time_boundary"
     assert events.records_read == 502
@@ -65,7 +65,7 @@ def test_collection_finds_error_after_500_informational_records(log_backend):
 def test_collection_marks_empty_capped_results_incomplete(log_backend):
     """Check collection marks empty capped results incomplete."""
     log_backend.ReadEventLog.return_value = [raw_event(), raw_event(), raw_event(level=16)]
-    events = event_collection.get_recent_events("System", 2, hours=24, levels=("Error",))
+    events = event_collection.get_classic_events("System", 2, hours=24, levels=("Error",))
     assert events == []
     assert not events.complete and events.stop_reason == "record_limit"
     assert events.records_read == 2 and events.warnings
@@ -75,7 +75,7 @@ def test_collection_marks_empty_capped_results_incomplete(log_backend):
 def test_collection_eof_is_complete_even_without_matches(log_backend):
     """Check collection eof is complete even without matches."""
     log_backend.ReadEventLog.side_effect = [[raw_event()], []]
-    events = event_collection.get_recent_events("System", 10, hours=24, levels=("Error",))
+    events = event_collection.get_classic_events("System", 10, hours=24, levels=("Error",))
     assert events == [] and events.complete
     assert events.stop_reason == "end_of_log" and not events.warnings
 
@@ -83,7 +83,7 @@ def test_collection_eof_is_complete_even_without_matches(log_backend):
 def test_read_failure_after_nonmatching_records_retains_partial_coverage(log_backend):
     """Check read failure after nonmatching records retains partial coverage."""
     log_backend.ReadEventLog.side_effect = [[raw_event()], OSError("read failed")]
-    events = event_collection.get_recent_events("System", 10, hours=24, levels=("Error",))
+    events = event_collection.get_classic_events("System", 10, hours=24, levels=("Error",))
     assert events == [] and not events.complete
     assert events.stop_reason == "read_error" and events.records_read == 1
     assert "read failed" in events.warnings[0]
@@ -94,14 +94,14 @@ def test_initial_read_failure_is_wrapped_and_handle_is_closed(log_backend):
     """Check initial read failure is wrapped and handle is closed."""
     log_backend.ReadEventLog.side_effect = PermissionError("denied")
     with pytest.raises(EventCollectionError, match="denied"):
-        event_collection.get_recent_events("System", 10, hours=24)
+        event_collection.get_classic_events("System", 10, hours=24)
     log_backend.CloseEventLog.assert_called_once_with("handle")
 
 
 def test_invalid_records_mark_coverage_incomplete_without_losing_valid_events(log_backend):
     """Check invalid records mark coverage incomplete without losing valid events."""
     log_backend.ReadEventLog.side_effect = [[SimpleNamespace(), raw_event(level=16)], []]
-    events = event_collection.get_recent_events("System", 10, hours=24, levels=("Error",))
+    events = event_collection.get_classic_events("System", 10, hours=24, levels=("Error",))
     assert len(events) == 1 and not events.complete
     assert "invalid event" in events.warnings[0]
 

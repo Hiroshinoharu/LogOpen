@@ -192,7 +192,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertTrue(sources.message.isReadOnly())
         self.assertGreater(sources.message.verticalScrollBar().maximum(), 0)
         self.assertEqual(sources.message.horizontalScrollBar().maximum(), 0)
-        self.assertEqual(sources.table.horizontalScrollBar().maximum(), 0)
+        self.assertGreater(sources.table.horizontalScrollBar().maximum(), 0)
         sources.message.verticalScrollBar().setValue(200)
         sources.table.setCurrentCell(1, 0)
         self.assertEqual(sources.message.toPlainText(), "A second source message.")

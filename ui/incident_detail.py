@@ -3,12 +3,16 @@
 from datetime import datetime, timedelta
 from math import isfinite
 
+from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
+from ui.timeline import TimelineWidget
+from ui.table_layout import RoomyTable
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView, QApplication, QFormLayout, QFrame, QGridLayout, QHBoxLayout,
     QHeaderView, QLabel, QPlainTextEdit, QProgressBar, QPushButton,
-    QScrollArea, QSizePolicy, QSplitter, QTableWidget, QTableWidgetItem,
+    QScrollArea, QSizePolicy, QSplitter, QTableWidget,
     QTabWidget, QVBoxLayout, QWidget,
 )
 
@@ -163,6 +167,8 @@ class SourceEventsWidget(QWidget):
         layout.addWidget(self.splitter, 1)
 
         self.table = QTableWidget(0, 4)
+        self.table.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
+        self.table.setSortingEnabled(True)
         self.table.setObjectName("sourceEventTable")
         self.table.setHorizontalHeaderLabels(["Timestamp", "Provider", "Event ID", "Level"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -184,6 +190,7 @@ class SourceEventsWidget(QWidget):
         self.table.setColumnWidth(0, 190)
         self.table.setColumnWidth(2, 90)
         self.table.setColumnWidth(3, 96)
+        self.roomy_table = RoomyTable(self.table, [280, 440, 110, 150], flexible=1)
         self.table.itemSelectionChanged.connect(self._show_selected_event)
         self.splitter.addWidget(self.table)
 
@@ -211,20 +218,37 @@ class SourceEventsWidget(QWidget):
         Accepts a list/tuple, ignores malformed entries, clears stale selection and
         message content, and resets scroll positions. Event dictionaries are shared
         without mutation; table rows store indexes for message lookup.
+        Sorting pauses during insertion, then restores the chosen column/order.
         """
         self._events = [event for event in events if isinstance(event, dict)] if isinstance(
             events, (list, tuple)
         ) else []
         # Block selection signals until every cell belongs to the new incident.
         self.table.blockSignals(True)
+        sorting_enabled = self.table.isSortingEnabled()
+        self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
         self.table.setRowCount(len(self._events))
         for row, event in enumerate(self._events):
             for column, key in enumerate(("time_generated", "provider", "event_id", "level")):
-                item = QTableWidgetItem(_text(event.get(key)))
+                value = event.get(key)
+                if column == 0:
+                    sort_key = timestamp_key(value)
+                elif column == 2:
+                    sort_key = numeric_key(value)
+                elif column == 3:
+                    sort_key = {
+                        "Information": 1, "Success Audit": 1, "Warning": 2,
+                        "Error": 3, "Failure Audit": 3, "Critical": 4,
+                    }.get(value, 0)
+                else:
+                    sort_key = _text(value).casefold()
+                item = SortableTableItem(_text(value), sort_key)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row)
                 self.table.setItem(row, column, item)
+        self.table.setSortingEnabled(sorting_enabled)
+        self.roomy_table.fit_contents()
         self.table.blockSignals(False)
         self.caption.setText(
             f"{len(self._events)} source events · Select a row to read its full message."
@@ -264,6 +288,8 @@ class IncidentDetailWidget(QWidget):
     """A full incident page with overview, existing AI analysis, and source events."""
 
     back_requested = pyqtSignal()
+    analysis_requested = pyqtSignal()
+    review_requested = pyqtSignal(str)
 
     def __init__(self, parent=None):
         """Build overview, AI, and source-event tabs and wire Back keyboard shortcuts.
@@ -312,6 +338,20 @@ class IncidentDetailWidget(QWidget):
         headline.addLayout(score_column)
         layout.addLayout(headline)
 
+        actions = QHBoxLayout()
+        self.review_badge = _body_label("Active", "mutedLabel")
+        actions.addWidget(self.review_badge)
+        actions.addStretch()
+        self.review_buttons = []
+        for title, state in (("Acknowledge", "acknowledged"), ("Ignore", "ignored"), ("Restore", "active")):
+            button = QPushButton(title, objectName="secondaryButton")
+            button.clicked.connect(lambda _checked=False, state=state: self.review_requested.emit(state))
+            actions.addWidget(button)
+            self.review_buttons.append(button)
+        self.review_controls = QWidget()
+        self.review_controls.setLayout(actions)
+        self.action_feedback = _body_label("", "mutedLabel")
+
         self.tabs = QTabWidget()
         self.tabs.setObjectName("detailTabs")
         self.tabs.setDocumentMode(True)
@@ -319,6 +359,7 @@ class IncidentDetailWidget(QWidget):
         layout.addWidget(self.tabs, 1)
         self.scroll_area, overview_layout = _scroll_page()
         self.tabs.addTab(self.scroll_area, "Overview")
+        overview_layout.addWidget(self.review_controls)
         summary_card, summary_layout = _section("Incident summary")
         self.summary = _body_label()
         self.summary.setAccessibleName("Incident summary")
@@ -374,9 +415,14 @@ class IncidentDetailWidget(QWidget):
 
         self.ai_scroll, ai_layout = _scroll_page()
         self.tabs.addTab(self.ai_scroll, "AI analysis")
+        ai_layout.addWidget(self.action_feedback)
         self.ai_status = _body_label("", "mutedLabel")
         self.ai_status.setAccessibleName("AI analysis status")
         ai_layout.addWidget(self.ai_status)
+        self.analyze_button = QPushButton("Analyze / retry AI", objectName="secondaryButton")
+        self.analyze_button.setToolTip("Send this incident to OpenAI using your saved key and model. API charges may apply.")
+        self.analyze_button.clicked.connect(self.analysis_requested.emit)
+        ai_layout.addWidget(self.analyze_button)
         self.ai_missing, missing_layout = _section("No AI analysis")
         self.ai_missing_message = _body_label("AI analysis was not generated for this incident.")
         missing_layout.addWidget(self.ai_missing_message)
@@ -385,7 +431,7 @@ class IncidentDetailWidget(QWidget):
         analysis_layout = QVBoxLayout(self.ai_content)
         analysis_layout.setContentsMargins(0, 0, 0, 0)
         analysis_layout.setSpacing(16)
-        analysis_layout.addWidget(_body_label("Analysis from the scan", "mutedLabel"))
+        analysis_layout.addWidget(_body_label("Saved AI analysis", "mutedLabel"))
         self.diagnostic_section, self.diagnostic_layout = _section("Diagnostic Steps")
         self.diagnostic_empty = _body_label(
             "No structured diagnostic steps were generated for this incident.", "mutedLabel"
@@ -411,6 +457,8 @@ class IncidentDetailWidget(QWidget):
 
         self.sources = SourceEventsWidget()
         self.tabs.addTab(self.sources, "Source events")
+        self.timeline = TimelineWidget()
+        self.tabs.addTab(self.timeline, "Timeline")
         self.set_incident(None)
 
     def _set_diagnostic_steps(self, steps):
@@ -450,6 +498,14 @@ class IncidentDetailWidget(QWidget):
         self.overview_grid.setColumnStretch(0, 3)
         self.overview_grid.setColumnStretch(1, 2 if wide else 0)
 
+    def update_review_state(self):
+        """Refresh review controls from current metadata without rebuilding evidence tabs."""
+        data = self.incident if isinstance(self.incident, dict) else {}
+        state = data.get("review_state", "active")
+        self.review_badge.setText(f"Review: {state.capitalize()}")
+        for button, target in zip(self.review_buttons, ("acknowledged", "ignored", "active")):
+            button.setEnabled(bool(data) and state != target)
+
     def set_incident(self, incident):
         """Replace all displayed fields from an incident dictionary, or clear the view.
 
@@ -460,6 +516,9 @@ class IncidentDetailWidget(QWidget):
         scores and AI explanations are never recomputed by this view.
         """
         self.incident = incident
+        self.action_feedback.clear()
+        self.analyze_button.setEnabled(incident is not None)
+        self.update_review_state()
         data = incident if isinstance(incident, dict) else {}
         self.classification.setText(_text(data.get("incident_classification")))
         priority = _text(data.get("incident_priority"), "Unknown")
@@ -519,6 +578,7 @@ class IncidentDetailWidget(QWidget):
         self._set_diagnostic_steps(analysis.get("diagnostic_steps"))
 
         self.sources.set_events(data.get("events"))
+        self.timeline.set_incidents([data] if data else [])
         self.tabs.setTabText(2, f"Source events ({self.sources.table.rowCount()})")
         self.tabs.setCurrentIndex(0)
         self.scroll_area.verticalScrollBar().setValue(0)

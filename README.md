@@ -1,8 +1,72 @@
 # LogOpen
 
-LogOpen analyzes recent Windows Event Log warnings and errors, groups related
+LogOpen analyzes Windows Event Log warnings, errors, audit failures, and events
+matched by detection rules. It groups related
 events into separate incidents, assigns deterministic classifications and scores,
 and produces terminal and JSON reports.
+
+## Desktop features
+
+- **Scan scope…** chooses a General, Security, Networking, Performance and updates,
+  or Custom profile, with editable channels, lookback hours, and record limit.
+  **Browse channels…** searches registered Windows channels and checks read access.
+  **Detection rules…** edits validated custom JSON rules and shows built-in rules.
+  Desktop choices persist across launches. The CLI keeps using `config.py` defaults.
+- **Cancel scan** stops collection, grouping, or further AI requests cooperatively.
+  An active Windows read or API request finishes first. Available partial results
+  remain visible; cancellation preserves the previously saved report and history.
+  The final short save phase cannot be cancelled.
+- **File → Scan history…** opens previous scans. Comparisons identify new,
+  persistent, and no-longer-observed issue families. Absence is reported only for
+  complete scans with the same logs, lookback, record limit, and detection rules; it does not prove
+  that an issue has been fixed.
+- **Search**, priority, and review filters narrow the incident table. **More
+  filters…** adds provider, classification, and inclusive start-date constraints.
+  **View → Clear filters** resets them. Ignored issues are hidden by default.
+- **File → Open report…** loads both current JSON envelopes and older incident
+  arrays without rescanning or contacting OpenAI.
+- **File → Export selected/filtered incidents…** writes JSON, CSV, or a readable
+  Markdown report to a chosen location. Selection follows sorting and filtering.
+- **Overview → Acknowledge / Ignore / Restore** remembers review decisions for
+  the same machine/classification/provider/event-ID issue family across scans.
+  Ignored issues remain in evidence/history and skip automatic AI requests.
+- **AI analysis → Analyze / retry AI** requests one selected incident using the
+  saved model and key, even if automatic selection skipped it. AI must be enabled;
+  normal API charges apply. A failed retry keeps any previous successful analysis.
+  Results opened from local history are updated there; imported files are only
+  changed in memory until explicitly exported.
+- Page transitions fade briefly and the status badge pulses during background
+  work. **View → Enable animations** can disable motion and remembers the choice.
+- **View → Timeline of filtered incidents…** places evidence from different logs
+  on one chronological table. Each incident also has a **Timeline** tab, including
+  raw structured payload, record identity, correlation IDs, and matching rules.
+- **Monitor → Start live monitoring…** runs local scans every 30–3,600 seconds
+  after the previous scan finishes. It uses the current scope, saves history,
+  and keeps your current reading view intact. The first scan is a silent baseline;
+  later new High/Critical active incidents can trigger desktop notifications.
+  Monitoring always skips automatic AI and stops when the app closes. Use
+  **View latest monitoring scan** to review results, or **Stop monitoring** to stop.
+
+See [event sources, detection rules, and monitoring](docs/event_sources.md) for
+supported channels, custom-rule examples, permissions, and polling limitations.
+
+Click a column header to sort; click again to reverse. Numbers sort numerically,
+timestamps chronologically, and priority/severity by rank. The chosen order
+survives refreshes. Short windows collapse summary cards to leave room for rows.
+Table windows open broadly within the available screen, with a maximize button.
+Columns fit their contents and remain manually resizable. Wide tables scroll
+horizontally instead of squeezing long channel names and descriptions; hover a
+cell to read its full text.
+
+History lives in `%LOCALAPPDATA%\LogOpen\history.sqlite3` and contains incident
+evidence, including source messages and saved AI explanations. It never contains
+API keys. `LOGOPEN_DATA_DIR` overrides the history directory for isolated runs.
+Retained observations support seven-day recurrence, with overlapping source
+events deduplicated so repeatedly scanning the same window does not inflate counts.
+Unscanned periods remain unknown. Monitoring is periodic and only runs while the app is open.
+
+For the executable, ZIP bundle, and installer, see
+[Windows distribution](docs/distribution.md).
 
 ## Finding your way around the code
 
@@ -19,20 +83,21 @@ credential storage, `PyQt6` for the desktop UI and preferences, and `pydantic` f
 structured analysis. Install `openai` to use optional AI analysis.
 
 ```powershell
-python -m pip install pywin32 PyQt6 pydantic openai
+python -m pip install -r requirements.txt
 python -m ui.main_window
 # Or run a scan from the terminal:
 python main.py
 ```
 
-The application reads backward through each configured log to the 24-hour
-boundary or end of the log, keeping warnings and errors during collection. A
+The application uses Windows' modern `EvtQuery` API for classic and operational
+channels. Windows filters records to the selected time window (24 hours by default),
+then LogOpen reads backward and keeps relevant severity/rule matches. A
 configurable safety cap of 100,000 examined records per log prevents unbounded
-scans. If the cap is reached, records are skipped, or a log cannot be fully read,
-the scan is explicitly marked incomplete. Results are printed and exported to
+scans. Reaching the cap, skipping invalid records, read failures, or disabled logging
+mark the scan incomplete. Results are printed and exported to
 `reports/incidents.json`; an export failure leaves the collected results visible.
 
-`SCAN_WINDOW_HOURS` and `MAX_RECORDS_PER_LOG` in `config.py` control this scope.
+`SCAN_WINDOW_HOURS` and `MAX_RECORDS_PER_LOG` in `config.py` provide the default scope.
 The terminal exits with code `1` for an incomplete scan or failed export, `0` for
 a complete scan with a successful export, and `130` for cancellation. Optional AI
 failures do not change the scan's collection status.
@@ -40,7 +105,7 @@ failures do not change the scan's collection status.
 Run the test suite with:
 
 ```powershell
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
@@ -212,10 +277,10 @@ Each exported incident retains source and summary data, including:
 - `recurrence_count_24h`, `recurrence_count_7d`, and `is_recurring`.
 - `summary_text`, a concise natural-language explanation of the incident and its score.
 
-The current application input window is 24 hours. The recurrence module supports
-seven-day comparisons when given seven days of summaries, but a production
-seven-day recurrence signal requires collecting or retaining summaries beyond the
-current 24-hour input window.
+The default input window is 24 hours and can be changed in the desktop. Historical
+recurrence combines saved and current observations on the same machine and with
+the same classification. Shared source events merge overlapping observations so
+repeated scans count an occurrence once. Counts cover observed incidents only.
 
 ## Repository guide
 
@@ -415,9 +480,11 @@ priority, reasons, and summary text reflect recurrence too.
 The ordinary `summary_text` is assembled from templates and scoring reasons;
 it works without AI.
 
-Recurrence only sees the summaries passed into the current scan. The normal
-workflow supplies at most 24 hours of events and does not load historical JSON
-reports, so its seven-day field is not a complete seven-day history.
+The standalone recurrence helper sees only its supplied summaries. The full
+workflow then uses `HistoryStore.enrich_incidents()` to include retained evidence
+and deduplicate overlapping observations before refreshing scores. It groups
+recurrence by machine and classification. When history is unavailable, a warning
+explains the fallback to current-scan recurrence; scanning can still complete.
 
 ### 6. Add optional AI analysis
 

@@ -99,6 +99,8 @@ def _format_events(events):
                     f"  Provider: {event.get('provider')}",
                     f"  Event ID: {event.get('event_id')}",
                     f"  Classification: {classification}",
+                      f"  Detection rule assessment: {event.get('detection_severity', 'None')}",
+                      f"  Matching rule IDs: {', '.join(rule['id'] for rule in event.get('detection_rules', []) if isinstance(rule, dict) and isinstance(rule.get('id'), str)) or 'None'}",
                     f"  Message: {_clean_message(event.get('message', ''))}",
                 )
             )

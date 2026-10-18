@@ -186,7 +186,9 @@ class MainWorkflowTests(unittest.TestCase):
         def fake_get_recent_events(log_type, limit, **kwargs):
             """Record collection arguments and return the prepared events for each requested log."""
             get_recent_calls.append((log_type, limit))
-            self.assertEqual(kwargs, {"hours": config.SCAN_WINDOW_HOURS, "levels": ("Error", "Warning")})
+            self.assertEqual(kwargs["hours"], config.SCAN_WINDOW_HOURS)
+            self.assertEqual(kwargs["levels"], ("Critical", "Error", "Warning", "Failure Audit"))
+            self.assertTrue(callable(kwargs["event_matcher"]))
             if log_type == "System":
                 return [system_event]
             if log_type == "Application":

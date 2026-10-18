@@ -2,6 +2,39 @@
    Layout dimensions are Qt logical pixels and scale with display DPI. */
 
 /* Base surfaces and typography */
+QDialog, QMenuBar, QMenu { background: #0d141f; color: #e5edf6; }
+QStatusBar { background: #141f2d; color: #b2c1d4; }
+QPlainTextEdit {
+    background: #121e2c; color: #e5edf6;
+    border: 1px solid #3a4c62; border-radius: 6px; padding: 8px;
+    selection-background-color: #285d6c;
+}
+QPlainTextEdit:focus { border-color: #63d8c4; }
+QDialog QPushButton {
+    background: #203244; color: #e5edf6; border: 1px solid #425b73;
+    border-radius: 6px; padding: 7px 12px;
+}
+QDialog QPushButton:hover { background: #2a4259; border-color: #7294ac; }
+QDialog QPushButton:focus { border-color: #7ce0ce; }
+QDialog QPushButton:disabled { background: #192636; color: #8998aa; border-color: #29394c; }
+QMenuBar::item:selected, QMenu::item:selected { background: #285d6c; }
+QMenu::item { padding: 8px 24px; }
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit {
+    background: #141f2d; color: #e5edf6;
+    border: 1px solid #3a4c62; border-radius: 6px; padding: 6px 8px;
+    selection-background-color: #285d6c;
+}
+QComboBox QAbstractItemView { background: #141f2d; color: #e5edf6; selection-background-color: #285d6c; }
+QLineEdit:focus, QComboBox:focus { border-color: #63d8c4; }
+QTableWidget { background: #121e2c; color: #e5edf6; gridline-color: #29394c; selection-background-color: #285d6c; }
+QPushButton#comparisonButton {
+    background: #142d30; color: #80e5d3; border: 1px solid #285348;
+    border-radius: 6px; padding: 7px; text-align: left;
+}
+QPushButton#comparisonButton:hover { background: #1a3a3c; }
+QPushButton#comparisonButton:disabled { background: #141f2d; color: #a5b3c6; border-color: #263346; }
+QProgressBar#scanProgress { background: #29394c; border: none; border-radius: 2px; }
+QProgressBar#scanProgress::chunk { background: #63d8c4; border-radius: 2px; }
 QWidget {
     color: #e5edf6;
     font-family: "Segoe UI";

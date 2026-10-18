@@ -8,6 +8,7 @@ from incident_classification import classify_event, classify_incident
 from incident_scoring import calculate_incident_score, get_incident_priority
 
 SEVERITY_RANK = {
+    "Critical": 4,
     "Unknown": 0,
     "Information": 1,
     "Success Audit": 1,
@@ -231,11 +232,13 @@ def event_similarity_score(previous_event, current_event):
     return max(score, 0)
 
 
-def bundle_incidents(events):
+def bundle_incidents(events, *, cancel_event=None):
     """Group related events chronologically, including interleaved sequences.
 
     Args:
         events: Parsed event dictionaries with mutually comparable timestamps.
+        cancel_event: Optional threading.Event-like token checked between
+            events; cancellation returns the groups built so far.
 
     Returns:
         list[list[dict]]: Groups in creation/start order, each chronological.
@@ -274,6 +277,8 @@ def bundle_incidents(events):
                 del indexes[key]
 
     for event in sorted_events:
+        if cancel_event is not None and cancel_event.is_set():
+            break
         event_keys = keys(event)
         candidates = set()
         for key in event_keys:
@@ -312,6 +317,8 @@ def build_incident(events):
         None for an empty group. The events field retains the original list.
 
     The most common event classification wins (first encountered on ties).
+    When detection rules matched, classification is chosen among the strongest
+    assessed events so informational follow-ups cannot hide a stronger finding.
     log_types preserves individual source names; log_type is a display label.
     Recurrence and optional AI fields are added later by the main workflow.
     """
@@ -321,7 +328,8 @@ def build_incident(events):
 
     highest_severity_event = max(
         events,
-        key=lambda event: SEVERITY_RANK.get(event["level"], 0),
+        key=lambda event: max(SEVERITY_RANK.get(event["level"], 0),
+                              SEVERITY_RANK.get(event.get("detection_severity"), 0)),
     )
 
     event_id_counts = Counter(event["event_id"] for event in events)
@@ -333,6 +341,15 @@ def build_incident(events):
     most_common_classification = event_classification_counts.most_common(1)
     if most_common_classification:
         most_common_classification = most_common_classification[0][0]
+    # A stream of informational follow-up actions must not conceal a stronger
+    # detection in the same incident (for example Defender detection + actions).
+    assessed_severity = max((highest_severity_event["level"], highest_severity_event.get("detection_severity", "Unknown")),
+                            key=lambda level: SEVERITY_RANK.get(level, 0))
+    if any(event.get("detection_rules") for event in events):
+        strongest = [event for event in events
+                     if max(SEVERITY_RANK.get(event["level"], 0), SEVERITY_RANK.get(event.get("detection_severity"), 0))
+                     == SEVERITY_RANK.get(assessed_severity, 0)]
+        most_common_classification = Counter(classify_event(event) for event in strongest).most_common(1)[0][0]
     
     # Build the incident summary dictionary
     first_event = events[0]
@@ -349,7 +366,7 @@ def build_incident(events):
         "time_generated_start": first_event["time_generated"],
         "time_generated_end": last_event["time_generated"],
         "levels": sorted({event["level"] for event in events}),
-        "highest_severity": highest_severity_event["level"],
+        "highest_severity": assessed_severity,
         "incident_classification": most_common_classification,
         "event_classification_counts": event_classification_counts,
         "event_count": len(events),

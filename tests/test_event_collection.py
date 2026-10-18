@@ -97,7 +97,7 @@ class EventCollectionTests(unittest.TestCase):
             fake_win32evtlogutil,
         )
 
-        events = event_collection.get_recent_events("Application", limit=5)
+        events = event_collection.get_classic_events("Application", limit=5)
 
         self.assertEqual(open_calls, [("", "Application")])
         self.assertEqual(close_calls, ["handle"])
@@ -142,7 +142,7 @@ class EventCollectionTests(unittest.TestCase):
             EventCollectionError,
             "Could not read the System log: access denied",
         ):
-            event_collection.get_recent_events("System", limit=5)
+            event_collection.get_classic_events("System", limit=5)
 
         self.assertEqual(close_calls, ["handle"])
 
