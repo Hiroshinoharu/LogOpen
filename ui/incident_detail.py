@@ -3,18 +3,32 @@
 from datetime import datetime, timedelta
 from math import isfinite
 
-from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
-from ui.timeline import TimelineWidget
-from ui.table_layout import RoomyTable
-
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QApplication, QFormLayout, QFrame, QGridLayout, QHBoxLayout,
-    QHeaderView, QLabel, QPlainTextEdit, QProgressBar, QPushButton,
-    QScrollArea, QSizePolicy, QSplitter, QTableWidget,
-    QTabWidget, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QApplication,
+    QFormLayout,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPlainTextEdit,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QTableWidget,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
+
+from ui.table_layout import RoomyTable
+from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
+from ui.timeline import TimelineWidget
 
 
 def _text(value, missing="Not available"):

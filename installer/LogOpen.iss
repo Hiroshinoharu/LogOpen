@@ -1,7 +1,7 @@
 ; Build with scripts/build.ps1 -Installer. No administrator rights are required.
 ; User scan history, preferences, and credentials deliberately survive uninstall.
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #error Supply AppVersion using scripts/build.ps1 or ISCC /DAppVersion=MAJOR.MINOR.PATCH
 #endif
 #ifndef SourceRoot
   #define SourceRoot ".."

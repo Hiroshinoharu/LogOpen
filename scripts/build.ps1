@@ -11,8 +11,7 @@ build/tools only; it does not install software system-wide.
 [CmdletBinding()]
 param(
     [string]$Python = "python",
-    [ValidatePattern('^\d+\.\d+\.\d+(\.\d+)?$')]
-    [string]$Version = "0.1.0",
+    [string]$Version,
     [switch]$UseExistingEnvironment,
     [switch]$SkipDependencyInstall,
     [switch]$SkipTests,
@@ -43,7 +42,7 @@ function Get-InnoCompiler {
     }
     if (Test-Path -LiteralPath $portableCompiler) { return $portableCompiler }
     $installedCompiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($installedCompiler) { return $installedCompiler.Source }
+    if ($installedCompiler -and -not $DownloadInno) { return $installedCompiler.Source }
     if (-not $DownloadInno) {
         throw "Inno Setup was not found. Supply -InnoCompiler path\ISCC.exe or add -DownloadInno."
     }
@@ -76,6 +75,14 @@ Push-Location -LiteralPath $projectRoot
 try {
     # Test the interpreter before downloading packages; all pins target this ABI.
     Invoke-Checked $Python @("-c", "import struct,sys; assert sys.platform == 'win32' and struct.calcsize('P') == 8 and sys.version_info[:2] == (3,14), 'Use CPython 3.14 x64 on Windows.'")
+    if (-not $Version) {
+        $Version = & $Python scripts/release.py current
+        if ($LASTEXITCODE -ne 0) { throw "Could not resolve the build version." }
+        $Version = $Version.Trim()
+    }
+    # One validated version feeds the executable properties, bundled VERSION,
+    # ZIP filename, and installer. Invalid versions fail before installing tools.
+    Invoke-Checked $Python @("scripts/release.py", "metadata", "--version", $Version)
     $buildPython = $Python
     if (-not $UseExistingEnvironment) {
         $buildPython = Join-Path $projectRoot ".build-venv\Scripts\python.exe"
@@ -90,7 +97,14 @@ try {
     if (-not $SkipTests) {
         Invoke-Checked $buildPython @("-m", "pytest", "-q")
     }
-    Invoke-Checked $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "LogOpen.spec")
+    $previousBuildVersion = $env:LOGOPEN_BUILD_VERSION
+    $env:LOGOPEN_BUILD_VERSION = $Version
+    try {
+        Invoke-Checked $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "LogOpen.spec")
+    } finally {
+        if ($null -eq $previousBuildVersion) { Remove-Item Env:LOGOPEN_BUILD_VERSION -ErrorAction SilentlyContinue }
+        else { $env:LOGOPEN_BUILD_VERSION = $previousBuildVersion }
+    }
 
     $executablePath = Join-Path $projectRoot "dist\LogOpen\LogOpen.exe"
     $smokeProcess = Start-Process -FilePath $executablePath -ArgumentList "--smoke-test" -WindowStyle Hidden -PassThru

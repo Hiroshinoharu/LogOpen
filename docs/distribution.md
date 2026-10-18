@@ -22,6 +22,9 @@ points remain available. The CLI scans immediately; desktop startup does not.
 
 ## Build the executable
 
+GitHub Actions also runs this build automatically. Successful default-branch
+pushes publish versioned releases; see [release automation](releases.md).
+
 Run from the repository root:
 
 ```powershell
@@ -42,7 +45,11 @@ To use an existing project environment:
 .\scripts\build.ps1 -Python .\LogOpen\Scripts\python.exe -UseExistingEnvironment
 ```
 
-`-Version 0.2.0` changes the archive and installer release version.
+By default, the build uses the highest reachable stable version tag, falling back
+to `VERSION` for an untagged source tree. `-Version 0.2.0` overrides the executable
+properties, bundled VERSION, archive, and installer version together. It does not
+publish or create tags. Build with `scripts/build.ps1`; the installer requires
+its version to be supplied by the script (or explicitly with `/DAppVersion`).
 `-SkipDependencyInstall` avoids package installation in an already prepared
 environment. `-SkipTests` skips the unit suite, but the packaged startup check
 still runs. Builds are version-pinned rather than byte-for-byte reproducible:

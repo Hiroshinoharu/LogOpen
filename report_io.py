@@ -1,13 +1,13 @@
 """Read saved scans and export selected incidents without running scans or commands."""
 
 import csv
-from datetime import datetime, timedelta
 import io
 import json
 import math
 import os
-from pathlib import Path
 import re
+from datetime import datetime, timedelta
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from errors import ReportExportError

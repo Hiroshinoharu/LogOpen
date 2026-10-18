@@ -68,6 +68,16 @@ Unscanned periods remain unknown. Monitoring is periodic and only runs while the
 For the executable, ZIP bundle, and installer, see
 [Windows distribution](docs/distribution.md).
 
+## Automatic versions and releases
+
+GitHub Actions tests and packages branch pushes and pull requests. Successful
+pushes to the default branch (`master`) automatically publish the next release:
+ordinary/fix commits bump the patch, `feat:` bumps the minor, and a breaking-change
+marker bumps the major. Multiple commits in one push produce one version.
+
+Download installers from [GitHub Releases](https://github.com/Hiroshinoharu/LogOpen/releases).
+See [CI/CD and version rules](docs/releases.md) for setup, examples, and recovery.
+
 ## Finding your way around the code
 
 The [code reference](docs/code_reference.md) maps the scan flow, data structures,
