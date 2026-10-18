@@ -1,3 +1,10 @@
+"""Deterministic incident scoring with explainable category contributions.
+
+Severity, event volume, duration, recurrence, and classification contribute
+points. The final total is capped at 100; the breakdown retains raw points.
+These heuristics prioritize investigation rather than proving a root cause.
+"""
+
 from datetime import timedelta
 
 MAX_INCIDENT_SCORE = 100
@@ -18,13 +25,10 @@ CLASSIFICATION_WEIGHTS = {
 }
 
 def get_incident_priority(score):
-    """Determine the priority level of an incident based on its score.
+    """Map a nonnegative score to Low, Medium, High, or Critical.
 
-    Args:
-        score (int): The calculated score of the incident.
-
-    Returns:
-        str: A string representing the priority level ("High", "Medium", or "Low").
+    Thresholds are 0, 40, 60, and 80 respectively. The scorer supplies values
+    capped at 100; this helper does not validate or clamp its input.
     """
     return next(
         priority
@@ -34,7 +38,10 @@ def get_incident_priority(score):
 
 
 def _add_score(breakdown, reasons, category, points, reason):
-    """Record one scoring contribution and its explanation."""
+    """Add nonzero points to an existing breakdown category and append its reason.
+
+    Mutates both containers; zero-point contributions leave them unchanged.
+    """
 
     if points:
         breakdown[category] += points
@@ -42,7 +49,11 @@ def _add_score(breakdown, reasons, category, points, reason):
 
 
 def _get_duration_score(duration):
-    """Return the score contribution and reason for an incident duration."""
+    """Return (points, reason) for a timedelta, with None when no points apply.
+
+    Under one minute scores zero; one through five minutes scores five; over
+    five through fifteen scores ten; over fifteen scores fifteen.
+    """
 
     if duration < timedelta(minutes=1):
         return 0, None
@@ -54,7 +65,21 @@ def _get_duration_score(duration):
 
 
 def calculate_incident_score(incident):
-    """Calculate a capped score, reasons, and category breakdown for an incident."""
+    """Return a capped score, explanation list, and uncapped category breakdown.
+
+    Args:
+        incident: Summary containing highest_severity, event_count,
+            incident_duration (timedelta), and incident_classification.
+            Optional recurrence_count_24h/recurrence_count_7d default to one.
+
+    Returns:
+        tuple[int, list[str], dict[str, int]]: Total up to 100, reasons for
+        nonzero contributions, and points for severity, event_count,
+        classification_impact, recurrence, and duration.
+
+    Both recurrence bonuses can apply. Breakdown values can sum above 100
+    because only the final score is capped. The incident is not modified.
+    """
 
     reasons = []
     breakdown = {

@@ -4,7 +4,11 @@ from config import PROVIDER_CLASSIFICATIONS
 
 
 def classify_provider(provider):
-    """Return a readable label for a provider name."""
+    """Return a configured display label, or clean a raw provider name.
+
+    The fallback removes a known Microsoft/Windows prefix and replaces hyphens
+    with spaces. This friendly label is not a registered Windows identifier.
+    """
 
     if provider in PROVIDER_CLASSIFICATIONS:
         return PROVIDER_CLASSIFICATIONS[provider]
@@ -20,7 +24,12 @@ def classify_provider(provider):
 
 # cspell:ignore dcom
 def classify_dcom_event(event_id, message):
-    """Classify a DCOM event."""
+    """Choose a DCOM label from event_id and an already lowercased message.
+
+    Handles service-start failures, registration timeouts, and permission
+    warnings, with message-based labels for recognized applications. Unmatched
+    cases return DCOM Issue; this helper performs no OS or network lookup.
+    """
 
     if event_id == 10005 and "gamingservices" in message:
         return "Gaming Services DCOM Startup Failure"
@@ -41,7 +50,11 @@ def classify_dcom_event(event_id, message):
 
 
 def classify_service_event(message):
-    """Classify a Service Control Manager event."""
+    """Label a service termination using an already lowercased message.
+
+    Recognized Defender names produce Defender Service Crash; otherwise the
+    label is Service Terminated Unexpectedly. The caller checks the event ID.
+    """
 
     if "microsoft defender antivirus service" in message:
         return "Defender Service Crash"
@@ -49,7 +62,12 @@ def classify_service_event(message):
 
 
 def classify_event(event):
-    """Return an incident-style classification for a single event."""
+    """Classify an event using provider, event_id, and message evidence.
+
+    Expects those three keys and string provider/message values. Known rules
+    cover DNS, WLAN, TCP/IP, DCOM, service termination, and delayed shutdown;
+    unmatched events use classify_provider. Returns a label without mutation.
+    """
 
     provider = event["provider"]
     event_id = event["event_id"]
@@ -73,11 +91,10 @@ def classify_event(event):
 
 
 def classify_incident(incident):
-    """
-    Classify every provider in an incident to something more readable.
+    """Return a raw-provider-to-display-label dictionary for incident['providers'].
 
-    Args:
-        incident (dict): An incident summary dictionary.
+    This labels the contributing providers. build_incident chooses the overall
+    incident classification separately from per-event classification counts.
     """
 
     return {

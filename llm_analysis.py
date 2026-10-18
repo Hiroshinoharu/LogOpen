@@ -1,6 +1,15 @@
+"""Select incidents for optional AI analysis and validate structured responses.
+
+Formatting/selection helpers are local operations. The analyse functions
+load preferences and may send incident context to OpenAI. Raw SDK exception
+text is kept out of returned status messages and reports. Suggested commands
+are checked for allowed shell metadata, never executed.
+"""
+
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from typing import Any, get_args
 
 import config
@@ -12,8 +21,24 @@ from settings.ai_service import MissingCredentialsError, create_openai_client
 from settings.credential_store import CredentialStoreError
 
 
+@dataclass(frozen=True)
+class AIAnalysisResult:
+    """Immutable outcome carrying status, a display-safe message, and optional analysis.
+
+    The service emits completed, disabled, or failed. Only completed carries an
+    IncidentAnalysis. The workflow adds not_selected for incidents it skips.
+    """
+
+    status: str
+    message: str
+    analysis: IncidentAnalysis | None = None
+
+
 def _format_mapping(values):
-    """Format incident metadata collections into stable, readable text."""
+    """Render metadata as key/value pairs, a string, or semicolon-separated items.
+
+    Falsy values display as None. Dictionary/iterable order is preserved.
+    """
 
     if not values:
         return "None"
@@ -25,7 +50,12 @@ def _format_mapping(values):
 
 
 def _clean_message(message):
-    """Normalize and bound event messages before including them in LLM context."""
+    """Strip empty lines and bound a source message using MAX_MESSAGE_LENGTH.
+
+    None/blank values use a fallback; other values are converted to text.
+    Truncated messages include a suffix beyond the configured character limit.
+    This normalizes presentation, without redacting message contents.
+    """
 
     if message is None:
         return "No message available."
@@ -40,7 +70,12 @@ def _clean_message(message):
 
 
 def _format_events(events):
-    """Render representative source events as labelled, LLM-friendly text."""
+    """Render the first MAX_CONTEXT_EVENTS source entries for the prompt.
+
+    Includes timestamps, source identifiers, classifications, and bounded
+    messages. Malformed entries get a placeholder and omitted entries are
+    counted. The supplied sequence and its event dictionaries remain unchanged.
+    """
 
     if not events:
         return "No source events available."
@@ -59,6 +94,7 @@ def _format_events(events):
                 (
                     f"Event {index}:",
                     f"  Time: {event.get('time_generated')}",
+                    f"  Log Type: {event.get('log_type', 'Unknown')}",
                     f"  Level: {event.get('level')}",
                     f"  Provider: {event.get('provider')}",
                     f"  Event ID: {event.get('event_id')}",
@@ -77,14 +113,21 @@ def _format_events(events):
 
 
 def build_incident_context(incident):
-    """
-    Build a context string for the incident to be used as input for the LLM.
+    """Build prompt text from an incident's evidence, scores, and recurrence fields.
 
     Args:
-        incident (dict): The incident data to build context from.
+        incident: Summary dictionary, normally produced by build_incident and
+            enriched with recurrence. Missing optional fields use fallbacks.
 
     Returns:
-        str: A formatted string containing the incident context.
+        str: Overview, assessment, recurrence, aggregates, and source events.
+
+    Raises:
+        TypeError: incident is not a dictionary.
+
+    Source event count/message lengths are bounded by config. Computer names
+    and source messages are included without redaction. This helper formats
+    data only; sending it happens in analyse_incident_with_llm_result.
     """
     if not isinstance(incident, dict):
         raise TypeError("incident must be a dictionary")
@@ -98,7 +141,7 @@ def build_incident_context(incident):
         (
             "INCIDENT OVERVIEW",
             f"Summary: {incident.get('summary_text', 'Not available')}",
-            f"Log Type: {incident.get('log_type')}",
+            f"Log Types: {_format_mapping(incident.get('log_types') or incident.get('log_type'))}",
             f"Computer Name: {incident.get('computer_name')}",
             f"Time Window: {incident.get('time_generated_start')} to {incident.get('time_generated_end')}",
             f"Duration: {incident.get('incident_duration')}",
@@ -133,7 +176,11 @@ def build_incident_context(incident):
 
 
 def _coerce_incident_analysis(parsed_output: Any) -> IncidentAnalysis | None:
-    """Validate structured model output before returning it to callers."""
+    """Return an existing IncidentAnalysis or validate a dictionary into one.
+
+    Unsupported/missing output returns None. Invalid dictionaries raise
+    pydantic.ValidationError for the caller to turn into a failed outcome.
+    """
 
     if isinstance(parsed_output, IncidentAnalysis):
         return parsed_output
@@ -143,7 +190,10 @@ def _coerce_incident_analysis(parsed_output: Any) -> IncidentAnalysis | None:
 
 
 def _log_llm_failure(message):
-    """Report an optional LLM analysis failure without disrupting processing."""
+    """Write a pre-sanitized failure message to stderr, ignoring output errors.
+
+    Callers must supply fixed safe text; this helper does not redact messages.
+    """
 
     try:
         print(f"Warning: LLM analysis skipped: {message}", file=sys.stderr)
@@ -152,14 +202,17 @@ def _log_llm_failure(message):
 
 
 def should_analyse_incident_with_llm(incident, *, settings=None):
-    """
-    Determine whether an incident should be analysed with a large language model (LLM).
+    """Decide eligibility without making an API request or modifying the incident.
 
     Args:
-        incident (dict): The incident data to evaluate.
+        incident: Summary dictionary to consider; non-dictionaries are rejected.
+        settings: Optional AISettings snapshot; otherwise load saved preferences.
 
     Returns:
-        bool: True if the incident should be analysed, False otherwise.
+        bool: True for enabled, unanalyzed incidents that are High/Critical,
+        recurring, or at least LLM_ANALYSIS_MIN_EVENTS in size.
+
+    Eligibility does not check credentials/model access or apply the scan limit.
     """
     settings = settings if settings is not None else AppSettings().load()
     if not isinstance(incident, dict) or not settings.enabled:
@@ -177,11 +230,12 @@ def should_analyse_incident_with_llm(incident, *, settings=None):
     return incident.get("event_count", 0) >= config.LLM_ANALYSIS_MIN_EVENTS
 
 def select_incidents_for_llm(incidents, *, settings=None):
-    """
-    Select incidents that meet the criteria for LLM analysis.
+    """Return eligible incidents sorted by descending score, up to the saved limit.
 
-    Args:
-        incidents (list): A list of incident dictionaries.
+    incidents supplies summary dictionaries; settings may supply an AISettings
+    snapshot to avoid reloading preferences. Equal scores preserve input order.
+    The returned list shares dictionaries with the input, which is not reordered
+    or modified. No credentials are resolved and no network request is made.
     """
     settings = settings if settings is not None else AppSettings().load()
     # Filter incidents based on the criteria defined in should_analyse_incident_with_llm
@@ -196,7 +250,12 @@ def select_incidents_for_llm(incidents, *, settings=None):
 
 
 def build_analysis_instructions():
-    """Include the current shell preferences without guessing installed shells."""
+    """Append configured diagnostic shell rules to the base analysis instructions.
+
+    Returns prompt text. Raises ValueError if the allowed list is empty/invalid,
+    contains unsupported shells, or excludes the preferred shell. Configuration
+    declares acceptable suggestions; it does not discover installed shells.
+    """
     allowed = config.ALLOWED_DIAGNOSTIC_SHELLS
     preferred = config.PREFERRED_DIAGNOSTIC_SHELL
     if not isinstance(allowed, (list, tuple)) or not allowed:
@@ -219,28 +278,40 @@ def build_analysis_instructions():
     )
 
 
-def analyse_incident_with_llm(incident, *, settings=None):
-    """
-    Analyse an incident using a large language model (LLM) to provide insights and recommendations.
+def _analysis_failure(message):
+    """Log a fixed safe message and return a failed AIAnalysisResult with no analysis."""
+    _log_llm_failure(message)
+    return AIAnalysisResult("failed", message)
+
+
+def analyse_incident_with_llm_result(incident, *, settings=None):
+    """Request and validate one structured AI analysis, returning an explicit outcome.
 
     Args:
-        incident (dict): The incident data to be analysed.
+        incident: Incident summary used to build the request context.
+        settings: Optional AISettings snapshot; otherwise load saved preferences.
 
     Returns:
-        IncidentAnalysis | None: The validated structured analysis, if available.
+        AIAnalysisResult: completed with validated analysis, disabled when AI is
+        off, or failed with a safe explanation for credential, request, parsing,
+        or configured-shell failures.
+
+    When enabled, resolves credentials, opens/closes an OpenAI client, and may
+    make a billable request containing incident details. This direct-call API
+    does not apply selection criteria or the per-scan limit; its caller does.
+    Failure messages may be printed to stderr. The incident is never mutated,
+    and returned commands are never executed.
     """
     settings = settings if settings is not None else AppSettings().load()
     if not settings.enabled:
-        return None
+        return AIAnalysisResult("disabled", "AI analysis is disabled in Settings.")
     if not isinstance(incident, dict):
-        _log_llm_failure("incident data is invalid.")
-        return None
+        return _analysis_failure("Incident data is invalid.")
     analysis_model = IncidentAnalysis
     try:
         instructions = build_analysis_instructions()
     except ValueError:
-        _log_llm_failure("invalid diagnostic shell configuration.")
-        return None
+        return _analysis_failure("Invalid diagnostic shell configuration.")
 
     try:
         from openai import (
@@ -252,8 +323,7 @@ def analyse_incident_with_llm(incident, *, settings=None):
             RateLimitError,
         )
     except ImportError:
-        _log_llm_failure("the OpenAI SDK is not installed.")
-        return None
+        return _analysis_failure("The OpenAI SDK is not installed.")
 
     try:
         context = build_incident_context(incident)
@@ -265,47 +335,45 @@ def analyse_incident_with_llm(incident, *, settings=None):
                 text_format=analysis_model,
             )
     except MissingCredentialsError:
-        _log_llm_failure("OpenAI API credentials are not configured. Open Settings to add a key.")
-        return None
+        return _analysis_failure("OpenAI API credentials are not configured. Open Settings to add a key.")
     except CredentialStoreError:
-        _log_llm_failure("secure credential storage is unavailable. Open Settings to check credentials.")
-        return None
+        return _analysis_failure("Secure credential storage is unavailable. Open Settings to check credentials.")
     except AuthenticationError:
-        _log_llm_failure("OpenAI authentication failed.")
-        return None
+        return _analysis_failure("OpenAI authentication failed. Check or replace your API key in Settings.")
     except (APIConnectionError, APITimeoutError):
-        _log_llm_failure("the OpenAI request could not be completed.")
-        return None
+        return _analysis_failure("The OpenAI request could not be completed. Check your network and try again.")
     except RateLimitError:
-        _log_llm_failure("the OpenAI rate limit was reached.")
-        return None
+        return _analysis_failure("The OpenAI rate limit was reached. Check your API limits and try again later.")
     except APIStatusError:
-        _log_llm_failure("the OpenAI API returned an error response.")
-        return None
+        return _analysis_failure("The OpenAI API returned an error response. Check your model and account access.")
     except OpenAIError:
-        _log_llm_failure("the OpenAI SDK could not complete the request.")
-        return None
+        return _analysis_failure("The OpenAI SDK could not complete the request.")
     except (AttributeError, TypeError):
-        _log_llm_failure("incident data could not be formatted for analysis.")
-        return None
+        return _analysis_failure("Incident data could not be formatted for analysis.")
     except Exception:
-        _log_llm_failure("the AI request could not be completed. Check AI Settings.")
-        return None
+        return _analysis_failure("The AI request could not be completed. Check AI Settings.")
 
     try:
         analysis = _coerce_incident_analysis(
             getattr(response, "output_parsed", None)
         )
     except ValidationError:
-        _log_llm_failure("the structured LLM output did not match the analysis schema.")
-        return None
+        return _analysis_failure("The structured LLM output did not match the analysis schema.")
 
     if analysis is None:
-        _log_llm_failure("the LLM response did not contain valid structured output.")
+        return _analysis_failure("The LLM response did not contain valid structured output.")
     elif any(
         step.command and step.command.strip() and step.shell not in config.ALLOWED_DIAGNOSTIC_SHELLS
         for step in analysis.diagnostic_steps
     ):
-        _log_llm_failure("a diagnostic command has a missing or disallowed shell.")
-        return None
-    return analysis
+        return _analysis_failure("A diagnostic command has a missing or disallowed shell.")
+    return AIAnalysisResult("completed", "AI analysis completed.", analysis)
+
+
+def analyse_incident_with_llm(incident, *, settings=None):
+    """Return only the IncidentAnalysis, or None for a disabled/failed request.
+
+    Compatibility wrapper around analyse_incident_with_llm_result with the
+    same arguments and possible network/logging effects, but without status.
+    """
+    return analyse_incident_with_llm_result(incident, settings=settings).analysis

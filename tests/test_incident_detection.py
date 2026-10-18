@@ -12,7 +12,9 @@ from tests.helpers import make_event
 
 
 class IncidentDetectionTests(unittest.TestCase):
+    """Behavioral checks for incident detection, using controlled test data."""
     def test_event_similarity_score_counts_provider_id_and_time(self):
+        """Check event similarity score counts provider id and time."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         previous_event = make_event(
             provider="DCOM",
@@ -28,6 +30,7 @@ class IncidentDetectionTests(unittest.TestCase):
         self.assertEqual(event_similarity_score(previous_event, current_event), 5)
 
     def test_event_similarity_score_for_unrelated_close_events(self):
+        """Check event similarity score for unrelated close events."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         previous_event = make_event(
             provider="DCOM",
@@ -45,6 +48,7 @@ class IncidentDetectionTests(unittest.TestCase):
         self.assertEqual(event_similarity_score(previous_event, current_event), 1)
 
     def test_event_similarity_score_correlates_cross_log_defender_events(self):
+        """Check event similarity score correlates cross log defender events."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         previous_event = make_event(
             log_type="Application",
@@ -71,6 +75,7 @@ class IncidentDetectionTests(unittest.TestCase):
         )
 
     def test_bundle_incidents_keeps_different_components_separate(self):
+        """Check bundle incidents keeps different components separate."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         first_event = make_event(
             log_type="Application",
@@ -94,6 +99,7 @@ class IncidentDetectionTests(unittest.TestCase):
         )
 
     def test_bundle_incidents_groups_similar_events_only(self):
+        """Check bundle incidents groups similar events only."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         events = [
             make_event(
@@ -121,6 +127,7 @@ class IncidentDetectionTests(unittest.TestCase):
         self.assertEqual(incidents[1], [events[2]])
 
     def test_build_incident_creates_summary_fields(self):
+        """Check build incident creates summary fields."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         events = [
             make_event(
@@ -179,6 +186,7 @@ class IncidentDetectionTests(unittest.TestCase):
         )
 
     def test_build_incident_summary_text_formats_multiple_score_reasons(self):
+        """Check build incident summary text formats multiple score reasons."""
         base_time = datetime(2026, 8, 19, 12, 0, 0)
         events = [
             make_event(

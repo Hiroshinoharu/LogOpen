@@ -16,6 +16,7 @@ import config
 
 
 def make_incident():
+    """Return minimal synthetic incident context for testing structured analysis boundaries."""
     return {
         "incident_type": "Repeated failed logins",
         "source": "Security",
@@ -24,6 +25,7 @@ def make_incident():
 
 
 def make_analysis_data(**overrides):
+    """Return a valid synthetic analysis dictionary with caller-supplied field overrides."""
     data = {
         "explanation": "Several failed sign-in attempts were detected.",
         "likely_causes": ["Incorrect credentials", "Brute-force attempt"],
@@ -46,21 +48,27 @@ def import_llm_analysis(mock_client):
     """Load llm_analysis against a mock OpenAI SDK without network access."""
 
     class OpenAIError(Exception):
+        """Stand-in for the SDK OpenAIError exception in isolated response tests."""
         pass
 
     class APIConnectionError(OpenAIError):
+        """Stand-in for the SDK APIConnectionError exception in isolated response tests."""
         pass
 
     class APITimeoutError(OpenAIError):
+        """Stand-in for the SDK APITimeoutError exception in isolated response tests."""
         pass
 
     class APIStatusError(OpenAIError):
+        """Stand-in for the SDK APIStatusError exception in isolated response tests."""
         pass
 
     class AuthenticationError(APIStatusError):
+        """Stand-in for the SDK AuthenticationError exception in isolated response tests."""
         pass
 
     class RateLimitError(APIStatusError):
+        """Stand-in for the SDK RateLimitError exception in isolated response tests."""
         pass
 
     mock_client.__enter__ = Mock(return_value=mock_client)
@@ -82,7 +90,9 @@ def import_llm_analysis(mock_client):
 
 
 class DiagnosticStepTests(unittest.TestCase):
+    """Behavioral checks for diagnostic step, using controlled test data."""
     def test_accepts_each_risk_level_without_a_command(self):
+        """Check accepts each risk level without a command."""
         for risk_level in ("safe", "caution", "system_change"):
             with self.subTest(risk_level=risk_level):
                 step = DiagnosticStep(description="Review the proposed step.", risk_level=risk_level)
@@ -90,11 +100,13 @@ class DiagnosticStepTests(unittest.TestCase):
                 self.assertIsNone(step.command)
 
     def test_accepts_an_explicit_null_command(self):
+        """Check accepts an explicit null command."""
         step = DiagnosticStep(description="Review related events.", command=None, risk_level="safe")
         self.assertIsNone(step.command)
         self.assertIsNone(step.shell)
 
     def test_accepts_supported_command_shells(self):
+        """Check accepts supported command shells."""
         for shell, command in (("powershell", "Get-Service"), ("cmd", "ver"), ("bash", "pwd")):
             with self.subTest(shell=shell):
                 step = DiagnosticStep(description="Inspect the environment.", command=command,
@@ -102,10 +114,12 @@ class DiagnosticStepTests(unittest.TestCase):
                 self.assertEqual(step.model_dump()["shell"], shell)
 
     def test_legacy_command_without_shell_still_loads(self):
+        """Check legacy command without shell still loads."""
         step = DiagnosticStep(description="Inspect the service.", command="Get-Service", risk_level="safe")
         self.assertIsNone(step.shell)
 
     def test_rejects_unknown_command_shells(self):
+        """Check rejects unknown command shells."""
         for shell in ("terminal", "unknown", 123):
             with self.subTest(shell=shell), self.assertRaises(ValidationError) as error:
                 DiagnosticStep(description="Inspect the service.", command="Get-Service",
@@ -113,12 +127,14 @@ class DiagnosticStepTests(unittest.TestCase):
             self.assertEqual(error.exception.errors()[0]["loc"], ("shell",))
 
     def test_shell_must_be_null_without_a_command(self):
+        """Check shell must be null without a command."""
         for command in (None, "", "  "):
             with self.subTest(command=command), self.assertRaisesRegex(ValidationError, "shell must be null"):
                 DiagnosticStep(description="Review related events.", command=command,
                                shell="powershell", risk_level="safe")
 
     def test_requires_description_and_risk_level(self):
+        """Check requires description and risk level."""
         for field in ("description", "risk_level"):
             data = {"description": "Inspect the affected service.", "risk_level": "safe"}
             del data[field]
@@ -128,20 +144,26 @@ class DiagnosticStepTests(unittest.TestCase):
             self.assertEqual(error.exception.errors()[0]["type"], "missing")
 
     def test_rejects_unknown_risk_levels(self):
+        """Check rejects unknown risk levels."""
         for risk_level in ("unsafe", "Safe", "", None, 1):
             with self.subTest(risk_level=risk_level), self.assertRaises(ValidationError) as error:
                 DiagnosticStep(description="Inspect the affected service.", risk_level=risk_level)
             self.assertEqual(error.exception.errors()[0]["loc"], ("risk_level",))
 
     def test_rejects_a_non_string_command(self):
+        """Check rejects a non string command."""
         with self.assertRaises(ValidationError) as error:
             DiagnosticStep(description="Inspect the affected service.", command=123, risk_level="safe")
         self.assertEqual(error.exception.errors()[0]["loc"], ("command",))
 
 
 class IncidentAnalysisTests(unittest.TestCase):
+    """Behavioral checks for incident analysis, using controlled test data."""
     def setUp(self):
         # unittest runs must also avoid the real user's settings and key store.
+        """Patch preferences and stored-key lookup to isolate unittest runs from real user
+        settings.
+        """
         for mocked in (
             patch("settings.app_settings.AppSettings.load", return_value=AISettings(
                 True, config.DEFAULT_ANALYSIS_MODEL, 3,
@@ -152,6 +174,7 @@ class IncidentAnalysisTests(unittest.TestCase):
             self.addCleanup(mocked.stop)
 
     def test_incident_analysis_accepts_complete_analysis(self):
+        """Check incident analysis accepts complete analysis."""
         data = make_analysis_data()
         analysis = IncidentAnalysis(**data)
         self.assertEqual(
@@ -172,6 +195,7 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertEqual(analysis.model_dump(mode="json"), data)
 
     def test_incident_analysis_requires_all_analysis_fields(self):
+        """Check incident analysis requires all analysis fields."""
         for field in make_analysis_data():
             data = make_analysis_data()
             del data[field]
@@ -181,10 +205,12 @@ class IncidentAnalysisTests(unittest.TestCase):
             self.assertEqual(error.exception.errors()[0]["type"], "missing")
 
     def test_incident_analysis_accepts_an_empty_diagnostic_steps_list(self):
+        """Check incident analysis accepts an empty diagnostic steps list."""
         analysis = IncidentAnalysis(**make_analysis_data(diagnostic_steps=[]))
         self.assertEqual(analysis.diagnostic_steps, [])
 
     def test_incident_analysis_validates_nested_diagnostic_steps(self):
+        """Check incident analysis validates nested diagnostic steps."""
         data = make_analysis_data()
         data["diagnostic_steps"][0]["risk_level"] = "unknown"
         with self.assertRaises(ValidationError) as error:
@@ -192,12 +218,14 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertEqual(error.exception.errors()[0]["loc"], ("diagnostic_steps", 0, "risk_level"))
 
     def test_incident_analysis_rejects_invalid_diagnostic_step_containers(self):
+        """Check incident analysis rejects invalid diagnostic step containers."""
         for steps in (None, "Inspect the service", {"description": "Inspect the service"}, ["Get-Service"]):
             with self.subTest(steps=steps), self.assertRaises(ValidationError) as error:
                 IncidentAnalysis(**make_analysis_data(diagnostic_steps=steps))
             self.assertEqual(error.exception.errors()[0]["loc"][0], "diagnostic_steps")
 
     def test_llm_analysis_returns_none_when_credentials_are_missing(self):
+        """Check llm analysis returns none when credentials are missing."""
         mock_client = Mock()
         llm_analysis, mock_openai = import_llm_analysis(mock_client)
 
@@ -211,6 +239,7 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertIn("credentials are not configured", stderr.getvalue())
 
     def test_llm_analysis_returns_none_when_openai_request_fails(self):
+        """Check llm analysis returns none when openai request fails."""
         mock_client = Mock()
         llm_analysis, mock_openai = import_llm_analysis(mock_client)
         mock_client.responses.parse.side_effect = mock_openai.APIConnectionError()
@@ -226,6 +255,7 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertNotIn("test-key", stderr.getvalue())
 
     def test_llm_analysis_returns_none_when_structured_output_is_missing(self):
+        """Check llm analysis returns none when structured output is missing."""
         mock_client = Mock()
         llm_analysis, mock_openai = import_llm_analysis(mock_client)
         mock_client.responses.parse.return_value = Mock(output_parsed=None)
@@ -239,6 +269,7 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertIn("valid structured output", stderr.getvalue())
 
     def test_llm_analysis_returns_none_when_structured_output_is_invalid(self):
+        """Check llm analysis returns none when structured output is invalid."""
         mock_client = Mock()
         llm_analysis, mock_openai = import_llm_analysis(mock_client)
         mock_client.responses.parse.return_value = Mock(
@@ -254,6 +285,7 @@ class IncidentAnalysisTests(unittest.TestCase):
         self.assertIn("did not match the analysis schema", stderr.getvalue())
 
     def test_llm_analysis_returns_valid_structured_output(self):
+        """Check llm analysis returns valid structured output."""
         mock_client = Mock()
         llm_analysis, mock_openai = import_llm_analysis(mock_client)
         expected = IncidentAnalysis(

@@ -1,6 +1,12 @@
-"""Windows Event Log collection helpers."""
+"""Read local Windows Event Logs and retain evidence of scan coverage.
+
+pywin32 records become plain event dictionaries for downstream analysis.
+Collection keeps partial results when possible and always attempts to close
+the native handle. Importing this module does not read any event logs.
+"""
 
 import logging
+from datetime import datetime, timedelta
 
 from errors import EventCollectionError, describe_error
 
@@ -18,8 +24,55 @@ else:
 LOGGER = logging.getLogger(__name__)
 
 
+class CollectedEvents(list):
+    """List of parsed event dictionaries with per-log collection metadata.
+
+    Attributes:
+        complete: False if a cap, invalid record, or read error reduced coverage.
+        records_read: Number of raw records examined, including filtered records.
+        oldest_time: Timestamp of the last inspected record, or None initially.
+        stop_reason: end_of_log, time_boundary, record_limit, or read_error.
+        warnings: Deduplicated messages explaining incomplete coverage.
+
+    An empty list can still represent an incomplete scan; inspect the metadata.
+    """
+
+    def __init__(self):
+        """Initialize an empty result with complete coverage and no warnings."""
+        super().__init__()
+        self.complete = True
+        self.records_read = 0
+        self.oldest_time = None
+        self.stop_reason = "end_of_log"
+        self.warnings = []
+
+    def coverage(self):
+        """Return a new coverage dictionary, including the current matched-event count.
+
+        The timestamp remains a datetime; JSON conversion happens during export.
+        Warnings are available separately on this result's warnings attribute.
+        """
+        return {
+            "complete": self.complete,
+            "records_read": self.records_read,
+            "matched_events": len(self),
+            "oldest_time": self.oldest_time,
+            "stop_reason": self.stop_reason,
+        }
+
+    def warn(self, message):
+        """Mark coverage incomplete and append/log the message only if it is new."""
+        self.complete = False
+        if message not in self.warnings:
+            self.warnings.append(message)
+            LOGGER.warning(message)
+
+
 def _require_event_log_dependencies():
-    """Raise a helpful error when pywin32 is unavailable."""
+    """Raise EventCollectionError when the pywin32 event-log imports failed.
+
+    Delayed validation lets other modules import on unsupported environments.
+    """
 
     if _WIN32_IMPORT_ERROR is not None:
         raise EventCollectionError(
@@ -29,7 +82,11 @@ def _require_event_log_dependencies():
 
 
 def log_event_level(event):
-    """Return a human-readable severity label for a Windows event log record."""
+    """Map a raw record's EventType to a readable severity, or Unknown.
+
+    Requires pywin32; missing dependencies raise EventCollectionError. The
+    returned labels are also used by filtering and incident severity scoring.
+    """
 
     _require_event_log_dependencies()
 
@@ -47,7 +104,24 @@ def log_event_level(event):
 
 
 def parse_event(log_type, event):
-    """Convert a raw event log record into a dictionary of useful fields."""
+    """Convert one raw Windows record into LogOpen's event dictionary.
+
+    Args:
+        log_type: Source log name, such as System or Application.
+        event: pywin32 record with ComputerName, SourceName, EventID,
+            TimeGenerated, and EventType attributes.
+
+    Returns:
+        dict: log_type, computer_name, provider, event_id, time_generated,
+        level, and message. The timestamp is retained as a datetime and the
+        event ID is masked with 0x1FFFFFFF.
+
+    Raises:
+        EventCollectionError: Dependencies or required record fields are invalid.
+
+    Missing message resources produce a logged warning and fallback message;
+    they do not discard otherwise usable structured event data.
+    """
 
     _require_event_log_dependencies()
     try:
@@ -83,16 +157,45 @@ def parse_event(log_type, event):
     return parsed_event
 
 
-def get_recent_events(log_type, limit):
-    """Read up to ``limit`` recent events from the requested Windows log."""
+def get_recent_events(log_type, limit, *, hours=None, levels=None):
+    """Read a local log backward until its time boundary, EOF, or record cap.
+
+    Args:
+        log_type: Nonempty Windows log name.
+        limit: Nonnegative maximum number of raw records examined, including
+            records rejected by severity filtering. Zero reads nothing.
+        hours: Positive lookback window, or None to omit time filtering.
+            Records at or before the cutoff are excluded.
+        levels: Accepted severity labels, or None to retain every severity.
+
+    Returns:
+        CollectedEvents: Matching events in read order, newest first, with
+        coverage and warnings even if no events matched. A cap, skipped invalid
+        record, or read failure after examining records marks it incomplete.
+
+    Raises:
+        ValueError: A log name, limit, or hours argument is invalid.
+        EventCollectionError: Dependencies, opening the log, or the initial
+            read fail before partial results can be returned.
+
+    The cutoff uses the first record's timezone. Filtering precedes message
+    formatting. The native handle is closed in finally; close errors are logged
+    without replacing the collected result or an earlier error.
+    """
 
     _require_event_log_dependencies()
     if not isinstance(log_type, str) or not log_type.strip():
         raise ValueError("log_type must be a non-empty string")
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
         raise ValueError("limit must be a non-negative integer")
+    if hours is not None and (isinstance(hours, bool) or not isinstance(hours, (int, float)) or hours <= 0):
+        raise ValueError("hours must be a positive number")
+    window = timedelta(hours=hours) if hours is not None else None
+    parsed_events = CollectedEvents()
     if limit == 0:
-        return []
+        parsed_events.stop_reason = "record_limit"
+        parsed_events.warn(f"{log_type}: no records read because the record limit is zero.")
+        return parsed_events
 
     hand = None
     try:
@@ -102,18 +205,17 @@ def get_recent_events(log_type, limit):
             | win32evtlog.EVENTLOG_BACKWARDS_READ
         )
 
-        parsed_events = []
-        count = 0
-        while count < limit:
+        time_threshold = None
+        stopped = False
+        while not stopped:
             try:
                 events = win32evtlog.ReadEventLog(hand, flags, 0)
             except Exception as exc:
-                if parsed_events:
-                    LOGGER.warning(
-                        "Stopped reading the %s log after %s events: %s",
-                        log_type,
-                        len(parsed_events),
-                        describe_error(exc),
+                if parsed_events.records_read:
+                    parsed_events.stop_reason = "read_error"
+                    parsed_events.warn(
+                        f"{log_type}: scan incomplete; reading stopped after "
+                        f"{parsed_events.records_read} records: {describe_error(exc)}"
                     )
                     break
                 raise
@@ -121,12 +223,29 @@ def get_recent_events(log_type, limit):
                 break
 
             for event in events:
+                parsed_events.records_read += 1
                 try:
-                    parsed_events.append(parse_event(log_type, event))
-                except EventCollectionError as exc:
-                    LOGGER.warning("Skipping invalid event: %s", exc)
-                count += 1
-                if count >= limit:
+                    generated = event.TimeGenerated
+                    parsed_events.oldest_time = generated
+                    if window is not None:
+                        if time_threshold is None:
+                            time_threshold = datetime.now(tz=generated.tzinfo) - window
+                        if generated <= time_threshold:
+                            parsed_events.stop_reason = "time_boundary"
+                            stopped = True
+                            break
+                    # Avoid formatting messages for events we will discard.
+                    if levels is None or log_event_level(event) in levels:
+                        parsed_events.append(parse_event(log_type, event))
+                except (EventCollectionError, AttributeError, TypeError, ValueError):
+                    parsed_events.warn(f"{log_type}: scan incomplete; an invalid event was skipped.")
+                if parsed_events.records_read >= limit:
+                    parsed_events.stop_reason = "record_limit"
+                    parsed_events.warn(
+                        f"{log_type}: scan incomplete; the {limit:,}-record limit "
+                        "was reached before the time boundary or end of the log."
+                    )
+                    stopped = True
                     break
     except EventCollectionError:
         raise

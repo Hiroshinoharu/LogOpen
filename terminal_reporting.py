@@ -6,7 +6,10 @@ from incident_detection import build_incident
 
 
 def clean_message(message):
-    """Remove empty lines from an event message before printing."""
+    """Strip blank lines from message text, preserving remaining line breaks.
+
+    Returns a fallback when no nonblank content remains; expects a string.
+    """
 
     lines = [line.strip() for line in message.splitlines() if line.strip()]
     if not lines:
@@ -15,14 +18,17 @@ def clean_message(message):
 
 
 def _print_incident_mapping(title, values, out, separator="x"):
-    """Print a mapping of keys to values for an incident summary."""
+    """Print a heading and mapping entries to out using the requested separator.
+
+    Preserves mapping iteration order and does not alter the values.
+    """
     print(title, file=out)
     for key, value in values.items():
         print(f"    {key} {separator} {value}", file=out)
 
 
 def _print_incident_events(events, out):
-    """Print the source events for an incident summary."""
+    """Write numbered source-event metadata and cleaned messages to the output stream."""
     print("  Messages:", file=out)
     for event_index, event in enumerate(events, start=1):
         print(
@@ -37,10 +43,13 @@ def _print_incident_events(events, out):
 
 
 def _print_incident_summary(index, summary, out):
-    """Print a single incident summary to the specified output stream."""
+    """Print one indexed incident's supplied metadata, counts, and source events.
+
+    Expects a built summary and a writable text stream; does not recompute scores.
+    """
     print(f"Incident {index}:", file=out)
     print(f"  Summary: {summary['summary_text']}", file=out)
-    print(f"  Log Type: {summary['log_type']}", file=out)
+    print(f"  Log Type: {', '.join(summary.get('log_types') or [summary['log_type']])}", file=out)
     print(f"  Computer Name: {summary['computer_name']}", file=out)
     print(f"  Providers: {summary['providers']}", file=out)
     _print_incident_mapping(
@@ -72,7 +81,13 @@ def _print_incident_summary(index, summary, out):
 
 
 def display_incident_reports(incidents, out=None):
-    """Print plain incident summaries."""
+    """Write incident summaries to out, defaulting to sys.stdout.
+
+    Accepts summary dictionaries or raw event groups; groups are summarized with
+    build_incident and empty groups skipped. Empty input gets a fixed message.
+    Existing summaries are not mutated, and no AI request or JSON export occurs.
+    Output errors propagate so entry points can handle broken streams.
+    """
 
     if out is None:
         out = sys.stdout

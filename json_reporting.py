@@ -1,9 +1,7 @@
-"""
-JSON reporting utilities for LogOpen.
+"""Convert incident data to JSON and atomically replace report files.
 
-This module converts analysed Windows Event Log incidents into
-JSON-serializable data and exports the resulting incident reports
-to JSON files.
+ScanResult exports include coverage/warnings alongside incidents; plain
+lists retain the legacy array format. This module performs no analysis.
 """
 
 import json
@@ -13,23 +11,21 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from errors import ReportExportError, describe_error
+from models.scan_result import ScanResult
 
 
 def make_json_safe(value):
+    """Copy supported report containers and convert their date/time values.
+
+    ScanResult becomes its report envelope before normal list handling.
+    Dictionary values and list items are converted recursively; datetimes use
+    ISO 8601 text and timedeltas use str(). Other values pass through unchanged,
+    so unsupported objects can still cause json.dump to fail. Inputs are not
+    mutated, and dictionary keys are left as supplied.
     """
-    Recursively convert Python objects into JSON-serializable values.
+    if isinstance(value, ScanResult):
+        return make_json_safe(value.as_report())
 
-    Dictionaries and lists are recursively processed so that nested
-    objects are also converted. Datetime objects are converted to
-    ISO 8601 formatted strings. Values that are already JSON-safe
-    are returned unchanged.
-
-    Args:
-        value: The Python object to convert.
-
-    Returns:
-        A JSON-serializable representation of the supplied value.
-    """
     if isinstance(value, dict):
         return {
             key: make_json_safe(item)
@@ -53,19 +49,20 @@ def make_json_safe(value):
 
 
 def export_incidents_to_json(incidents, file_path):
-    """
-    Export analysed incident data to a JSON file.
-
-    Converts the supplied incident data into a JSON-safe format before
-    writing it to the specified file. The resulting JSON is indented
-    to improve readability.
+    """Write a readable UTF-8 report, replacing the destination after serialization.
 
     Args:
-        incidents (list[dict]): Incident summaries to export.
-        file_path (str): Path of the JSON file to create.
+        incidents: ScanResult for a metadata envelope, or a list of incident
+            dictionaries for the legacy top-level array format.
+        file_path: String or path-like destination, relative to the working
+            directory unless absolute. Missing parent directories are created.
 
-    Returns:
-        None
+    Raises:
+        ReportExportError: Conversion, serialization, or filesystem work fails.
+
+    Writes and fsyncs a sibling temporary file, then uses os.replace. A failed
+    write leaves the previous report intact and attempts temporary-file cleanup.
+    Returns None; the caller decides how export failures affect scan status.
     """
     temporary_path = None
     try:

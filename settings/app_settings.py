@@ -17,13 +17,23 @@ class SettingsError(RuntimeError):
 
 @dataclass(frozen=True)
 class AISettings:
+    """Immutable preference snapshot: enabled flag, model name, and scan request limit.
+
+    AppSettings validates loaded/saved values. Constructing this dataclass alone
+    does not enforce the annotations or validate the model identifier.
+    """
     enabled: bool
     model: str
     max_analyses: int
 
 
 def validate_model(value):
-    """Accept model identifiers, including fine-tuned IDs, without a catalog."""
+    """Return a trimmed model identifier after local syntax validation.
+
+    Accepts 1-200 characters using letters, digits, dots, underscores, colons,
+    and hyphens, starting with a letter/digit. Rejects apparent sk- credentials.
+    Raises ValueError for invalid input; does not verify API model availability.
+    """
     if not isinstance(value, str):
         raise ValueError("Enter a valid OpenAI model name.")
     value = value.strip()
@@ -33,6 +43,11 @@ def validate_model(value):
 
 
 def _limit(value, default=3):
+    """Parse an integer-like preference and clamp it to 1-20, or return default.
+
+    Booleans, fractional text, and failed conversions use the supplied default.
+    Callers provide a valid default; it is not independently clamped here.
+    """
     try:
         if isinstance(value, bool) or not re.fullmatch(r"-?\d+", str(value)):
             return default
@@ -43,12 +58,21 @@ def _limit(value, default=3):
 
 def _enabled(value):
     # Unknown/corrupt values must not accidentally enable paid API requests.
+    """Accept only True, integer 1, or case-insensitive text true/1 as enabled.
+
+    Every other value disables AI so corrupted preferences cannot enable it.
+    """
     return value is True or (type(value) is int and value == 1) or (
         isinstance(value, str) and value.strip().lower() in ("true", "1")
     )
 
 
 def _create_qsettings():
+    """Create current-user native storage for organization/application LogOpen.
+
+    On Windows this uses the registry. Disabling QSettings fallbacks prevents
+    organization-wide/system defaults from overriding missing user preferences.
+    """
     settings = QSettings(QSettings.Format.NativeFormat, QSettings.Scope.UserScope,
                          "LogOpen", "LogOpen")
     settings.setFallbacksEnabled(False)
@@ -56,11 +80,25 @@ def _create_qsettings():
 
 
 class AppSettings:
+    """Load and persist non-secret AI preferences through a QSettings-like backend.
+
+    API keys are managed separately by credential_store. load recovers invalid
+    saved values, while save rejects invalid new preferences and reports errors.
+    """
     def __init__(self, storage=None):
+        """Use an injected storage backend, or create native current-user QSettings.
+
+        Injection allows tests to use temporary INI files or simulate storage errors.
+        """
         self._storage = storage if storage is not None else _create_qsettings()
 
     def load(self):
-        """Use config.py defaults until user preferences exist; validate on read."""
+        """Return validated AISettings, using config defaults for missing preferences.
+
+        Synchronizes storage first. Invalid models/limits recover to valid defaults;
+        unrecognized enabled values and unreadable storage disable AI. The method
+        does not rewrite repaired values or read credentials.
+        """
         default_limit = _limit(config.MAX_LLM_ANALYSES_PER_RUN)
         try:
             default_model = validate_model(config.DEFAULT_ANALYSIS_MODEL)
@@ -81,6 +119,18 @@ class AppSettings:
             return AISettings(False, default_model, default_limit)
 
     def save(self, preferences):
+        """Validate preferences, write the three AI values, and synchronize storage.
+
+        Args:
+            preferences: AISettings with an actual bool enabled value, valid model
+                identifier, and actual int max_analyses between 1 and 20.
+
+        Raises:
+            ValueError: A preference is invalid; validation precedes all writes.
+            SettingsError: Writing or synchronizing preferences fails.
+
+        Returns None. Model whitespace is trimmed; credentials are never stored here.
+        """
         model = validate_model(preferences.model)
         if type(preferences.enabled) is not bool:
             raise ValueError("Choose whether AI analysis is enabled.")

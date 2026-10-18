@@ -4,11 +4,30 @@ from settings.credential_store import CredentialStoreError, resolve_openai_api_k
 
 
 class MissingCredentialsError(RuntimeError):
+    """Signal that neither secure storage nor the environment supplied a key."""
     def __init__(self):
+        """Initialize a fixed missing-key message suitable for user-facing handling."""
         super().__init__("No API key configured. Save a key in Settings or set OPENAI_API_KEY.")
 
 
 def create_openai_client(*, timeout=60.0, max_retries=2):
+    """Resolve credentials and construct an OpenAI client for the official endpoint.
+
+    Args:
+        timeout: Request timeout in seconds (60 by default).
+        max_retries: SDK retry allowance (two by default).
+
+    Returns:
+        OpenAI: A client the caller must close, normally using a with block.
+
+    Raises:
+        MissingCredentialsError: Neither key source is configured.
+        CredentialStoreError: Secure storage failed and no environment key exists.
+        ImportError: The optional OpenAI SDK is unavailable.
+
+    Does not issue an API request itself. SDK construction errors propagate;
+    callers translate them into safe messages at the service boundary.
+    """
     key = resolve_openai_api_key()
     if not key:
         raise MissingCredentialsError()
@@ -19,7 +38,19 @@ def create_openai_client(*, timeout=60.0, max_retries=2):
 
 
 def check_openai_connection(model):
-    """Fetch model metadata, with no inference or incident data; never raise."""
+    """Check credentials and model metadata access without running incident analysis.
+
+    Args:
+        model: Model identifier to validate and retrieve from the API.
+
+    Returns:
+        tuple[bool, str]: Success flag and display-safe explanation. Expected
+        and unexpected Exception failures become false results, not raw errors.
+
+    Uses a ten-second timeout and zero retries, closes the client, and sends
+    no incident data. It can be invoked while AI is disabled. Metadata access
+    does not establish that a later inference request will succeed.
+    """
     try:
         from openai import (
             APIConnectionError, APIStatusError, APITimeoutError,

@@ -64,6 +64,18 @@ QLabel#stateBadge[state="scanning"] {
     background: #1b2b46;
     border-color: #344d72;
 }
+QLabel#stateBadge[state="warning"] {
+    color: #ffd18a;
+    background: #382f20;
+    border-color: #645233;
+}
+QLabel#scanWarning {
+    color: #ffd18a;
+    background: #382f20;
+    border: 1px solid #645233;
+    border-radius: 6px;
+    padding: 10px;
+}
 QLabel#stateBadge[state="error"] {
     color: #ffadb7;
     background: #3a222d;

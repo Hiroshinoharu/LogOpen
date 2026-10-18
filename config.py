@@ -1,9 +1,19 @@
-"""Central configuration for LogOpen's input logs and incident rules."""
+"""Shared defaults for collection, grouping, scoring inputs, and AI prompts.
+
+Scan scope and grouping rules are read by the analysis modules. AI defaults
+apply until the user saves preferences through AppSettings. Prompt limits
+bound source-event context; shell settings constrain generated suggestions.
+Credentials belong in credential_store, never in this module.
+"""
 
 from datetime import timedelta
 
 # Constants for incident detection and bundling
 LOG_TYPES = ["System", "Application"]
+SCAN_WINDOW_HOURS = 24
+# Safety cap on records examined, including informational records. Reaching it
+# before the time boundary produces an explicitly incomplete scan.
+MAX_RECORDS_PER_LOG = 100_000
 INCIDENT_BUNDLE_TIMEDELTA = timedelta(minutes=1)
 EVENT_SIMILARITY_THRESHOLD = 3
 

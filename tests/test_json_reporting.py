@@ -11,7 +11,9 @@ from models.incident_analysis import IncidentAnalysis
 
 
 class JsonReportingTests(unittest.TestCase):
+    """Behavioral checks for json reporting, using controlled test data."""
     def test_export_preserves_nested_diagnostic_steps(self):
+        """Check export preserves nested diagnostic steps."""
         steps = [
             {"description": "Inspect the affected service.", "command": "Get-Service", "shell": "powershell", "risk_level": "safe"},
             {"description": "Review related events.", "command": None, "shell": None, "risk_level": "safe"},
@@ -29,6 +31,7 @@ class JsonReportingTests(unittest.TestCase):
         self.assertEqual(exported[0]["llm_analysis"]["diagnostic_steps"], steps)
 
     def test_export_creates_parent_directories_and_writes_valid_json(self):
+        """Check export creates parent directories and writes valid json."""
         with TemporaryDirectory() as temporary_directory:
             output_path = Path(temporary_directory) / "nested" / "incidents.json"
 
@@ -40,6 +43,7 @@ class JsonReportingTests(unittest.TestCase):
             )
 
     def test_failed_serialization_preserves_the_previous_report(self):
+        """Check failed serialization preserves the previous report."""
         with TemporaryDirectory() as temporary_directory:
             output_path = Path(temporary_directory) / "incidents.json"
             output_path.write_text('[{"previous": true}]\n', encoding="utf-8")

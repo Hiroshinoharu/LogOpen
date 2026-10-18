@@ -1,3 +1,10 @@
+"""Desktop dashboard, incident navigation, and background scan coordination.
+
+ScanWorker performs the blocking workflow on a QThread. MainWindow slots
+update widgets on the GUI thread and retain ScanResult coverage metadata.
+Closing is deferred until active scan/settings workers finish safely.
+"""
+
 import sys
 from datetime import datetime
 from html import escape
@@ -29,6 +36,7 @@ from ui.settings_dialog import SettingsDialog
 
 
 def _label(text, name):
+    """Create a named QLabel that treats its text literally, not as HTML."""
     label = QLabel(text)
     label.setObjectName(name)
     label.setTextFormat(Qt.TextFormat.PlainText)
@@ -36,6 +44,7 @@ def _label(text, name):
 
 
 def _metric_card(title, caption, tone="default"):
+    """Return a styled dashboard card and its value label for subsequent updates."""
     card = QFrame()
     card.setObjectName("metricCard")
     layout = QVBoxLayout(card)
@@ -52,14 +61,24 @@ def _metric_card(title, caption, tone="default"):
 
 
 class ScanWorker(QObject):
-    """Run the existing scan and report its outcome without touching widgets."""
+    """Run a blocking scan off the GUI thread without accessing widgets.
 
-    success = pyqtSignal(list)
+    success(object) preserves the ScanResult subclass and its metadata; error(str)
+    carries a display message. finished is emitted after either outcome so the
+    owning thread can quit and its objects can be deleted.
+    """
+
+    # A QVariantList would discard the ScanResult's coverage/warning metadata.
+    success = pyqtSignal(object)
     error = pyqtSignal(str)
     finished = pyqtSignal()
 
     @pyqtSlot()
     def run(self):
+        """Execute scan_system and emit success/error, followed by finished in finally.
+
+        Connected to QThread.started; all widget updates belong to receiver slots.
+        """
         try:
             incidents = scan_system()
         except KeyboardInterrupt:
@@ -73,8 +92,19 @@ class ScanWorker(QObject):
 
 
 class MainWindow(QMainWindow):
+    """Own the dashboard, incident-detail page, settings dialog, and scan worker.
+
+    Retains incident dictionaries for navigation without rescanning. Worker and
+    thread references prevent premature destruction; _close_pending coordinates
+    a deferred close while background work completes.
+    """
     @pyqtSlot()
     def run_scan(self):
+        """Clear old results and launch one ScanWorker on a fresh QThread.
+
+        GUI-thread slot. Ignores overlapping requests, disables scan/settings
+        controls, connects result/error/cleanup signals, then starts the worker.
+        """
         if self._scan_thread is not None:
             return
 
@@ -82,6 +112,8 @@ class MainWindow(QMainWindow):
         self.settings_button.setEnabled(False)
         self.scan_button.setText("Scanning system…")
         self.status_label.setText("Scanning system...")
+        self.warning_label.clear()
+        self.warning_label.hide()
         self._clear_incidents()
         self._set_state("scanning", "SCANNING")
         self.result_count.setText("IN PROGRESS")
@@ -107,8 +139,16 @@ class MainWindow(QMainWindow):
         self._scan_thread.finished.connect(self._scan_finished)
         self._scan_thread.start()
 
-    @pyqtSlot(list)
+    @pyqtSlot(object)
     def _show_scan_results(self, incidents):
+        """Render results and coverage warnings on the GUI thread after worker success.
+
+        incidents may be a ScanResult or a legacy plain list. Updates counts, table,
+        status, and empty-state text while distinguishing an empty incomplete scan
+        from a complete scan with no incidents. Does not rerun analysis.
+        """
+        complete = getattr(incidents, "complete", True)
+        warnings = getattr(incidents, "warnings", [])
         self.incident_total.setText(str(len(incidents)))
         self.attention_total.setText(str(sum(
             incident.get("incident_priority") in ("High", "Critical")
@@ -119,7 +159,12 @@ class MainWindow(QMainWindow):
         )))
         self.result_count.setText(f"{len(incidents)} FOUND")
         self.last_scan.setText(f"Last scan at {datetime.now():%H:%M}")
-        self._set_state("complete", "COMPLETE")
+        if not complete:
+            self._set_state("warning", "INCOMPLETE")
+        elif warnings:
+            self._set_state("warning", "COMPLETE WITH WARNINGS")
+        else:
+            self._set_state("complete", "COMPLETE")
         if incidents:
             self._populate_incident_table(incidents)
             self.incident_table.scrollToTop()
@@ -127,17 +172,26 @@ class MainWindow(QMainWindow):
         else:
             self._clear_incidents()
             self._show_empty_state(
-                "✓", "No incidents found",
+                "✓" if complete else "!",
+                "No incidents found" if complete else "No incidents found in collected events",
                 "No recent warnings or errors were grouped into incidents\n"
-                "in this scan of your configured logs.",
+                "in this scan of your configured logs." if complete else
+                "This scan is incomplete. Review the warnings above\n"
+                "before drawing conclusions about your system.",
             )
+        self.warning_label.setText("\n".join(warnings))
+        self.warning_label.setVisible(bool(warnings))
+        status = "incomplete" if not complete else "complete with warnings" if warnings else "complete"
         self.status_label.setText(
-            f"Scan complete - {len(incidents)} incidents found"
+            f"Scan {status} - {len(incidents)} incidents found"
         )
 
     @pyqtSlot(str)
     def _show_scan_error(self, message):
+        """Clear stale results and display a failed-scan state on the GUI thread."""
         self._clear_incidents()
+        self.warning_label.clear()
+        self.warning_label.hide()
         self.status_label.setText(f"Scan failed: {message}")
         self._set_state("error", "SCAN FAILED")
         self.result_count.setText("UNAVAILABLE")
@@ -148,6 +202,11 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _scan_finished(self):
+        """Release stopped-thread/worker references and re-enable controls.
+
+        Connected to thread completion, not merely worker result delivery. Performs
+        a pending window close only after the running thread has stopped.
+        """
         self._scan_worker = None
         self._scan_thread = None
         self.scan_button.setEnabled(True)
@@ -157,6 +216,11 @@ class MainWindow(QMainWindow):
             self.close()
 
     def closeEvent(self, event):
+        """Defer closing while settings or scanning owns active asynchronous work.
+
+        Requests the settings dialog to close or waits for the scan, ignoring this
+        close event until cleanup can safely retry it. Never terminates a worker.
+        """
         if self._settings_dialog is not None:
             self._close_pending = True
             self._settings_dialog.reject()
@@ -172,6 +236,10 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _open_settings(self):
+        """Open a single modal SettingsDialog without blocking Qt's event loop.
+
+        Ignores requests during a scan or while a settings dialog already exists.
+        """
         if self._scan_thread is not None or self._settings_dialog is not None:
             return
         self._settings_dialog = SettingsDialog(self)
@@ -181,24 +249,32 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _settings_closed(self, _result):
+        """Drop the dialog reference and schedule a pending parent-window close."""
         self._settings_dialog = None
         if self._close_pending:
             QTimer.singleShot(0, self.close)
 
     def _set_state(self, state, text):
+        """Set the state badge text/property and repolish its stylesheet immediately."""
         self.state_badge.setText(text)
         self.state_badge.setProperty("state", state)
         self.state_badge.style().unpolish(self.state_badge)
         self.state_badge.style().polish(self.state_badge)
 
     def _show_empty_state(self, symbol, title, description):
+        """Set the placeholder symbol, title, and description and show its page."""
         self.empty_symbol.setText(symbol)
         self.empty_title.setText(title)
         self.empty_description.setText(description)
         self.results_stack.setCurrentWidget(self.empty_state)
 
     def _populate_incident_table(self, incidents):
-        """Display the returned summaries without changing their data or order."""
+        """Populate read-only rows while retaining each source dictionary's identity.
+
+        Sorting is disabled during insertion. The first cell stores the original
+        incident index in UserRole, so selecting a sorted row opens the right data.
+        Copies the outer incident list only; input dictionaries remain unchanged.
+        """
         self._clear_incidents()
         self._incidents = list(incidents)
         sorting_enabled = self.incident_table.isSortingEnabled()
@@ -230,6 +306,7 @@ class MainWindow(QMainWindow):
         self.incident_table.setSortingEnabled(sorting_enabled)
 
     def _clear_incidents(self):
+        """Clear stored incidents, table, and detail page and return to the dashboard."""
         self._incidents = []
         self.incident_table.setRowCount(0)
         self.incident_detail.set_incident(None)
@@ -237,6 +314,11 @@ class MainWindow(QMainWindow):
         self.page_stack.setCurrentWidget(self.dashboard)
 
     def _selected_incident(self):
+        """Return the selected row's source dictionary, or None for an invalid selection.
+
+        Uses the stored UserRole index rather than the visible row number so table
+        sorting does not change which incident opens.
+        """
         selected_rows = self.incident_table.selectionModel().selectedRows()
         if not selected_rows:
             return None
@@ -251,6 +333,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _open_incident_detail(self):
+        """Show the selected incident in the detail page and focus its Back button."""
         incident = self._selected_incident()
         if incident is None:
             return
@@ -260,6 +343,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _show_incident_list(self):
+        """Return to the dashboard and table focus, preserving the current selection."""
         self.page_stack.setCurrentWidget(self.dashboard)
         if self._incidents:
             self.results_stack.setCurrentWidget(self.incident_table)
@@ -269,6 +353,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _copy_selected_rows(self):
+        """Copy selected table rows as tab-separated text to the system clipboard."""
         rows = sorted(index.row() for index in self.incident_table.selectionModel().selectedRows())
         if not rows:
             return
@@ -281,10 +366,16 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _update_copy_action(self):
+        """Enable copy/detail actions only when the table has a selection."""
         self.copy_action.setEnabled(bool(self.incident_table.selectedItems()))
         self.detail_button.setEnabled(self._selected_incident() is not None)
 
     def __init__(self):
+        """Build the dashboard/detail widgets, connect actions, and load the stylesheet.
+
+        Initializes empty results and worker references; opening the window does not
+        start a scan. The user starts work through the Scan button.
+        """
         super().__init__()
 
         self._scan_thread = None
@@ -363,6 +454,13 @@ class MainWindow(QMainWindow):
         self.scan_button.clicked.connect(self.run_scan)
         heading_row.addWidget(self.scan_button)
         dashboard_layout.addLayout(heading_row)
+
+        self.warning_label = _label("", "scanWarning")
+        self.warning_label.setWordWrap(True)
+        self.warning_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.warning_label.setAccessibleName("Scan warnings")
+        self.warning_label.hide()
+        dashboard_layout.addWidget(self.warning_label)
 
         metrics = QHBoxLayout()
         metrics.setSpacing(14)
@@ -482,7 +580,9 @@ class MainWindow(QMainWindow):
         footer = QHBoxLayout()
         footer.setSpacing(16)
         scope = _label(
-            " · ".join(config.LOG_TYPES) + "  /  Last 24 hours  /  Up to 500 events per log",
+            " · ".join(config.LOG_TYPES)
+            + f"  /  Last {config.SCAN_WINDOW_HOURS} hours"
+            + f"  /  Safety limit: {config.MAX_RECORDS_PER_LOG:,} records per log",
             "scopeLabel",
         )
         scope.setWordWrap(True)
@@ -494,6 +594,11 @@ class MainWindow(QMainWindow):
         self.setTabOrder(self.incident_table, self.detail_button)
 
 def main():
+    """Create the QApplication, show MainWindow, and enter the Qt event loop.
+
+    Selects the Fusion widget style and exits with the event loop's result.
+    Intended for python -m ui.main_window, not an existing Qt application.
+    """
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     window = MainWindow()

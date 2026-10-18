@@ -21,12 +21,14 @@ from ui.settings_dialog import SettingsDialog
 
 @pytest.fixture(scope="module")
 def app():
+    """Reuse or create the Qt application and keep it alive between test windows."""
     app = QApplication.instance() or QApplication([])
     app.setQuitOnLastWindowClosed(False)
     return app
 
 
 def wait_until(app, condition, timeout=3):
+    """Pump Qt events until the condition succeeds, failing if the timeout expires."""
     deadline = time.monotonic() + timeout
     while not condition() and time.monotonic() < deadline:
         app.processEvents()
@@ -36,6 +38,7 @@ def wait_until(app, condition, timeout=3):
 
 @pytest.fixture
 def dialog(app):
+    """Yield a visible settings dialog and clean it up after its worker thread has stopped."""
     widget = SettingsDialog()
     widget.show()
     yield widget
@@ -46,6 +49,7 @@ def dialog(app):
 
 
 def test_mask_save_remove_and_never_redisplay_stored_key(dialog, monkeypatch):
+    """Check mask save remove and never redisplay stored key."""
     key = "sk-fake-private-key"
     saved = []
     monkeypatch.setattr(credential_store, "save_openai_api_key", saved.append)
@@ -71,6 +75,7 @@ def test_mask_save_remove_and_never_redisplay_stored_key(dialog, monkeypatch):
 
 
 def test_key_storage_failure_stays_safe_and_clears_input(dialog, monkeypatch):
+    """Check key storage failure stays safe and clears input."""
     monkeypatch.setattr(credential_store, "save_openai_api_key", Mock(side_effect=RuntimeError("sk-private-error")))
     dialog.key_input.setText("sk-fake-new-key")
     dialog.save_key_button.click()
@@ -83,6 +88,7 @@ def test_key_storage_failure_stays_safe_and_clears_input(dialog, monkeypatch):
 
 
 def test_controls_persist_and_validate_preferences(dialog):
+    """Check controls persist and validate preferences."""
     dialog.enabled_checkbox.setChecked(False)
     dialog.model_input.setText(" user-model ")
     dialog.max_analyses_input.setValue(8)
@@ -99,6 +105,7 @@ def test_controls_persist_and_validate_preferences(dialog):
 
 
 def test_unsaved_key_prevents_testing_the_wrong_credential(dialog, monkeypatch):
+    """Check unsaved key prevents testing the wrong credential."""
     check = Mock()
     monkeypatch.setattr("ui.settings_dialog.check_openai_connection", check)
     dialog.key_input.setText("sk-fake-unsaved-key")
@@ -110,6 +117,7 @@ def test_unsaved_key_prevents_testing_the_wrong_credential(dialog, monkeypatch):
 
 @pytest.mark.parametrize("result", [(True, "Connection successful."), (False, "Authentication failed.")])
 def test_connection_result_reaches_the_ui_and_reenables_controls(dialog, app, monkeypatch, result):
+    """Check connection result reaches the ui and reenables controls."""
     monkeypatch.setattr("ui.settings_dialog.check_openai_connection", lambda _model: result)
     dialog.test_button.click()
     wait_until(app, lambda: dialog._test_thread is None)
@@ -119,6 +127,7 @@ def test_connection_result_reaches_the_ui_and_reenables_controls(dialog, app, mo
 
 
 def test_unexpected_connection_error_does_not_crash_ui(dialog, app, monkeypatch):
+    """Check unexpected connection error does not crash ui."""
     check = Mock(side_effect=RuntimeError("sk-private-error"))
     monkeypatch.setattr("ui.settings_dialog.check_openai_connection", check)
     dialog.test_button.click()
@@ -128,17 +137,21 @@ def test_unexpected_connection_error_does_not_crash_ui(dialog, app, monkeypatch)
 
 
 class RecordingDialog(SettingsDialog):
+    """Record the threads executing settings-dialog result/cleanup slots."""
     def __init__(self):
+        """Initialize the real dialog and lists recording result/cleanup callback threads."""
         self.slot_threads = []
         super().__init__()
 
     @pyqtSlot(bool, str)
     def _show_test_result(self, success, message):
+        """Record the current thread before delegating to the real connection-result slot."""
         self.slot_threads.append(QThread.currentThread())
         super()._show_test_result(success, message)
 
     @pyqtSlot()
     def _test_finished(self):
+        """Record the current thread before delegating to the real connection cleanup slot."""
         assert not self._test_thread.isRunning()
         self.slot_threads.append(QThread.currentThread())
         super()._test_finished()
@@ -146,11 +159,13 @@ class RecordingDialog(SettingsDialog):
 
 @pytest.mark.parametrize("close_method", ["escape", "close"])
 def test_connection_runs_off_ui_thread_and_closes_safely(app, monkeypatch, close_method):
+    """Check connection runs off ui thread and closes safely."""
     release = threading.Event()
     started = threading.Event()
     worker_threads = []
 
     def check(_model):
+        """Record the connection thread and block until the test releases a successful result."""
         worker_threads.append(QThread.currentThread())
         started.set()
         assert release.wait(3)
@@ -191,6 +206,7 @@ def test_connection_runs_off_ui_thread_and_closes_safely(app, monkeypatch, close
 
 
 def test_settings_button_opens_dialog_and_keeps_incidents(app):
+    """Check settings button opens dialog and keeps incidents."""
     window = MainWindow()
     window.show()
     try:
@@ -208,10 +224,14 @@ def test_settings_button_opens_dialog_and_keeps_incidents(app):
 
 
 def test_closing_parent_waits_for_connection_thread(app, monkeypatch):
+    """Check closing parent waits for connection thread."""
     release = threading.Event()
     started = threading.Event()
 
     def check(_model):
+        """Hold a fake connection check open until the test releases it to verify deferred
+        parent closing.
+        """
         started.set()
         assert release.wait(3)
         return False, "Connection failed."

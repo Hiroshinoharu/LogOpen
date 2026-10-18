@@ -29,7 +29,7 @@ EXECUTABLE_PATTERN = re.compile(r"\b[a-z0-9_.-]+\.exe\b")
 
 
 def _join_readable(values):
-    """Return a natural-language string for a sequence of values."""
+    """Join string values with commas/and; use unknown providers for empty input."""
 
     if not values:
         return "unknown providers"
@@ -41,7 +41,10 @@ def _join_readable(values):
 
 
 def _format_duration(duration):
-    """Return a concise natural-language representation of a timedelta."""
+    """Format a timedelta as hours, minutes, and seconds in natural language.
+
+    Fractional seconds are truncated and negative durations display as zero.
+    """
 
     total_seconds = max(int(duration.total_seconds()), 0)
     hours, remainder = divmod(total_seconds, 3600)
@@ -62,7 +65,11 @@ def _format_duration(duration):
 
 
 def _format_score_reasons(reasons):
-    """Return a readable explanation of the incident score reasons."""
+    """Turn scoring-reason strings into a readable clause for summary_text.
+
+    Known reasons are reworded; other reasons have their first letter lowered.
+    Empty input yields a fixed explanation that no additional factors applied.
+    """
 
     if not reasons:
         return "no additional scoring factors applied"
@@ -89,7 +96,11 @@ def _format_score_reasons(reasons):
 
 
 def _build_summary_text(incident_summary):
-    """Return the human-readable incident summary text."""
+    """Return a deterministic paragraph from a fully populated incident summary.
+
+    Uses classification, priority, source logs, computer, provider labels,
+    duration, count, and score reasons. It neither calls AI nor changes data.
+    """
 
     provider_labels = sorted(
         incident_summary["provider_classifications"].values()
@@ -100,11 +111,13 @@ def _build_summary_text(incident_summary):
     score_reasons = _format_score_reasons(
         incident_summary["incident_score_reasons"]
     )
+    log_types = incident_summary.get("log_types") or [incident_summary["log_type"]]
+    log_label = f"{_join_readable(log_types)} {'log' if len(log_types) == 1 else 'logs'}"
 
     return (
         f"{incident_summary['incident_priority']}-priority "
         f"{incident_summary['incident_classification']} incident in the "
-        f"{incident_summary['log_type']} log on "
+        f"{log_label} on "
         f"{incident_summary['computer_name']} involving "
         f"{_join_readable(provider_labels)}. "
         f"It contains {event_count} {event_label} and lasted {duration_label}. "
@@ -113,7 +126,17 @@ def _build_summary_text(incident_summary):
 
 
 def refresh_incident_summary(incident_summary):
-    """Refresh score-derived fields after enriching an incident summary."""
+    """Recalculate score, priority, reasons, breakdown, and summary_text in place.
+
+    Args:
+        incident_summary: A dictionary built by build_incident, optionally
+            enriched with recurrence counts.
+
+    Returns:
+        dict: The same dictionary, with all score-derived fields refreshed.
+
+    Call again after recurrence enrichment so the score includes repetition.
+    """
 
     score, reasons, breakdown = calculate_incident_score(incident_summary)
     incident_summary["incident_score"] = score
@@ -125,7 +148,7 @@ def refresh_incident_summary(incident_summary):
 
 
 def normalize_component_name(value):
-    """Return a normalized component name for comparison."""
+    """Lowercase a string, replace hyphens/underscores, and collapse whitespace."""
 
     return " ".join(
         value.lower().replace("_", " ").replace("-", " ").split()
@@ -133,7 +156,12 @@ def normalize_component_name(value):
 
 
 def extract_event_components(event):
-    """Extract deterministic component identifiers from provider/message text."""
+    """Return normalized component names found in provider and message text.
+
+    Uses known aliases and executable-name matches to link related events
+    across providers/logs. This is a text heuristic, not installed-software
+    discovery. The input event dictionary is read without modification.
+    """
 
     text = f"{event['provider']} {event['message']}".lower()
     components = set()
@@ -149,7 +177,10 @@ def extract_event_components(event):
 
 
 def component_similarity_score(previous_event, current_event):
-    """Return a bonus or penalty based on extracted component names."""
+    """Return +3 for shared components, -3 for disjoint known ones, or zero.
+
+    Zero means at least one event has no extractable component evidence.
+    """
 
     previous_components = extract_event_components(previous_event)
     current_components = extract_event_components(current_event)
@@ -164,21 +195,26 @@ def component_similarity_score(previous_event, current_event):
 
 
 def event_similarity_score(previous_event, current_event):
-    """
-    Calculate the similarity score between two events.
+    """Return a nonnegative relationship score for two event dictionaries.
 
-    Args:
-        previous_event (dict): The previous event dictionary.
-        current_event (dict): The current event dictionary.
+    Different computers score zero. A shared provider adds two points and a
+    matching ID within that provider adds two more. Component evidence adds
+    or subtracts three; timestamps within the configured window add one.
+    bundle_incidents separately enforces the time window as a hard cutoff.
     """
+
+    if previous_event.get("computer_name") != current_event.get("computer_name"):
+        return 0
 
     score = 0
 
     if previous_event["provider"] == current_event["provider"]:
         score += 2
 
-    if previous_event["event_id"] == current_event["event_id"]:
-        score += 2
+        # A shared numeric ID alone does not establish a relationship between
+        # different providers. Cross-provider matches require shared components.
+        if previous_event["event_id"] == current_event["event_id"]:
+            score += 2
 
     score += component_similarity_score(previous_event, current_event)
 
@@ -196,11 +232,20 @@ def event_similarity_score(previous_event, current_event):
 
 
 def bundle_incidents(events):
-    """
-    Bundle events into incidents using ``INCIDENT_BUNDLE_TIMEDELTA``.
+    """Group related events chronologically, including interleaved sequences.
 
     Args:
-        events (list): A list of event dictionaries.
+        events: Parsed event dictionaries with mutually comparable timestamps.
+
+    Returns:
+        list[list[dict]]: Groups in creation/start order, each chronological.
+        Input order is unchanged and event dictionaries are shared, not copied.
+
+    A provider/component index identifies candidate groups on the same
+    computer. Compare each candidate's last event within the configured time
+    gap, then require EVENT_SIMILARITY_THRESHOLD. Ties prefer higher similarity,
+    a newer last event, then the earlier-created group. The gap applies between
+    successive events, so a whole incident may span longer than that window.
     """
 
     if not events:
@@ -208,28 +253,68 @@ def bundle_incidents(events):
 
     sorted_events = sorted(events, key=lambda event: event["time_generated"])
     incidents = []
-    current_incident = [sorted_events[0]]
+    indexes = {}
 
-    for event in sorted_events[1:]:
-        time_difference = (
-            event["time_generated"] - current_incident[-1]["time_generated"]
-        )
-        if (
-            time_difference <= INCIDENT_BUNDLE_TIMEDELTA
-            and event_similarity_score(current_incident[-1], event)
-            >= EVENT_SIMILARITY_THRESHOLD
-        ):
-            current_incident.append(event)
+    def keys(event):
+        """Build computer-scoped provider/component index keys for one event."""
+        computer = event.get("computer_name")
+        return [(computer, "provider", event["provider"])] + [
+            (computer, "component", component)
+            for component in sorted(extract_event_components(event))
+        ]
+
+    def unindex(index):
+        """Remove a group's last-event memberships from the candidate indexes.
+
+        The group and its events remain in the output; only future lookup changes.
+        """
+        for key in keys(incidents[index][-1]):
+            indexes[key].discard(index)
+            if not indexes[key]:
+                del indexes[key]
+
+    for event in sorted_events:
+        event_keys = keys(event)
+        candidates = set()
+        for key in event_keys:
+            candidates.update(indexes.get(key, ()))
+        matches = []
+        for index in sorted(candidates):
+            previous = incidents[index][-1]
+            if event["time_generated"] - previous["time_generated"] > INCIDENT_BUNDLE_TIMEDELTA:
+                unindex(index)
+                continue
+            score = event_similarity_score(previous, event)
+            if score >= EVENT_SIMILARITY_THRESHOLD:
+                matches.append((score, previous["time_generated"], -index, index))
+        if matches:
+            index = max(matches)[-1]
+            unindex(index)
+            incidents[index].append(event)
         else:
-            incidents.append(current_incident)
-            current_incident = [event]
-
-    incidents.append(current_incident)
+            index = len(incidents)
+            incidents.append([event])
+        for key in event_keys:
+            indexes.setdefault(key, set()).add(index)
     return incidents
 
 
 def build_incident(events):
-    """Build a summary of an incident from a list of events."""
+    """Summarize one chronological event group and calculate its initial score.
+
+    Args:
+        events: A chronological list of related parsed events, normally from
+            bundle_incidents. The first/last entries determine the time span.
+
+    Returns:
+        dict | None: Counts, provider/ID sets, source log names, timestamps,
+        duration, severity, classification, score fields, and summary_text;
+        None for an empty group. The events field retains the original list.
+
+    The most common event classification wins (first encountered on ties).
+    log_types preserves individual source names; log_type is a display label.
+    Recurrence and optional AI fields are added later by the main workflow.
+    """
 
     if not events:
         return None
@@ -252,8 +337,10 @@ def build_incident(events):
     # Build the incident summary dictionary
     first_event = events[0]
     last_event = events[-1]
+    log_types = sorted({event["log_type"] for event in events})
     incident_summary = {
-        "log_type": first_event["log_type"],
+        "log_type": ", ".join(log_types),
+        "log_types": log_types,
         "computer_name": first_event["computer_name"],
         "providers": sorted({event["provider"] for event in events}),
         "providers_counts": provider_counts,

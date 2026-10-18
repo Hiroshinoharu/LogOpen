@@ -12,6 +12,7 @@ from settings.ai_service import check_openai_connection
 
 
 def _label(text, name="mutedLabel"):
+    """Create a named, wrapping QLabel with literal text rendering."""
     label = QLabel(text)
     label.setObjectName(name)
     label.setTextFormat(Qt.TextFormat.PlainText)
@@ -20,6 +21,7 @@ def _label(text, name="mutedLabel"):
 
 
 def _button(text, slot, *, primary=False):
+    """Create a styled button, disable implicit default activation, and connect its slot."""
     button = QPushButton(text)
     button.setObjectName("scanButton" if primary else "secondaryButton")
     button.setMinimumHeight(38)
@@ -30,15 +32,26 @@ def _button(text, slot, *, primary=False):
 
 
 class ConnectionTestWorker(QObject):
+    """Run a model-metadata connection check away from the GUI thread.
+
+    Emits result(bool, str) for presentation and finished for thread cleanup.
+    Stores a model name; credential resolution stays inside the service layer.
+    """
     result = pyqtSignal(bool, str)
     finished = pyqtSignal()
 
     def __init__(self, model):
+        """Store the model to check and initialize the worker without a QObject parent."""
         super().__init__()
         self.model = model  # Only a model identifier crosses the thread boundary.
 
     @pyqtSlot()
     def run(self):
+        """Call the connection service and emit its result, always followed by finished.
+
+        Unexpected exceptions become a fixed failure message rather than raw error
+        text. The worker accesses no widgets.
+        """
         try:
             success, message = check_openai_connection(self.model)
             self.result.emit(success, message)
@@ -49,7 +62,19 @@ class ConnectionTestWorker(QObject):
 
 
 class SettingsDialog(QDialog):
+    """Edit non-secret AI preferences and invoke immediate secure-key operations.
+
+    Save Settings persists preferences, while Save Key/Remove Key take effect
+    immediately. A connection test saves valid preferences before starting its
+    worker. Closing clears typed secret text and waits for any worker to finish.
+    """
     def __init__(self, parent=None, *, app_settings=None):
+        """Build settings controls and load preferences plus credential-status text.
+
+        parent owns the dialog; app_settings may inject an AppSettings-compatible
+        service for tests. The password field starts empty even if a key is saved.
+        Opening the dialog does not call the API.
+        """
         super().__init__(parent)
         self._settings = app_settings if app_settings is not None else AppSettings()
         self._test_thread = None
@@ -156,16 +181,25 @@ class SettingsDialog(QDialog):
         self._refresh_key_status()
 
     def _message(self, message, *, success=False):
+        """Set a display-safe feedback message and refresh its success/error styling."""
         self.message_label.setText(message)
         self.message_label.setProperty("success", success)
         self.message_label.style().unpolish(self.message_label)
         self.message_label.style().polish(self.message_label)
 
     def _refresh_key_status(self):
+        """Refresh the availability label through credential_status without filling the key
+        input.
+        """
         self.key_status.setText(credential_store.credential_status())
 
     @pyqtSlot()
     def _save_key(self):
+        """Save the typed credential immediately and report validation/storage failure.
+
+        Always clears the password input and refreshes availability, including after
+        failure. Saving a key does not save the other preference controls.
+        """
         try:
             credential_store.save_openai_api_key(self.key_input.text())
         except ValueError:
@@ -181,6 +215,10 @@ class SettingsDialog(QDialog):
 
     @pyqtSlot()
     def _remove_key(self):
+        """Clear typed text and remove the saved credential, then refresh its status.
+
+        Reports a fixed error on failure; the environment fallback is unchanged.
+        """
         self.key_input.clear()
         try:
             credential_store.delete_openai_api_key()
@@ -192,6 +230,11 @@ class SettingsDialog(QDialog):
 
     @pyqtSlot()
     def _save_preferences(self):
+        """Validate controls and persist AISettings, returning whether saving succeeded.
+
+        Displays validation/storage feedback and normalizes the visible model text.
+        This does not save the password input or validate access to the model.
+        """
         try:
             self._settings.save(AISettings(
                 self.enabled_checkbox.isChecked(), self.model_input.text(),
@@ -209,6 +252,12 @@ class SettingsDialog(QDialog):
 
     @pyqtSlot()
     def _test_connection(self):
+        """Save preferences and launch one background model-metadata access check.
+
+        Refuses testing with unsaved key text so a different stored key is not tested
+        by accident. Disables editing while the worker runs and wires GUI-thread
+        result/cleanup slots. No incident inference is requested.
+        """
         if self._test_thread is not None:
             return
         if self.key_input.text():
@@ -230,6 +279,7 @@ class SettingsDialog(QDialog):
         self._test_thread.start()
 
     def _set_testing(self, testing):
+        """Toggle edit/test controls and progress text while a connection worker runs."""
         for widget in (self.enabled_checkbox, self.key_input, self.save_key_button,
                        self.remove_key_button, self.model_input, self.max_analyses_input,
                        self.save_settings_button, self.test_button):
@@ -238,10 +288,15 @@ class SettingsDialog(QDialog):
 
     @pyqtSlot(bool, str)
     def _show_test_result(self, success, message):
+        """Display a worker connection result on the GUI thread using the supplied success flag."""
         self._message(message, success=success)
 
     @pyqtSlot()
     def _test_finished(self):
+        """Release completed worker/thread references and restore editable controls.
+
+        If closing was requested during the test, finish that deferred dialog result.
+        """
         self._test_worker = None
         self._test_thread = None
         self._set_testing(False)
@@ -249,6 +304,10 @@ class SettingsDialog(QDialog):
             self.done(self._close_result)
 
     def done(self, result):
+        """Clear typed secret text and finish, or defer the result until the worker stops.
+
+        Covers acceptance/rejection paths without destroying a running QThread.
+        """
         self.key_input.clear()
         if self._test_thread is not None:
             self._close_pending = True
@@ -258,6 +317,7 @@ class SettingsDialog(QDialog):
         super().done(result)
 
     def closeEvent(self, event):
+        """Clear the password input and defer the Qt close event if a connection test is active."""
         if self._test_thread is not None:
             self.reject()
             event.ignore()

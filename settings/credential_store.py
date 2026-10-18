@@ -1,4 +1,10 @@
-"""Keep the user's OpenAI key in Windows Credential Manager, never in files."""
+"""Store the OpenAI key in Windows Credential Manager and resolve its fallback.
+
+The generic credential target is LogOpen/OpenAI for the current Windows user.
+Saved keys take precedence over OPENAI_API_KEY in the process environment.
+No plaintext file fallback is used. Backend exceptions are replaced with a
+fixed message because their contents may include sensitive data.
+"""
 
 import os
 
@@ -8,11 +14,24 @@ _NOT_FOUND = 1168  # Windows ERROR_NOT_FOUND; other errors are storage failures.
 
 
 class CredentialStoreError(RuntimeError):
+    """Credential storage failure with fixed text suitable for display to the user."""
     def __init__(self):
+        """Construct the safe storage error without accepting backend exception text."""
         super().__init__("Secure credential storage is unavailable. Check Windows Credential Manager.")
 
 
 def _backend():
+    """Load the pywin32 interface to Windows Credential Manager on demand.
+
+    Returns:
+        module: win32cred, providing credential read/write/delete operations.
+
+    Raises:
+        CredentialStoreError: win32cred cannot be imported.
+
+    Lazy import keeps module import usable without pywin32 and lets tests
+    substitute an isolated backend. Import failure details are not exposed.
+    """
     try:
         import win32cred
         return win32cred
@@ -21,6 +40,20 @@ def _backend():
 
 
 def save_openai_api_key(api_key):
+    """Validate and immediately save or replace the user's OpenAI credential.
+
+    Args:
+        api_key: Nonblank ASCII text, at most 2048 characters after trimming,
+            without embedded whitespace or control characters below code 33.
+
+    Raises:
+        ValueError: The supplied value fails local input validation.
+        CredentialStoreError: The Windows backend cannot write the credential.
+
+    Passes Unicode text to CredWrite; pywin32 handles its Windows encoding.
+    Persistence is local-machine scoped for this user, including later logons.
+    Returns None and performs no authentication/network check.
+    """
     if not isinstance(api_key, str) or not api_key.strip():
         raise ValueError("Enter an OpenAI API key first.")
     api_key = api_key.strip()
@@ -32,7 +65,9 @@ def save_openai_api_key(api_key):
             "Type": backend.CRED_TYPE_GENERIC,
             "TargetName": CREDENTIAL_TARGET,
             "UserName": "OpenAI",
-            "CredentialBlob": api_key.encode("utf-16-le"),
+            # pywin32 expects Unicode here and performs the Windows encoding.
+            # CredRead may return bytes, which get_openai_api_key decodes below.
+            "CredentialBlob": api_key,
             "Persist": backend.CRED_PERSIST_LOCAL_MACHINE,
             "Comment": f"{SERVICE_NAME} user-provided OpenAI API key",
         }, 0)
@@ -41,6 +76,13 @@ def save_openai_api_key(api_key):
 
 
 def get_openai_api_key():
+    """Read and return the saved secret, or None if absent/blank.
+
+    CredRead may return Unicode or UTF-16-LE bytes; both are normalized to a
+    stripped string. Only Windows error 1168 means not found. Other read/decode
+    failures raise CredentialStoreError with fixed text. Callers must not put
+    the returned secret into UI labels, logs, or exported incident data.
+    """
     try:
         backend = _backend()
         credential = backend.CredRead(CREDENTIAL_TARGET, backend.CRED_TYPE_GENERIC, 0)
@@ -57,6 +99,11 @@ def get_openai_api_key():
 
 
 def delete_openai_api_key():
+    """Delete the saved credential immediately; a missing entry is a no-op.
+
+    Returns None. Other backend failures raise CredentialStoreError.
+    OPENAI_API_KEY is unchanged and can still supply a fallback credential.
+    """
     try:
         backend = _backend()
         backend.CredDelete(CREDENTIAL_TARGET, backend.CRED_TYPE_GENERIC, 0)
@@ -66,11 +113,19 @@ def delete_openai_api_key():
 
 
 def environment_key_configured():
+    """Return whether OPENAI_API_KEY contains nonblank text, without exposing it."""
     return bool(os.environ.get("OPENAI_API_KEY", "").strip())
 
 
 def resolve_openai_api_key():
-    """Prefer the stored key, then the process environment (also if storage fails)."""
+    """Return the saved key, falling back to the process environment when needed.
+
+    A missing stored key or unavailable secure storage allows OPENAI_API_KEY.
+    If neither source supplies a key, return None unless storage failed, in
+    which case raise CredentialStoreError. This chooses a credential without
+    authenticating it; a rejected saved key does not trigger an API retry using
+    the environment key.
+    """
     storage_failed = False
     try:
         key = get_openai_api_key()
@@ -84,7 +139,12 @@ def resolve_openai_api_key():
 
 
 def credential_status():
-    """Return display text only; never fill widgets with a saved key."""
+    """Return display-safe text describing configured, missing, or unavailable keys.
+
+    Reads credential availability and checks the environment fallback, but
+    returns neither the secret nor backend error details. Used to refresh UI
+    labels while leaving the password field empty.
+    """
     try:
         if get_openai_api_key():
             return "API key configured"

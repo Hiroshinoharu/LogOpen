@@ -1,4 +1,4 @@
-"""Application-specific exceptions and safe error formatting for LogOpen."""
+"""Application exceptions and single-line formatting for non-secret errors."""
 
 
 class LogOpenError(Exception):
@@ -18,7 +18,11 @@ class ReportExportError(LogOpenError):
 
 
 def describe_error(error):
-    """Return a useful single-line description, even for empty exceptions."""
+    """Return collapsed exception text, or its class name if the text is empty.
+
+    This only normalizes whitespace; it does not redact secrets. Credential and
+    OpenAI boundaries use fixed messages instead of passing their errors here.
+    """
 
     message = " ".join(str(error).split())
     return message or error.__class__.__name__

@@ -20,7 +20,9 @@ def make_incident(**overrides):
 
 
 class IncidentScoringTests(unittest.TestCase):
+    """Behavioral checks for incident scoring, using controlled test data."""
     def test_returns_zero_score_and_empty_breakdown_without_matching_rules(self):
+        """Check returns zero score and empty breakdown without matching rules."""
         score, reasons, breakdown = calculate_incident_score(make_incident())
 
         self.assertEqual(score, 0)
@@ -37,6 +39,7 @@ class IncidentScoringTests(unittest.TestCase):
         )
 
     def test_duration_under_one_minute_adds_no_score(self):
+        """Check duration under one minute adds no score."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(incident_duration=timedelta(seconds=59))
         )
@@ -46,6 +49,7 @@ class IncidentScoringTests(unittest.TestCase):
         self.assertEqual(reasons, [])
 
     def test_duration_between_one_and_five_minutes_adds_five_points(self):
+        """Check duration between one and five minutes adds five points."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(incident_duration=timedelta(minutes=5))
         )
@@ -57,6 +61,7 @@ class IncidentScoringTests(unittest.TestCase):
         )
 
     def test_duration_between_five_and_fifteen_minutes_adds_ten_points(self):
+        """Check duration between five and fifteen minutes adds ten points."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(incident_duration=timedelta(minutes=5, seconds=1))
         )
@@ -68,6 +73,7 @@ class IncidentScoringTests(unittest.TestCase):
         )
 
     def test_duration_over_fifteen_minutes_adds_fifteen_points(self):
+        """Check duration over fifteen minutes adds fifteen points."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(incident_duration=timedelta(minutes=15, seconds=1))
         )
@@ -77,6 +83,7 @@ class IncidentScoringTests(unittest.TestCase):
         self.assertEqual(reasons, ["Incident lasted over 15 minutes"])
 
     def test_breakdown_combines_all_scoring_categories_and_caps_score(self):
+        """Check breakdown combines all scoring categories and caps score."""
         incident = make_incident(
             highest_severity="Error",
             event_count=10,
@@ -115,6 +122,7 @@ class IncidentScoringTests(unittest.TestCase):
         )
 
     def test_breakdown_uses_moderate_event_and_warning_scores(self):
+        """Check breakdown uses moderate event and warning scores."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(highest_severity="Warning", event_count=5)
         )
@@ -139,6 +147,7 @@ class IncidentScoringTests(unittest.TestCase):
         )
 
     def test_nine_events_uses_the_moderate_event_count_tier(self):
+        """Check nine events uses the moderate event count tier."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(event_count=9)
         )
@@ -148,6 +157,7 @@ class IncidentScoringTests(unittest.TestCase):
         self.assertEqual(reasons, ["Moderate event count (5-9)"])
 
     def test_ten_events_uses_the_high_event_count_tier(self):
+        """Check ten events uses the high event count tier."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(event_count=10)
         )
@@ -157,6 +167,7 @@ class IncidentScoringTests(unittest.TestCase):
         self.assertEqual(reasons, ["High event count (10+)"])
 
     def test_eleven_events_uses_the_high_event_count_tier(self):
+        """Check eleven events uses the high event count tier."""
         score, reasons, breakdown = calculate_incident_score(
             make_incident(event_count=11)
         )
@@ -166,6 +177,7 @@ class IncidentScoringTests(unittest.TestCase):
         self.assertEqual(reasons, ["High event count (10+)"])
 
     def test_get_incident_priority_uses_all_threshold_boundaries(self):
+        """Check get incident priority uses all threshold boundaries."""
         self.assertEqual(get_incident_priority(0), "Low")
         self.assertEqual(get_incident_priority(39), "Low")
         self.assertEqual(get_incident_priority(40), "Medium")

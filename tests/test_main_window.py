@@ -19,6 +19,7 @@ except ModuleNotFoundError as exc:
     raise unittest.SkipTest("PyQt6 is required for the desktop UI tests") from exc
 
 from errors import EventCollectionError, ReportExportError
+from models.scan_result import ScanResult
 from ui.main_window import MainWindow
 
 
@@ -26,44 +27,55 @@ class RecordingWindow(MainWindow):
     """Record which thread runs each UI slot without changing signal delivery."""
 
     def __init__(self):
+        """Initialize the real window and containers recording callback threads and cleanup
+        state.
+        """
         super().__init__()
         self.slot_threads = []
         self.running_during_cleanup = []
 
-    @pyqtSlot(list)
+    @pyqtSlot(object)
     def _show_scan_results(self, incidents):
+        """Record the current thread before delegating to the real scan-result slot."""
         self.slot_threads.append(("success", QThread.currentThread()))
         super()._show_scan_results(incidents)
 
     @pyqtSlot(str)
     def _show_scan_error(self, message):
+        """Record the current thread before delegating to the real scan-error slot."""
         self.slot_threads.append(("error", QThread.currentThread()))
         super()._show_scan_error(message)
 
     @pyqtSlot()
     def _scan_finished(self):
+        """Record callback thread and worker-running state before normal scan cleanup."""
         self.slot_threads.append(("finished", QThread.currentThread()))
         self.running_during_cleanup.append(self._scan_thread.isRunning())
         super()._scan_finished()
 
     @pyqtSlot()
     def _open_incident_detail(self):
+        """Record the current thread before opening the selected incident through the real slot."""
         self.slot_threads.append(("detail", QThread.currentThread()))
         super()._open_incident_detail()
 
 
 class MainWindowThreadingTests(unittest.TestCase):
+    """Behavioral checks for main window threading, using controlled test data."""
     @classmethod
     def setUpClass(cls):
+        """Create or reuse the shared QApplication for this group of GUI tests."""
         cls.app = QApplication.instance() or QApplication([])
         cls.app.setQuitOnLastWindowClosed(False)
 
     def setUp(self):
+        """Create a recording window and a synchronization event controlling fake scans."""
         self.window = RecordingWindow()
         self.release_scan = threading.Event()
 
     def tearDown(self):
         # Unblock the fake scan even if an assertion fails before normal cleanup.
+        """Release any blocked scan, wait for cleanup, and dispose of the test window."""
         self.release_scan.set()
         self.wait_until(lambda: self.window._scan_thread is None)
         self.window.close()
@@ -71,6 +83,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.app.processEvents()
 
     def wait_until(self, predicate, timeout=3):
+        """Pump Qt events until the condition succeeds, failing if the timeout expires."""
         deadline = time.monotonic() + timeout
         while not predicate() and time.monotonic() < deadline:
             self.app.processEvents()
@@ -78,6 +91,9 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertTrue(predicate(), "Timed out waiting for Qt scan activity")
 
     def finish_scan(self, worker, thread):
+        """Wait for worker deletion and assert controls, references, and GUI-thread cleanup
+        are correct.
+        """
         self.wait_until(lambda: self.window._scan_thread is None)
         self.wait_until(lambda: sip.isdeleted(worker) and sip.isdeleted(thread))
         self.assertIsNone(self.window._scan_worker)
@@ -88,6 +104,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         )
 
     def test_scan_keeps_ui_responsive_and_prevents_overlapping_scans(self):
+        """Check scan keeps ui responsive and prevents overlapping scans."""
         started = threading.Event()
         scan_threads = []
         timer_ticks = []
@@ -100,6 +117,9 @@ class MainWindowThreadingTests(unittest.TestCase):
         ]
 
         def fake_scan():
+            """Record the worker thread, signal startup, and wait for release before
+            returning incidents.
+            """
             scan_threads.append(QThread.currentThread())
             started.set()
             if not self.release_scan.wait(5):
@@ -145,6 +165,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         )
 
     def test_empty_results_and_repeated_scans_clean_up(self):
+        """Check empty results and repeated scans clean up."""
         with patch("ui.main_window.scan_system", return_value=[]) as scan:
             for _ in range(3):
                 self.window.scan_button.click()
@@ -155,7 +176,37 @@ class MainWindowThreadingTests(unittest.TestCase):
                 self.assertEqual(self.window.incident_table.rowCount(), 0)
             self.assertEqual(scan.call_count, 3)
 
+    def test_scan_warnings_survive_thread_delivery_and_clear_on_next_scan(self):
+        """Check scan warnings survive thread delivery and clear on next scan."""
+        partial = ScanResult()
+        partial.complete = False
+        partial.warnings.append("System: record limit reached; scan incomplete.")
+        exported = ScanResult([{"incident_classification": "Retained incident"}])
+        exported.export_error = "Results are available, but the JSON report was not saved."
+        exported.warnings.append(exported.export_error)
+        for result, badge in ((partial, "INCOMPLETE"), (exported, "COMPLETE WITH WARNINGS")):
+            with self.subTest(badge=badge), patch("ui.main_window.scan_system", return_value=result):
+                self.window.run_scan()
+                self.finish_scan(self.window._scan_worker, self.window._scan_thread)
+                self.assertEqual(self.window.state_badge.text(), badge)
+                self.assertEqual(self.window.warning_label.text(), result.warnings[0])
+                self.assertFalse(self.window.warning_label.isHidden())
+                self.assertEqual(self.window.incident_table.rowCount(), len(result))
+                if not result.complete:
+                    self.assertIn("incomplete", self.window.empty_description.text())
+                else:
+                    self.window.incident_table.selectRow(0)
+                    self.window.detail_button.click()
+                    self.assertEqual(self.window.incident_detail.classification.text(), "Retained incident")
+        with patch("ui.main_window.scan_system", return_value=ScanResult()):
+            self.window.run_scan()
+            self.finish_scan(self.window._scan_worker, self.window._scan_thread)
+        self.assertEqual(self.window.state_badge.text(), "COMPLETE")
+        self.assertTrue(self.window.warning_label.isHidden())
+        self.assertEqual(self.window.warning_label.text(), "")
+
     def test_errors_are_readable_and_allow_another_scan(self):
+        """Check errors are readable and allow another scan."""
         for error, message in (
             (EventCollectionError("access\n denied"), "access denied"),
             (ReportExportError(), "ReportExportError"),
@@ -184,9 +235,15 @@ class MainWindowThreadingTests(unittest.TestCase):
         )
 
     def check_close_during_scan(self, error=None):
+        """Exercise a deferred window close while a controlled scan succeeds or raises the
+        supplied error.
+        """
         started = threading.Event()
 
         def fake_scan():
+            """Wait for test-controlled release, then return results or raise the requested
+            scan error.
+            """
             started.set()
             if not self.release_scan.wait(5):
                 raise RuntimeError("Test did not release the scan")
@@ -209,12 +266,15 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.assertFalse(self.window.isVisible())
 
     def test_close_waits_for_successful_scan_without_destroying_running_thread(self):
+        """Check close waits for successful scan without destroying running thread."""
         self.check_close_during_scan()
 
     def test_close_waits_for_failed_scan_without_destroying_running_thread(self):
+        """Check close waits for failed scan without destroying running thread."""
         self.check_close_during_scan(ReportExportError("could not write report"))
 
     def test_table_is_read_only_and_preserves_literal_incident_data(self):
+        """Check table is read only and preserves literal incident data."""
         self.window._show_scan_results([{
             "incident_priority": "High",
             "incident_classification": "Service <example> & application",
@@ -239,6 +299,7 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.assertFalse(table.item(0, column).flags() & Qt.ItemFlag.ItemIsEditable)
 
     def test_table_supports_keyboard_selection_copy_and_resizing(self):
+        """Check table supports keyboard selection copy and resizing."""
         self.window.show()
         self.window._show_scan_results([
             {"incident_priority": "High", "incident_classification": "DNS Client",
@@ -274,6 +335,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertGreater(widths[1], widths[0])
 
     def test_detail_navigation_uses_the_selected_dictionary_and_main_thread(self):
+        """Check detail navigation uses the selected dictionary and main thread."""
         incidents = [
             {"incident_classification": "First incident", "summary_text": "First summary"},
             {"incident_classification": "Second incident", "summary_text": "Second summary"},
@@ -305,6 +367,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertTrue(all(thread == self.app.thread() for _, thread in self.window.slot_threads))
 
     def test_detail_mapping_survives_row_reordering(self):
+        """Check detail mapping survives row reordering."""
         incidents = [
             {"incident_classification": "Alpha", "summary_text": "Alpha summary"},
             {"incident_classification": "Zulu", "summary_text": "Zulu summary"},
@@ -318,6 +381,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertEqual(self.window.incident_detail.summary.text(), "Zulu summary")
 
     def test_new_scan_clears_previous_details_even_when_it_fails(self):
+        """Check new scan clears previous details even when it fails."""
         self.window._show_scan_results([{
             "incident_classification": "Old incident",
             "llm_analysis": {"explanation": "Old AI response"},
@@ -338,6 +402,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertFalse(self.window.detail_button.isEnabled())
 
     def test_back_shortcuts_preserve_dashboard_selection_and_scroll_without_ai_requests(self):
+        """Check back shortcuts preserve dashboard selection and scroll without ai requests."""
         self.window.show()
         incidents = [{"incident_classification": f"Incident {i}"} for i in range(40)]
         self.window._show_scan_results(incidents)
@@ -346,7 +411,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         table.scrollToItem(table.item(30, 1))
         self.app.processEvents()
         position = table.verticalScrollBar().value()
-        with patch("main.analyse_incident_with_llm") as analyse, patch(
+        with patch("main.analyse_incident_with_llm_result") as analyse, patch(
             "ui.main_window.scan_system"
         ) as scan:
             for key, modifiers in ((Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier),
@@ -364,6 +429,7 @@ class MainWindowThreadingTests(unittest.TestCase):
             scan.assert_not_called()
 
     def test_repopulation_with_sorting_enabled_keeps_complete_rows_and_source_mapping(self):
+        """Check repopulation with sorting enabled keeps complete rows and source mapping."""
         table = self.window.incident_table
         table.setSortingEnabled(True)
         table.sortItems(1, Qt.SortOrder.DescendingOrder)
@@ -382,6 +448,7 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.window.incident_detail.back_button.click()
 
     def test_source_reader_fits_minimum_window_and_preserves_long_messages(self):
+        """Check source reader fits minimum window and preserves long messages."""
         message = "  Event <xml> & diagnostic output\n" + "x" * 20000 + "\nTrailing text  "
         self.window.show()
         self.window._show_scan_results([{
@@ -407,11 +474,14 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.assertLessEqual(detail.sources.height(), detail.tabs.height())
 
     def test_diagnostic_commands_copy_as_literal_text_without_execution_and_allow_back_navigation(self):
+        """Check diagnostic commands copy as literal text without execution and allow back
+        navigation.
+        """
         command = "Get-Service -Name '<literal> & name'\n# Recommended command only"
         self.window.show()
         with patch("subprocess.Popen") as popen, patch("os.system") as system, patch(
             "ui.main_window.scan_system"
-        ) as scan, patch("main.analyse_incident_with_llm") as analyse:
+        ) as scan, patch("main.analyse_incident_with_llm_result") as analyse:
             self.window._show_scan_results([{
                 "incident_classification": "Service incident",
                 "llm_analysis": {"diagnostic_steps": [

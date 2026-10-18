@@ -36,7 +36,9 @@ def _load_event_collection(win32evtlog_module, win32evtlogutil_module):
 
 
 class EventCollectionTests(unittest.TestCase):
+    """Behavioral checks for event collection, using controlled test data."""
     def test_get_recent_events_reads_requested_log_type(self):
+        """Check get recent events reads requested log type."""
         open_calls = []
         close_calls = []
         read_batches = []
@@ -60,10 +62,14 @@ class EventCollectionTests(unittest.TestCase):
         read_batches.extend([[raw_event], []])
 
         def open_event_log(server, log_type):
+            """Record the requested server/log and return a fake native handle."""
             open_calls.append((server, log_type))
             return "handle"
 
         def read_event_log(handle, flags, offset):
+            """Assert backward sequential reads use the fake handle and return the next
+            prepared batch.
+            """
             self.assertEqual(handle, "handle")
             self.assertEqual(
                 flags,
@@ -74,6 +80,7 @@ class EventCollectionTests(unittest.TestCase):
             return read_batches.pop(0)
 
         def close_event_log(handle):
+            """Record that the fake native handle was closed."""
             close_calls.append(handle)
 
         fake_win32evtlog.OpenEventLog = open_event_log
@@ -108,6 +115,7 @@ class EventCollectionTests(unittest.TestCase):
         )
 
     def test_get_recent_events_wraps_read_errors_and_closes_the_log(self):
+        """Check get recent events wraps read errors and closes the log."""
         close_calls = []
         fake_win32evtlog = ModuleType("win32evtlog")
         fake_win32evtlog.EVENTLOG_AUDIT_FAILURE = 1
@@ -139,6 +147,7 @@ class EventCollectionTests(unittest.TestCase):
         self.assertEqual(close_calls, ["handle"])
 
     def test_parse_event_keeps_event_when_message_formatting_fails(self):
+        """Check parse event keeps event when message formatting fails."""
         fake_win32evtlog = ModuleType("win32evtlog")
         fake_win32evtlog.EVENTLOG_AUDIT_FAILURE = 1
         fake_win32evtlog.EVENTLOG_AUDIT_SUCCESS = 2

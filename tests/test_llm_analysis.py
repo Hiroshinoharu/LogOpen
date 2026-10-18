@@ -1,7 +1,7 @@
-import json
+"""Isolated tests for AI selection, request construction, and structured response handling."""
+
 import sys
 from copy import deepcopy
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
@@ -10,16 +10,16 @@ import pytest
 import config
 from llm_analysis import should_analyse_incident_with_llm
 from models.incident_analysis import DiagnosticStep, IncidentAnalysis
+from incident_detection import build_incident
+from tests.helpers import make_event
 
-INCIDENT_REPORT_PATH = Path(__file__).parents[1] / "reports" / "incidents.json"
-with INCIDENT_REPORT_PATH.open(encoding="utf-8") as report_file:
-    EXPORTED_INCIDENT = json.load(report_file)[0]
+EXAMPLE_INCIDENT = build_incident([make_event()])
 
 
 def make_incident(**overrides):
-    """Copy an exported incident and apply test-specific values."""
+    """Copy a synthetic incident, independent of the user's latest report."""
 
-    incident = deepcopy(EXPORTED_INCIDENT)
+    incident = deepcopy(EXAMPLE_INCIDENT)
 
     # Tests exercise eligibility before a new analysis has been stored.
     incident["llm_analysis"] = None
@@ -31,21 +31,27 @@ def install_openai_mock(monkeypatch, *, output_parsed=None, side_effect=None):
     """Install a mock OpenAI SDK and return the mocked client."""
 
     class OpenAIError(Exception):
+        """Stand-in for the SDK OpenAIError exception in isolated response tests."""
         pass
 
     class APIConnectionError(OpenAIError):
+        """Stand-in for the SDK APIConnectionError exception in isolated response tests."""
         pass
 
     class APITimeoutError(OpenAIError):
+        """Stand-in for the SDK APITimeoutError exception in isolated response tests."""
         pass
 
     class APIStatusError(OpenAIError):
+        """Stand-in for the SDK APIStatusError exception in isolated response tests."""
         pass
 
     class AuthenticationError(APIStatusError):
+        """Stand-in for the SDK AuthenticationError exception in isolated response tests."""
         pass
 
     class RateLimitError(APIStatusError):
+        """Stand-in for the SDK RateLimitError exception in isolated response tests."""
         pass
 
     client = MagicMock()
@@ -69,11 +75,13 @@ def install_openai_mock(monkeypatch, *, output_parsed=None, side_effect=None):
 
 
 def test_low_priority_incident_is_not_analyzed():
+    """Check low priority incident is not analyzed."""
     incident  = make_incident()
     
     assert should_analyse_incident_with_llm(incident) is False
 
 def test_high_priority_incident_is_analyzed(monkeypatch):
+    """Check high priority incident is analyzed."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     
     incident = make_incident(incident_priority="High")
@@ -81,6 +89,7 @@ def test_high_priority_incident_is_analyzed(monkeypatch):
     assert should_analyse_incident_with_llm(incident) is True
 
 def test_critical_priority_incident_is_analyzed(monkeypatch):
+    """Check critical priority incident is analyzed."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     
     incident = make_incident(incident_priority="Critical")
@@ -88,12 +97,14 @@ def test_critical_priority_incident_is_analyzed(monkeypatch):
     assert should_analyse_incident_with_llm(incident) is True
 
 def test_recurring_incident_is_analyzed(monkeypatch):
+    """Check recurring incident is analyzed."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     
     incident = make_incident(is_recurring=True)
     assert should_analyse_incident_with_llm(incident) is True
 
 def test_large_incident_is_analyzed(monkeypatch):
+    """Check large incident is analyzed."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     monkeypatch.setattr(config, "LLM_ANALYSIS_MIN_EVENTS", 10)
 
@@ -103,6 +114,7 @@ def test_large_incident_is_analyzed(monkeypatch):
 
 
 def test_llm_disable_returns_false(monkeypatch):
+    """Check llm disable returns false."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", False)
     
     incident = make_incident(incident_priority="Critical")
@@ -110,6 +122,7 @@ def test_llm_disable_returns_false(monkeypatch):
     assert should_analyse_incident_with_llm(incident) is False
 
 def test_already_analyzed_incident_returns_false(monkeypatch):
+    """Check already analyzed incident returns false."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
 
     incident = make_incident(
@@ -120,6 +133,7 @@ def test_already_analyzed_incident_returns_false(monkeypatch):
     assert should_analyse_incident_with_llm(incident) is False
 
 def test_selected_incidents_are_sorted_and_limited(monkeypatch):
+    """Check selected incidents are sorted and limited."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     monkeypatch.setattr(config, "MAX_LLM_ANALYSES_PER_RUN", 2)
 
@@ -139,6 +153,7 @@ def test_selected_incidents_are_sorted_and_limited(monkeypatch):
     assert selected[1]["incident_score"] == 70
 
 def test_selected_incidents_with_recurring_and_high_priority(monkeypatch):
+    """Check selected incidents with recurring and high priority."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     monkeypatch.setattr(config, "MAX_LLM_ANALYSES_PER_RUN", 3)
 
@@ -159,6 +174,7 @@ def test_selected_incidents_with_recurring_and_high_priority(monkeypatch):
     assert selected[2]["incident_score"] == 10  # Recurring Low
 
 def test_analyse_incident_with_llm_returns_incident_analysis(monkeypatch):
+    """Check analyse incident with llm returns incident analysis."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     incident = make_incident(incident_priority="High")
     from llm_analysis import analyse_incident_with_llm
@@ -191,6 +207,7 @@ def test_analyse_incident_with_llm_returns_incident_analysis(monkeypatch):
 
 @pytest.mark.parametrize("shell,command", [("cmd", "ver"), ("bash", "pwd")])
 def test_configured_shell_preferences_reach_llm_requests(monkeypatch, shell, command):
+    """Check configured shell preferences reach llm requests."""
     from llm_analysis import analyse_incident_with_llm
 
     monkeypatch.setattr(config, "ALLOWED_DIAGNOSTIC_SHELLS", (shell,))
@@ -210,6 +227,7 @@ def test_configured_shell_preferences_reach_llm_requests(monkeypatch, shell, com
 
 
 def test_provider_identity_rules_reach_the_llm_request_without_changing_incident_data(monkeypatch):
+    """Check provider identity rules reach the llm request without changing incident data."""
     from llm_analysis import analyse_incident_with_llm
 
     incident = {"log_type": "System", "providers": ["DCOM"], "event_ids": [10010]}
@@ -241,6 +259,7 @@ def test_provider_identity_rules_reach_the_llm_request_without_changing_incident
 
 
 def test_provider_guidance_preserves_existing_diagnostic_safety_and_risk_rules():
+    """Check provider guidance preserves existing diagnostic safety and risk rules."""
     from llm_analysis import build_analysis_instructions
 
     instructions = " ".join(build_analysis_instructions().split())
@@ -284,6 +303,7 @@ def test_provider_guidance_preserves_existing_diagnostic_safety_and_risk_rules()
     ), id="command-reliability-and-grounding"),
 ])
 def test_command_safety_guidance_reaches_the_llm_request(monkeypatch, requirements):
+    """Check command safety guidance reaches the llm request."""
     from llm_analysis import analyse_incident_with_llm
 
     client, _ = install_openai_mock(monkeypatch, output_parsed={
@@ -299,6 +319,7 @@ def test_command_safety_guidance_reaches_the_llm_request(monkeypatch, requiremen
 
 
 def test_diagnostic_order_prioritizes_evidence_and_justified_interventions():
+    """Check diagnostic order prioritizes evidence and justified interventions."""
     from llm_analysis import build_analysis_instructions
 
     instructions = " ".join(build_analysis_instructions().split())
@@ -316,6 +337,7 @@ def test_diagnostic_order_prioritizes_evidence_and_justified_interventions():
 
 @pytest.mark.parametrize("shell", [None, "bash"])
 def test_generated_commands_require_an_allowed_shell(monkeypatch, capsys, shell):
+    """Check generated commands require an allowed shell."""
     from llm_analysis import analyse_incident_with_llm
 
     monkeypatch.setattr(config, "ALLOWED_DIAGNOSTIC_SHELLS", ("powershell", "cmd"))
@@ -336,6 +358,7 @@ def test_generated_commands_require_an_allowed_shell(monkeypatch, capsys, shell)
     (("terminal",), "terminal"), (("powershell",), "cmd"),
 ])
 def test_invalid_shell_configuration_skips_the_api_call(monkeypatch, capsys, allowed, preferred):
+    """Check invalid shell configuration skips the api call."""
     from llm_analysis import analyse_incident_with_llm
 
     monkeypatch.setattr(config, "ALLOWED_DIAGNOSTIC_SHELLS", allowed)
@@ -345,10 +368,11 @@ def test_invalid_shell_configuration_skips_the_api_call(monkeypatch, capsys, all
     assert analyse_incident_with_llm(make_incident()) is None
     sdk.OpenAI.assert_not_called()
     client.responses.parse.assert_not_called()
-    assert "invalid diagnostic shell configuration" in capsys.readouterr().err
+    assert "invalid diagnostic shell configuration" in capsys.readouterr().err.lower()
 
 
 def test_analyse_incident_with_llm_rejects_invalid_diagnostic_steps(monkeypatch, capsys):
+    """Check analyse incident with llm rejects invalid diagnostic steps."""
     from llm_analysis import analyse_incident_with_llm
 
     install_openai_mock(monkeypatch, output_parsed={
@@ -363,6 +387,7 @@ def test_analyse_incident_with_llm_rejects_invalid_diagnostic_steps(monkeypatch,
     assert "did not match the analysis schema" in capsys.readouterr().err
 
 def test_analyse_incident_with_llm_returns_none_when_output_missing(monkeypatch):
+    """Check analyse incident with llm returns none when output missing."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     incident = make_incident(incident_priority="High")
     from llm_analysis import analyse_incident_with_llm
@@ -374,6 +399,7 @@ def test_analyse_incident_with_llm_returns_none_when_output_missing(monkeypatch)
     assert analysis is None
 
 def test_analyse_incident_with_llm_handles_api_error(monkeypatch):
+    """Check analyse incident with llm handles api error."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     incident = make_incident(incident_priority="High")
     from llm_analysis import analyse_incident_with_llm
@@ -386,6 +412,7 @@ def test_analyse_incident_with_llm_handles_api_error(monkeypatch):
     assert analysis is None
 
 def test_analyse_incident_with_llm_handles_invalid_output(monkeypatch):
+    """Check analyse incident with llm handles invalid output."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", True)
     incident = make_incident(incident_priority="High")
     from llm_analysis import analyse_incident_with_llm
@@ -397,3 +424,32 @@ def test_analyse_incident_with_llm_handles_invalid_output(monkeypatch):
     analysis = analyse_incident_with_llm(incident)
 
     assert analysis is None
+
+
+@pytest.mark.parametrize("error_name,expected", [
+    ("AuthenticationError", "authentication failed"),
+    ("APIConnectionError", "network"),
+    ("APITimeoutError", "network"),
+    ("RateLimitError", "rate limit"),
+    ("APIStatusError", "account access"),
+])
+def test_ai_failures_return_safe_status_without_mutating_incident(monkeypatch, capsys, error_name, expected):
+    """Check ai failures return safe status without mutating incident."""
+    from llm_analysis import analyse_incident_with_llm_result
+    client, sdk = install_openai_mock(monkeypatch)
+    client.responses.parse.side_effect = getattr(sdk, error_name)("sk-fake-secret")
+    incident = make_incident()
+    original = deepcopy(incident)
+    outcome = analyse_incident_with_llm_result(incident)
+    assert outcome.status == "failed" and outcome.analysis is None
+    assert expected in outcome.message.lower()
+    assert "sk-fake-secret" not in outcome.message + capsys.readouterr().err
+    assert incident == original
+
+
+def test_invalid_output_returns_explanation_for_the_desktop(monkeypatch):
+    """Check invalid output returns explanation for the desktop."""
+    from llm_analysis import analyse_incident_with_llm_result
+    install_openai_mock(monkeypatch, output_parsed={"invalid": True})
+    outcome = analyse_incident_with_llm_result(make_incident())
+    assert outcome.status == "failed" and "schema" in outcome.message

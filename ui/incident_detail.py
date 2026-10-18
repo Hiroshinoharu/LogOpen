@@ -14,7 +14,12 @@ from PyQt6.QtWidgets import (
 
 
 def _text(value, missing="Not available"):
-    """Format known field values without displaying Python containers."""
+    """Render supported scalar values or lists/tuples, with a fallback for missing data.
+
+    Strings are stripped; lists/tuples recursively become comma-separated text.
+    Numbers and date/duration values use str(). Unsupported objects use missing
+    instead of exposing their Python representation.
+    """
     if isinstance(value, (list, tuple)):
         return ", ".join(_text(item) for item in value) or missing
     if isinstance(value, (str, int, float, datetime, timedelta)):
@@ -23,6 +28,7 @@ def _text(value, missing="Not available"):
 
 
 def _body_label(text="", name="detailBody"):
+    """Create a selectable plain-text label that wraps without forcing horizontal width."""
     label = QLabel(text)
     label.setObjectName(name)
     label.setTextFormat(Qt.TextFormat.PlainText)
@@ -33,6 +39,7 @@ def _body_label(text="", name="detailBody"):
 
 
 def _section(title):
+    """Return a styled section frame and its vertical layout, already containing a title."""
     panel = QFrame()
     panel.setObjectName("detailSection")
     layout = QVBoxLayout(panel)
@@ -43,6 +50,7 @@ def _section(title):
 
 
 def _scroll_page():
+    """Return a vertically scrollable page and the layout used to populate its contents."""
     scroll = QScrollArea()
     scroll.setObjectName("detailScroll")
     scroll.setWidgetResizable(True)
@@ -58,6 +66,7 @@ def _scroll_page():
 
 
 def _field_form(fields):
+    """Build a wrapping metadata form and return its layout plus key-to-value-label mapping."""
     form = QFormLayout()
     form.setHorizontalSpacing(20)
     form.setVerticalSpacing(12)
@@ -78,6 +87,12 @@ class DiagnosticStepWidget(QFrame):
     """A recommendation card; the only command action copies text to the clipboard."""
 
     def __init__(self, number, step, parent=None):
+        """Render a numbered diagnostic description, risk, and optional command.
+
+        step is a supplied analysis dictionary. Nonblank command text appears in a
+        read-only box with a shell label and exact-text clipboard action. Missing
+        commands create no command controls; no shell process is ever started.
+        """
         super().__init__(parent)
         self.setObjectName("diagnosticStep")
         layout = QVBoxLayout(self)
@@ -134,6 +149,7 @@ class SourceEventsWidget(QWidget):
     """Select a source event and read its complete, literal message."""
 
     def __init__(self, parent=None):
+        """Build an event-selector table and read-only message reader in a vertical splitter."""
         super().__init__(parent)
         self._events = []
         layout = QVBoxLayout(self)
@@ -190,6 +206,12 @@ class SourceEventsWidget(QWidget):
         self.splitter.setStretchFactor(1, 1)
 
     def set_events(self, events):
+        """Replace the event list and select its first valid dictionary, if present.
+
+        Accepts a list/tuple, ignores malformed entries, clears stale selection and
+        message content, and resets scroll positions. Event dictionaries are shared
+        without mutation; table rows store indexes for message lookup.
+        """
         self._events = [event for event in events if isinstance(event, dict)] if isinstance(
             events, (list, tuple)
         ) else []
@@ -215,6 +237,9 @@ class SourceEventsWidget(QWidget):
         self._show_selected_event()
 
     def _show_selected_event(self):
+        """Display the selected event metadata and literal full message, resetting message
+        scroll.
+        """
         rows = self.table.selectionModel().selectedRows()
         if not rows:
             self.event_context.setText("")
@@ -241,6 +266,11 @@ class IncidentDetailWidget(QWidget):
     back_requested = pyqtSignal()
 
     def __init__(self, parent=None):
+        """Build overview, AI, and source-event tabs and wire Back keyboard shortcuts.
+
+        Initializes the empty view. back_requested lets the owning window navigate;
+        constructing this widget does not collect events or request analysis.
+        """
         super().__init__(parent)
         self.incident = None
         self._wide_overview = None
@@ -344,6 +374,9 @@ class IncidentDetailWidget(QWidget):
 
         self.ai_scroll, ai_layout = _scroll_page()
         self.tabs.addTab(self.ai_scroll, "AI analysis")
+        self.ai_status = _body_label("", "mutedLabel")
+        self.ai_status.setAccessibleName("AI analysis status")
+        ai_layout.addWidget(self.ai_status)
         self.ai_missing, missing_layout = _section("No AI analysis")
         self.ai_missing_message = _body_label("AI analysis was not generated for this incident.")
         missing_layout.addWidget(self.ai_missing_message)
@@ -381,7 +414,11 @@ class IncidentDetailWidget(QWidget):
         self.set_incident(None)
 
     def _set_diagnostic_steps(self, steps):
-        """Rebuild the cards from the supplied analysis, dropping the previous incident."""
+        """Replace diagnostic cards with supplied dictionary steps and update the empty state.
+
+        Old widgets are removed and scheduled for deletion so previous incidents'
+        commands cannot remain visible. Cards only display and copy suggestions.
+        """
         for card in self.diagnostic_cards:
             self.diagnostic_layout.removeWidget(card)
             card.hide()
@@ -396,10 +433,12 @@ class IncidentDetailWidget(QWidget):
         self.diagnostic_empty.setVisible(not self.diagnostic_cards)
 
     def resizeEvent(self, event):
+        """Process the Qt resize event, then adapt the overview layout to available width."""
         super().resizeEvent(event)
         self._arrange_overview()
 
     def _arrange_overview(self):
+        """Use overview columns at widths of at least 900 pixels; otherwise stack sections."""
         wide = self.width() >= 900
         if wide == self._wide_overview:
             return
@@ -412,7 +451,14 @@ class IncidentDetailWidget(QWidget):
         self.overview_grid.setColumnStretch(1, 2 if wide else 0)
 
     def set_incident(self, incident):
-        """Replace every displayed value; never modify or re-analyze the input."""
+        """Replace all displayed fields from an incident dictionary, or clear the view.
+
+        Shows supplied metadata, score contributions, AI outcome/content, diagnostic
+        steps, and source events. Missing fields receive fallbacks; numeric zero
+        remains distinct from missing data. Tabs and scroll positions reset for
+        each incident. The source dictionary is retained without modification;
+        scores and AI explanations are never recomputed by this view.
+        """
         self.incident = incident
         data = incident if isinstance(incident, dict) else {}
         self.classification.setText(_text(data.get("incident_classification")))
@@ -426,6 +472,7 @@ class IncidentDetailWidget(QWidget):
         self.summary.setText(_text(data.get("summary_text"), "No summary available."))
         for key, label in self.fields.items():
             label.setText(_text(data.get(key)))
+        self.fields["log_type"].setText(_text(data.get("log_types") or data.get("log_type")))
         recurring = data.get("is_recurring")
         self.fields["is_recurring"].setText(
             "Recurring" if recurring is True
@@ -443,6 +490,21 @@ class IncidentDetailWidget(QWidget):
 
         analysis = data.get("llm_analysis")
         analysis = analysis if isinstance(analysis, dict) else {}
+        status = data.get("llm_analysis_status", "completed" if analysis else None)
+        messages = {
+            "disabled": "AI analysis is disabled in Settings.",
+            "not_selected": "This incident was not selected for AI analysis.",
+            "failed": "AI analysis failed. Check AI Settings and try again.",
+            "completed": "AI analysis completed.",
+        }
+        self.ai_status.setText({
+            "disabled": "AI disabled", "not_selected": "Not selected",
+            "failed": "AI analysis failed", "completed": "AI analysis completed",
+        }.get(status, ""))
+        self.ai_missing_message.setText(_text(
+            data.get("llm_analysis_message") or messages.get(status),
+            "AI analysis was not generated for this incident.",
+        ))
         self.ai_missing.setVisible(not analysis)
         self.ai_content.setVisible(bool(analysis))
         for key, label in self.ai_fields.items():

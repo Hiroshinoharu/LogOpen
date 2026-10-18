@@ -17,10 +17,14 @@ from json_reporting import export_incidents_to_json
 
 @pytest.fixture
 def credential_backend(monkeypatch):
+    """Provide an in-memory CredWrite/CredRead/CredDelete mock with pywin32-compatible
+    text/byte handling.
+    """
     values = {}
     backend = Mock(CRED_TYPE_GENERIC=1, CRED_PERSIST_LOCAL_MACHINE=2)
 
     def read(target, kind, flags):
+        """Read the fake credential, raising Windows error 1168 when its target is absent."""
         assert (target, kind, flags) == (credentials.CREDENTIAL_TARGET, 1, 0)
         if target not in values:
             error = OSError("Credential not found")
@@ -29,10 +33,19 @@ def credential_backend(monkeypatch):
         return values[target]
 
     def write(value, flags):
+        """Require Unicode credential input and store a copy with the UTF-16 bytes returned
+        by CredRead.
+        """
         assert flags == 0
+        # Match the native pywin32 boundary: CredWrite accepts Unicode, while
+        # CredRead returns the stored UTF-16 bytes. A permissive mock hid a bug.
+        if not isinstance(value["CredentialBlob"], str):
+            raise TypeError("CredentialBlob must be Unicode")
         values[value["TargetName"]] = value.copy()
+        values[value["TargetName"]]["CredentialBlob"] = value["CredentialBlob"].encode("utf-16-le")
 
     def delete(target, kind, flags):
+        """Delete an existing fake credential, preserving native not-found behavior."""
         read(target, kind, flags)
         del values[target]
 
@@ -44,9 +57,11 @@ def credential_backend(monkeypatch):
 
 
 def test_key_round_trip_and_removal(credential_backend):
+    """Check key round trip and removal."""
     backend, values = credential_backend
     assert credentials.get_openai_api_key() is None
     credentials.save_openai_api_key("  sk-fake-user-key  ")
+    assert backend.CredWrite.call_args.args[0]["CredentialBlob"] == "sk-fake-user-key"
     assert credentials.get_openai_api_key() == "sk-fake-user-key"
     stored = values[credentials.CREDENTIAL_TARGET]
     assert stored["Persist"] == backend.CRED_PERSIST_LOCAL_MACHINE
@@ -57,6 +72,15 @@ def test_key_round_trip_and_removal(credential_backend):
     credentials.delete_openai_api_key()  # Removing an absent key is harmless.
 
 
+@pytest.mark.parametrize("blob", ["sk-fake-user-key", "sk-fake-user-key".encode("utf-16-le")])
+def test_credential_read_supports_text_and_utf16_bytes(credential_backend, blob):
+    """Check credential read supports text and utf16 bytes."""
+    backend, _ = credential_backend
+    backend.CredRead.side_effect = None
+    backend.CredRead.return_value = {"CredentialBlob": blob}
+    assert credentials.get_openai_api_key() == "sk-fake-user-key"
+
+
 @pytest.mark.parametrize("stored,environment,expected", [
     (None, None, None), ("stored-user-key", None, "stored-user-key"),
     (None, "environment-key", "environment-key"),
@@ -64,6 +88,7 @@ def test_key_round_trip_and_removal(credential_backend):
     (None, "   ", None),
 ])
 def test_credential_precedence(monkeypatch, credential_backend, stored, environment, expected):
+    """Check credential precedence."""
     if stored:
         credentials.save_openai_api_key(stored)
     if environment is not None:
@@ -73,6 +98,7 @@ def test_credential_precedence(monkeypatch, credential_backend, stored, environm
 
 @pytest.mark.parametrize("operation", ["save", "read", "delete"])
 def test_storage_failures_never_expose_exception_contents(credential_backend, operation):
+    """Check storage failures never expose exception contents."""
     backend, _ = credential_backend
     for method in (backend.CredRead, backend.CredWrite, backend.CredDelete):
         method.side_effect = OSError("sensitive-error-sk-fake-user-key")
@@ -89,6 +115,7 @@ def test_storage_failures_never_expose_exception_contents(credential_backend, op
 
 
 def test_unavailable_storage_allows_environment_fallback(monkeypatch, credential_backend):
+    """Check unavailable storage allows environment fallback."""
     backend, _ = credential_backend
     backend.CredRead.side_effect = OSError("unavailable")
     with pytest.raises(credentials.CredentialStoreError):
@@ -100,6 +127,7 @@ def test_unavailable_storage_allows_environment_fallback(monkeypatch, credential
 
 @pytest.mark.parametrize("key", ["", "   ", "key with whitespace", "key\x00", "a" * 2049])
 def test_invalid_key_is_not_saved(credential_backend, key):
+    """Check invalid key is not saved."""
     backend, _ = credential_backend
     with pytest.raises(ValueError):
         credentials.save_openai_api_key(key)
@@ -107,6 +135,7 @@ def test_invalid_key_is_not_saved(credential_backend, key):
 
 
 def test_preferences_persist_separately_from_secrets(tmp_path, credential_backend):
+    """Check preferences persist separately from secrets."""
     path = str(tmp_path / "ordinary-settings.ini")
     prefs = AISettings(False, "custom-model", 7)
     credentials.save_openai_api_key("sk-fake-user-key")
@@ -120,6 +149,7 @@ def test_preferences_persist_separately_from_secrets(tmp_path, credential_backen
 
 
 def test_config_defaults_and_user_preference_precedence(monkeypatch):
+    """Check config defaults and user preference precedence."""
     monkeypatch.setattr(config, "ENABLE_LLM_ANALYSIS", False)
     monkeypatch.setattr(config, "DEFAULT_ANALYSIS_MODEL", "existing-model")
     monkeypatch.setattr(config, "MAX_LLM_ANALYSES_PER_RUN", 5)
@@ -136,6 +166,7 @@ def test_config_defaults_and_user_preference_precedence(monkeypatch):
     ([], [], 1.5, 3),
 ])
 def test_malformed_preferences_recover_safely(enabled, model, limit, expected_limit):
+    """Check malformed preferences recover safely."""
     settings = AppSettings()
     settings._storage.setValue("ai/enabled", enabled)
     settings._storage.setValue("ai/model", model)
@@ -144,6 +175,7 @@ def test_malformed_preferences_recover_safely(enabled, model, limit, expected_li
 
 
 def test_unavailable_preferences_disable_ai_and_report_save_failure():
+    """Check unavailable preferences disable ai and report save failure."""
     storage = Mock()
     storage.status.return_value = QSettings.Status.AccessError
     settings = AppSettings(storage)
@@ -158,6 +190,7 @@ def test_unavailable_preferences_disable_ai_and_report_save_failure():
     AISettings(True, "sk-fake-key", 3),
 ])
 def test_invalid_preferences_are_rejected_without_writing(preferences):
+    """Check invalid preferences are rejected without writing."""
     storage = Mock()
     with pytest.raises(ValueError):
         AppSettings(storage).save(preferences)
@@ -166,6 +199,9 @@ def test_invalid_preferences_are_rejected_without_writing(preferences):
 
 @pytest.fixture
 def api_client(monkeypatch):
+    """Patch OpenAI construction with a context-managed client returning valid synthetic
+    structured analysis.
+    """
     client = MagicMock()
     client.__enter__.return_value = client
     client.responses.parse.return_value = SimpleNamespace(output_parsed={
@@ -178,6 +214,7 @@ def api_client(monkeypatch):
 
 
 def test_disabled_ai_skips_selection_and_direct_api_calls(api_client, monkeypatch):
+    """Check disabled ai skips selection and direct api calls."""
     import main
     from llm_analysis import analyse_incident_with_llm, select_incidents_for_llm
     AppSettings().save(AISettings(False, "test-model", 3))
@@ -186,13 +223,14 @@ def test_disabled_ai_skips_selection_and_direct_api_calls(api_client, monkeypatc
     assert select_incidents_for_llm([incident]) == []
     assert analyse_incident_with_llm(incident) is None
     analyse = Mock()
-    monkeypatch.setattr(main, "analyse_incident_with_llm", analyse)
+    monkeypatch.setattr(main, "analyse_incident_with_llm_result", analyse)
     main.add_llm_analyses([incident])
     analyse.assert_not_called()
     api_client[1].assert_not_called()
 
 
 def test_saved_model_limit_and_key_reach_llm_but_never_reports(api_client, credential_backend, tmp_path, monkeypatch, capsys):
+    """Check saved model limit and key reach llm but never reports."""
     import main
     client, constructor = api_client
     credentials.save_openai_api_key("sk-fake-user-secret")
@@ -205,6 +243,10 @@ def test_saved_model_limit_and_key_reach_llm_but_never_reports(api_client, crede
     assert "llm_analysis" not in incidents[0]
     assert incidents[1]["llm_analysis"] is not None
     assert incidents[2]["llm_analysis"] is not None
+    assert incidents[0]["llm_analysis_status"] == "not_selected"
+    assert "limit" in incidents[0]["llm_analysis_message"]
+    assert incidents[1]["llm_analysis_status"] == "completed"
+    assert incidents[2]["llm_analysis_status"] == "completed"
     assert client.responses.parse.call_args.kwargs["model"] == "selected-model"
     assert constructor.call_args.kwargs["api_key"] == "sk-fake-user-secret"
     assert constructor.call_args.kwargs["base_url"] == "https://api.openai.com/v1"
@@ -219,6 +261,7 @@ def test_saved_model_limit_and_key_reach_llm_but_never_reports(api_client, crede
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_deterministic_scan_continues_without_ai_credentials(monkeypatch, api_client, enabled):
+    """Check deterministic scan continues without ai credentials."""
     import main
     from tests.helpers import make_event
     AppSettings().save(AISettings(enabled, "test-model", 3))
@@ -236,9 +279,10 @@ def test_deterministic_scan_continues_without_ai_credentials(monkeypatch, api_cl
 
 
 def test_unexpected_analysis_error_cannot_leak_into_export(monkeypatch, tmp_path, capsys):
+    """Check unexpected analysis error cannot leak into export."""
     import main
     AppSettings().save(AISettings(True, "test-model", 3))
-    monkeypatch.setattr(main, "analyse_incident_with_llm", Mock(side_effect=RuntimeError("sk-fake-secret")))
+    monkeypatch.setattr(main, "analyse_incident_with_llm_result", Mock(side_effect=RuntimeError("sk-fake-secret")))
     incidents = [{"incident_priority": "Critical"}]
     main.add_llm_analyses(incidents)
     report = tmp_path / "incidents.json"
@@ -250,6 +294,7 @@ def test_unexpected_analysis_error_cannot_leak_into_export(monkeypatch, tmp_path
 
 
 def test_connection_uses_only_metadata_with_short_timeout(api_client, monkeypatch):
+    """Check connection uses only metadata with short timeout."""
     monkeypatch.setenv("OPENAI_API_KEY", "fake-environment-key")
     client, constructor = api_client
     success, message = check_openai_connection("selected-model")
@@ -264,6 +309,7 @@ def test_connection_uses_only_metadata_with_short_timeout(api_client, monkeypatc
 @pytest.mark.parametrize("status,expected", [(401, "Authentication failed"),
     (403, "access denied"), (404, "Model unavailable"), (429, "rate limit"), (500, "error")])
 def test_connection_api_errors_are_safe(api_client, monkeypatch, status, expected):
+    """Check connection api errors are safe."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-secret")
     response = SimpleNamespace(status_code=status, request=Mock(), headers={})
     error_type = {401: openai.AuthenticationError, 429: openai.RateLimitError}.get(status, openai.APIStatusError)
@@ -279,6 +325,7 @@ def test_connection_api_errors_are_safe(api_client, monkeypatch, status, expecte
     RuntimeError("sensitive-sk-fake-secret"),
 ])
 def test_connection_network_and_unexpected_errors_are_safe(api_client, monkeypatch, error):
+    """Check connection network and unexpected errors are safe."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-secret")
     api_client[0].models.retrieve.side_effect = error
     success, message = check_openai_connection("test-model")
@@ -287,6 +334,7 @@ def test_connection_network_and_unexpected_errors_are_safe(api_client, monkeypat
 
 
 def test_connection_missing_key_does_not_create_a_client(api_client):
+    """Check connection missing key does not create a client."""
     success, message = check_openai_connection("test-model")
     assert not success and "No API key" in message
     api_client[1].assert_not_called()

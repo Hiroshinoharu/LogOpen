@@ -8,12 +8,15 @@ from tests.helpers import make_event
 
 
 class TerminalReportingTests(unittest.TestCase):
+    """Behavioral checks for terminal reporting, using controlled test data."""
     def test_clean_message_removes_empty_lines(self):
+        """Check clean message removes empty lines."""
         message = "\nFirst line\n\nSecond line\n"
 
         self.assertEqual(clean_message(message), "First line\nSecond line")
 
     def test_display_incident_reports_writes_summary(self):
+        """Check display incident reports writes summary."""
         buffer = StringIO()
         incidents = [[
             make_event(
@@ -37,6 +40,7 @@ class TerminalReportingTests(unittest.TestCase):
         self.assertIn("Retry later.", output)
 
     def test_display_incident_reports_handles_empty_input(self):
+        """Check display incident reports handles empty input."""
         buffer = StringIO()
 
         display_incident_reports([], out=buffer)

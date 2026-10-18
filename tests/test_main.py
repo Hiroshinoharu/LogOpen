@@ -7,6 +7,8 @@ import unittest
 from unittest.mock import patch
 
 from models.incident_analysis import IncidentAnalysis
+from llm_analysis import AIAnalysisResult
+from errors import EventCollectionError, ReportExportError
 from tests.helpers import make_event
 from settings.app_settings import AISettings
 import config
@@ -59,7 +61,9 @@ def _load_main_module():
 
 
 class MainWorkflowTests(unittest.TestCase):
+    """Behavioral checks for main workflow, using controlled test data."""
     def setUp(self):
+        """Patch saved AI preferences with a predictable enabled/model/limit snapshot."""
         settings_patch = patch("settings.app_settings.AppSettings.load", return_value=AISettings(
             True, config.DEFAULT_ANALYSIS_MODEL, 3,
         ))
@@ -67,6 +71,7 @@ class MainWorkflowTests(unittest.TestCase):
         self.addCleanup(settings_patch.stop)
 
     def test_scan_system_returns_incident_summaries(self):
+        """Check scan system returns incident summaries."""
         main_module = _load_main_module()
         event = make_event()
 
@@ -90,6 +95,7 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertIs(export_report.call_args.args[0], incidents)
 
     def test_scan_system_returns_empty_list_when_no_events_are_found(self):
+        """Check scan system returns empty list when no events are found."""
         main_module = _load_main_module()
 
         with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
@@ -105,15 +111,17 @@ class MainWorkflowTests(unittest.TestCase):
         analyse.assert_not_called()
 
     def test_scan_system_raises_when_no_configured_log_can_be_read(self):
+        """Check scan system raises when no configured log can be read."""
         main_module = _load_main_module()
 
         with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
-            main_module, "get_recent_events", side_effect=PermissionError("access denied")
+            main_module, "get_recent_events", side_effect=EventCollectionError("access denied")
         ), patch.object(main_module, "_write_status"):
             with self.assertRaisesRegex(RuntimeError, "none of the configured event logs"):
                 main_module.scan_system()
 
     def test_scan_system_propagates_interrupts_and_output_failures(self):
+        """Check scan system propagates interrupts and output failures."""
         main_module = _load_main_module()
 
         for error in (KeyboardInterrupt(), BrokenPipeError()):
@@ -124,6 +132,7 @@ class MainWorkflowTests(unittest.TestCase):
                     main_module.scan_system()
 
     def test_main_returns_exit_codes(self):
+        """Check main returns exit codes."""
         main_module = _load_main_module()
 
         for incidents in ([], [{"incident_priority": "Low"}]):
@@ -136,13 +145,16 @@ class MainWorkflowTests(unittest.TestCase):
             (KeyboardInterrupt(), 130),
             (BrokenPipeError(), 0),
             (RuntimeError("scan failed"), 1),
+            (EventCollectionError("read failed"), 1),
+            (ReportExportError("write failed"), 1),
         ):
             with self.subTest(error=type(error).__name__), patch.object(
                 main_module, "scan_system", side_effect=error
             ), patch.object(main_module, "_write_status"):
                 self.assertEqual(main_module.main(), expected_code)
 
-    def test_main_collects_and_bundles_each_log_type_separately(self):
+    def test_main_combines_logs_and_preserves_their_sources(self):
+        """Check main combines logs and preserves their sources."""
         main_module = _load_main_module()
         system_event = make_event(
             log_type="System",
@@ -171,8 +183,10 @@ class MainWorkflowTests(unittest.TestCase):
             ],
         }
 
-        def fake_get_recent_events(log_type, limit):
+        def fake_get_recent_events(log_type, limit, **kwargs):
+            """Record collection arguments and return the prepared events for each requested log."""
             get_recent_calls.append((log_type, limit))
+            self.assertEqual(kwargs, {"hours": config.SCAN_WINDOW_HOURS, "levels": ("Error", "Warning")})
             if log_type == "System":
                 return [system_event]
             if log_type == "Application":
@@ -180,16 +194,20 @@ class MainWorkflowTests(unittest.TestCase):
             return []
 
         def fake_bundle_incidents(events):
+            """Capture the events passed to grouping and return one synthetic combined group."""
             bundle_inputs.append([event["log_type"] for event in events])
             return [events]
 
         def fake_display_incident_reports(incidents):
+            """Capture summaries passed to terminal reporting without printing them."""
             displayed_incidents.extend(incidents)
 
         def fake_export_incidents_to_json(incidents, file_path):
+            """Capture exported incidents and destination without writing a report."""
             exported_incidents.append((incidents, file_path))
 
         def fake_print(*args, **kwargs):
+            """Capture rendered output for workflow assertions."""
             print_calls.append(" ".join(str(arg) for arg in args))
 
         with patch.object(main_module.config, "LOG_TYPES", ["System", "Application"]), patch.object(
@@ -218,8 +236,8 @@ class MainWorkflowTests(unittest.TestCase):
             side_effect=fake_export_incidents_to_json,
         ), patch.object(
             main_module,
-            "analyse_incident_with_llm",
-            return_value=IncidentAnalysis(**llm_analysis),
+            "analyse_incident_with_llm_result",
+            return_value=AIAnalysisResult("completed", "AI analysis completed.", IncidentAnalysis(**llm_analysis)),
         ), patch.object(
             main_module,
             "select_incidents_for_llm",
@@ -229,7 +247,7 @@ class MainWorkflowTests(unittest.TestCase):
 
         self.assertEqual(
             get_recent_calls,
-            [("System", 500), ("Application", 500)],
+            [("System", config.MAX_RECORDS_PER_LOG), ("Application", config.MAX_RECORDS_PER_LOG)],
         )
         self.assertEqual(bundle_inputs, [["System", "Application"]])
         self.assertEqual(len(displayed_incidents), 1)
@@ -241,20 +259,22 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertEqual(len(exported_payload), 1)
         self.assertEqual(exported_payload[0]["event_count"], 2)
         self.assertEqual(exported_payload[0]["providers"], ["SharedProvider"])
-        self.assertEqual(exported_payload[0]["log_type"], "System")
+        self.assertEqual(exported_payload[0]["log_types"], ["Application", "System"])
         self.assertEqual(exported_payload[0]["llm_analysis"], llm_analysis)
         self.assertTrue(
             any("the System and Application logs" in call for call in print_calls)
         )
 
     def test_main_continues_when_one_configured_log_cannot_be_read(self):
+        """Check main continues when one configured log cannot be read."""
         main_module = _load_main_module()
         application_event = make_event(log_type="Application")
 
-        def fake_get_recent_events(log_type, limit):
-            self.assertEqual(limit, 500)
+        def fake_get_recent_events(log_type, limit, **kwargs):
+            """Raise a controlled error for one log and return valid events for the other."""
+            self.assertEqual(limit, config.MAX_RECORDS_PER_LOG)
             if log_type == "System":
-                raise PermissionError("access denied")
+                raise EventCollectionError("access denied")
             return [application_event]
 
         with patch.object(
@@ -278,7 +298,7 @@ class MainWorkflowTests(unittest.TestCase):
             "display_incident_reports",
         ), patch.object(
             main_module,
-            "analyse_incident_with_llm",
+            "analyse_incident_with_llm_result",
             return_value=None,
         ), patch.object(
             main_module,
@@ -286,7 +306,7 @@ class MainWorkflowTests(unittest.TestCase):
         ) as export_report, patch.object(main_module, "_write_status") as status:
             exit_code = main_module.main()
 
-        self.assertEqual(exit_code, 0)
+        self.assertEqual(exit_code, 1)
         exported_incidents = export_report.call_args.args[0]
         self.assertEqual(len(exported_incidents), 1)
         self.assertEqual(exported_incidents[0]["log_type"], "Application")
@@ -295,12 +315,13 @@ class MainWorkflowTests(unittest.TestCase):
         )
 
     def test_main_returns_failure_when_no_configured_log_can_be_read(self):
+        """Check main returns failure when no configured log can be read."""
         main_module = _load_main_module()
 
         with patch.object(main_module.config, "LOG_TYPES", ["System"]), patch.object(
             main_module,
             "get_recent_events",
-            side_effect=PermissionError("access denied"),
+            side_effect=EventCollectionError("access denied"),
         ), patch.object(
             main_module,
             "export_incidents_to_json",
@@ -317,12 +338,13 @@ class MainWorkflowTests(unittest.TestCase):
         )
 
     def test_add_llm_analyses_records_empty_exception_messages(self):
+        """Check add llm analyses records empty exception messages."""
         main_module = _load_main_module()
         incident = {"incident_priority": "High", "llm_analysis": None}
 
         with patch.object(
             main_module,
-            "analyse_incident_with_llm",
+            "analyse_incident_with_llm_result",
             side_effect=RuntimeError(),
         ), patch.object(main_module, "_write_status"):
             main_module.add_llm_analyses([incident])
@@ -331,18 +353,21 @@ class MainWorkflowTests(unittest.TestCase):
         self.assertEqual(incident["llm_analysis_error"], "AI analysis could not be completed. Check AI Settings.")
 
     def test_add_llm_analyses_handles_model_serialization_failure(self):
+        """Check add llm analyses handles model serialization failure."""
         main_module = _load_main_module()
         incident = {"incident_priority": "High", "llm_analysis": None}
 
         class InvalidAnalysis:
+            """Simulate an analysis object whose JSON serialization fails."""
             def model_dump(_analysis, *, mode):
+                """Raise a controlled serialization error to test per-incident failure handling."""
                 self.assertEqual(mode, "json")
                 raise ValueError("invalid structured response")
 
         with patch.object(
             main_module,
-            "analyse_incident_with_llm",
-            return_value=InvalidAnalysis(),
+            "analyse_incident_with_llm_result",
+            return_value=AIAnalysisResult("completed", "AI analysis completed.", InvalidAnalysis()),
         ), patch.object(main_module, "_write_status"):
             main_module.add_llm_analyses([incident])
 

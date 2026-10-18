@@ -24,7 +24,9 @@ def make_summary(classification, start):
 
 
 class IncidentRecurrenceTests(unittest.TestCase):
+    """Behavioral checks for incident recurrence, using controlled test data."""
     def test_single_occurrence_is_not_recurring(self):
+        """Check single occurrence is not recurring."""
         summary = make_summary("Example Issue", datetime(2026, 8, 19, 12, 0))
 
         apply_recurrence_metadata([summary])
@@ -34,6 +36,7 @@ class IncidentRecurrenceTests(unittest.TestCase):
         self.assertFalse(summary["is_recurring"])
 
     def test_two_matching_occurrences_within_24_hours_are_counted(self):
+        """Check two matching occurrences within 24 hours are counted."""
         base_time = datetime(2026, 8, 19, 12, 0)
         first = make_summary("Example Issue", base_time)
         second = make_summary("Example Issue", base_time + timedelta(hours=2))
@@ -45,6 +48,7 @@ class IncidentRecurrenceTests(unittest.TestCase):
         self.assertFalse(second["is_recurring"])
 
     def test_three_occurrences_within_24_hours_add_recurrence_score(self):
+        """Check three occurrences within 24 hours add recurrence score."""
         base_time = datetime(2026, 8, 19, 12, 0)
         summaries = [
             make_summary("Example Issue", base_time + timedelta(hours=offset))
@@ -61,6 +65,7 @@ class IncidentRecurrenceTests(unittest.TestCase):
         )
 
     def test_five_matching_occurrences_within_seven_days_add_recurrence_score(self):
+        """Check five matching occurrences within seven days add recurrence score."""
         base_time = datetime(2026, 8, 19, 12, 0)
         summaries = [
             make_summary("Example Issue", base_time + timedelta(days=offset))
@@ -80,6 +85,7 @@ class IncidentRecurrenceTests(unittest.TestCase):
         )
 
     def test_unrelated_classifications_do_not_affect_each_other(self):
+        """Check unrelated classifications do not affect each other."""
         base_time = datetime(2026, 8, 19, 12, 0)
         first = make_summary("Example Issue", base_time)
         unrelated = make_summary("Different Issue", base_time + timedelta(hours=1))
@@ -91,6 +97,7 @@ class IncidentRecurrenceTests(unittest.TestCase):
         self.assertEqual(second["recurrence_count_24h"], 2)
 
     def test_occurrences_outside_recurrence_windows_are_not_counted(self):
+        """Check occurrences outside recurrence windows are not counted."""
         latest_time = datetime(2026, 8, 19, 12, 0)
         old_summary = make_summary("Example Issue", latest_time - timedelta(days=8))
         latest_summary = make_summary("Example Issue", latest_time)

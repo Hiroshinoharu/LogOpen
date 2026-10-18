@@ -11,6 +11,9 @@ from settings import app_settings, credential_store
 
 @pytest.fixture(autouse=True)
 def isolated_ai_settings(monkeypatch, tmp_path):
+    """Isolate every test with temporary preferences, an empty credential backend, and
+    blocked network connections.
+    """
     settings_path = str(tmp_path / "preferences.ini")
     monkeypatch.setattr(app_settings, "_create_qsettings", lambda: QSettings(
         settings_path, QSettings.Format.IniFormat,
@@ -24,6 +27,7 @@ def isolated_ai_settings(monkeypatch, tmp_path):
     monkeypatch.setattr(credential_store, "_backend", lambda: backend)
 
     def no_network(*_args, **_kwargs):
+        """Fail the test if code attempts to open a real network connection."""
         raise AssertionError("Unit tests must mock network requests")
 
     monkeypatch.setattr(socket.socket, "connect", no_network)

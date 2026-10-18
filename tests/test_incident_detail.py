@@ -20,6 +20,9 @@ from ui.incident_detail import IncidentDetailWidget
 
 
 def make_incident():
+    """Build a full synthetic incident with literal markup-like text, source events, and
+    diagnostic suggestions.
+    """
     return {
         "incident_classification": "DNS <client> & networking",
         "incident_priority": "High",
@@ -62,20 +65,25 @@ def make_incident():
 
 
 class IncidentDetailTests(unittest.TestCase):
+    """Behavioral checks for incident detail, using controlled test data."""
     @classmethod
     def setUpClass(cls):
+        """Create or reuse the shared QApplication for this group of GUI tests."""
         cls.app = QApplication.instance() or QApplication([])
         cls.app.setQuitOnLastWindowClosed(False)
 
     def setUp(self):
+        """Create a fresh incident-detail widget for each presentation test."""
         self.widget = IncidentDetailWidget()
 
     def tearDown(self):
+        """Close and schedule deletion of the detail widget, processing pending Qt events."""
         self.widget.close()
         self.widget.deleteLater()
         self.app.processEvents()
 
     def test_displays_metadata_and_supplied_score_breakdown_without_mutation(self):
+        """Check displays metadata and supplied score breakdown without mutation."""
         incident = make_incident()
         original = deepcopy(incident)
         self.widget.set_incident(incident)
@@ -98,6 +106,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertEqual(incident, original)
 
     def test_displays_all_ai_sections_then_clears_them_for_missing_analysis(self):
+        """Check displays all ai sections then clears them for missing analysis."""
         self.widget.set_incident(make_incident())
         self.assertTrue(self.widget.ai_missing.isHidden())
         self.assertFalse(self.widget.ai_content.isHidden())
@@ -121,6 +130,7 @@ class IncidentDetailTests(unittest.TestCase):
                 self.assertNotIn("lookup failures", self.widget.ai_fields["explanation"].text())
 
     def test_missing_fields_and_zero_values_are_distinct(self):
+        """Check missing fields and zero values are distinct."""
         self.widget.set_incident({})
         self.assertEqual(self.widget.fields["recurrence_count_24h"].text(), "Not available")
         self.assertEqual(self.widget.score_fields["severity"].text(), "Not available")
@@ -139,7 +149,30 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertFalse(self.widget.score_bars["severity"].isHidden())
         self.assertTrue(self.widget.score_bars["duration"].isHidden())
 
+    def test_all_source_logs_and_ai_outcomes_are_displayed_and_reset(self):
+        """Check all source logs and ai outcomes are displayed and reset."""
+        for status, message in (
+            ("disabled", "AI analysis is disabled in Settings."),
+            ("not_selected", "Scan analysis limit reached."),
+            ("failed", "Authentication failed. Check Settings."),
+        ):
+            incident = {"log_type": "System", "log_types": ["Application", "System"],
+                        "llm_analysis_status": status, "llm_analysis_message": message}
+            original = deepcopy(incident)
+            self.widget.set_incident(incident)
+            self.assertEqual(self.widget.fields["log_type"].text(), "Application, System")
+            self.assertEqual(self.widget.ai_missing_message.text(), message)
+            self.assertTrue(self.widget.ai_content.isHidden())
+            self.assertEqual(incident, original)
+        self.widget.set_incident(make_incident())
+        self.assertEqual(self.widget.ai_status.text(), "AI analysis completed")
+        self.assertTrue(self.widget.ai_missing.isHidden())
+        self.widget.set_incident({})
+        self.assertEqual(self.widget.ai_status.text(), "")
+        self.assertEqual(self.widget.ai_missing_message.text(), "AI analysis was not generated for this incident.")
+
     def test_source_events_keep_messages_readable_and_scrollable_in_a_small_view(self):
+        """Check source events keep messages readable and scrollable in a small view."""
         incident = make_incident()
         incident["events"][0]["message"] += "\n" + "Long source message\n" * 200 + "x" * 20000
         self.widget.set_incident(incident)
@@ -175,6 +208,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertEqual(sources.event_context.text(), "")
 
     def test_overview_reflows_and_ai_content_scrolls_at_different_window_sizes(self):
+        """Check overview reflows and ai content scrolls at different window sizes."""
         incident = make_incident()
         incident["llm_analysis"]["explanation"] = "An explanation with <literal> tags. " * 400
         self.widget.set_incident(incident)
@@ -196,6 +230,7 @@ class IncidentDetailTests(unittest.TestCase):
                              incident["llm_analysis"]["explanation"].strip())
 
     def test_new_incident_resets_event_selection_and_handles_incomplete_sources(self):
+        """Check new incident resets event selection and handles incomplete sources."""
         self.widget.set_incident(make_incident())
         self.widget.sources.table.setCurrentCell(1, 0)
         self.widget.tabs.setCurrentIndex(2)
@@ -208,6 +243,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertNotIn("Provider <name>", self.widget.sources.event_context.text())
 
     def test_diagnostic_cards_show_all_steps_risks_and_preserve_ai_sections(self):
+        """Check diagnostic cards show all steps risks and preserve ai sections."""
         incident = make_incident()
         original = deepcopy(incident)
         self.widget.set_incident(incident)
@@ -235,6 +271,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertEqual(incident, original)
 
     def test_null_commands_do_not_create_empty_command_controls(self):
+        """Check null commands do not create empty command controls."""
         self.widget.set_incident(make_incident())
         for card in self.widget.diagnostic_cards[1:]:
             self.assertIsNone(card.command_box)
@@ -243,6 +280,7 @@ class IncidentDetailTests(unittest.TestCase):
             self.assertEqual(card.findChildren(QPlainTextEdit), [])
 
     def test_missing_or_empty_steps_clear_previous_cards_without_hiding_existing_analysis(self):
+        """Check missing or empty steps clear previous cards without hiding existing analysis."""
         for steps in (None, [], "missing", [None]):
             with self.subTest(steps=steps):
                 self.widget.set_incident(make_incident())
@@ -267,6 +305,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.assertTrue(self.widget.ai_content.isHidden())
 
     def test_long_diagnostic_text_wraps_and_commands_scroll_without_expanding_the_page(self):
+        """Check long diagnostic text wraps and commands scroll without expanding the page."""
         command = "Write-Output '<literal> & text'\n" + "x" * 20000
         incident = make_incident()
         incident["llm_analysis"]["diagnostic_steps"][0].update(
@@ -295,6 +334,7 @@ class IncidentDetailTests(unittest.TestCase):
             self.assertLessEqual(right, self.widget.ai_scroll.viewport().width())
 
     def test_command_shell_labels_handle_supported_and_legacy_steps(self):
+        """Check command shell labels handle supported and legacy steps."""
         for shell, label in (("powershell", "PowerShell"), ("cmd", "Command Prompt"),
                              ("bash", "Bash"), (None, "Shell not specified"),
                              ("unknown", "Shell not specified")):
