@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLi
 
 from channel_catalog import check_channels, list_channels
 from ui.table_layout import RoomyTable, expand_window
+from ui.icons import decorate_buttons
 
 
 class ChannelWorker(QObject):
@@ -75,6 +76,7 @@ class ChannelBrowser(QDialog):
         self.buttons.rejected.connect(self.reject)
         row.addWidget(self.buttons)
         layout.addLayout(row)
+        decorate_buttons(self)
         self._start(None)
 
     def selected_names(self):

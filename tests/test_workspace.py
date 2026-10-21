@@ -86,7 +86,7 @@ def test_filters_follow_sorted_rows_and_review_state(window):
     widget._review_incident("ignored")
     assert alpha["review_state"] == "ignored"
     assert visible(widget) == [zulu]
-    widget.review_filter.setCurrentText("Ignored")
+    widget.review_filter.setCurrentText("Hidden")
     assert visible(widget) == [alpha]
     widget._review_incident("active")
     assert alpha["review_state"] == "active"

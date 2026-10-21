@@ -77,7 +77,18 @@ built-in GitHub token. Repository/organization policy must permit GitHub Actions
 the pinned official actions, release creation, and version-tag creation. If a
 ruleset blocks those operations, adjust that policy explicitly rather than adding
 a broad personal access token or weakening branch protection. No branch writes
-are needed. Installer code signing and automatic in-app updates are not configured.
+are needed. Installer code signing is not configured. The app's **Updates** button
+checks this public release feed and downloads the installer or portable ZIP on
+request. It verifies the asset size and SHA256 digest before saving the file;
+older assets can use the published `SHA256SUMS.txt`. Downloads are cancellable,
+and incomplete files are removed. Users run the installer themselves after
+closing LogOpen; the app never silently installs or replaces itself.
+
+Update checks use GitHub's public Releases API without credentials. Requests are
+limited to HTTPS GitHub/download hosts. The installed version comes from the
+packaged `VERSION` file; source runs use the existing version-tag resolver.
+See [GitHub's release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
+and [asset API](https://docs.github.com/en/rest/releases/assets#get-a-release-asset).
 
 ## Local builds
 

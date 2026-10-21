@@ -42,6 +42,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='LogOpen',
+    icon=str(root / 'assets' / 'logopen.ico'),
     version=str(root / 'build' / 'version' / 'windows-version.txt'),
     debug=False,
     bootloader_ignore_signals=False,

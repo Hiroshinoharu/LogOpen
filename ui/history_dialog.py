@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 
 from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
 from ui.table_layout import RoomyTable, expand_window
+from ui.icons import decorate_buttons
 
 
 class HistoryDialog(QDialog):
@@ -57,6 +58,7 @@ class HistoryDialog(QDialog):
         layout.addWidget(buttons)
         if scans:
             self.table.setCurrentCell(0, 0)
+        decorate_buttons(self)
 
     def accept(self, *_args):
         """Return the selected database ID; ignore Open when no row is selected."""
@@ -105,3 +107,4 @@ class ComparisonDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        decorate_buttons(self)

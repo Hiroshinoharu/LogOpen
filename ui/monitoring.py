@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFormLayout,
                             QLabel, QSpinBox, QVBoxLayout)
 from main import scan_system
 from monitoring import AlertTracker
+from ui.icons import decorate_buttons
 
 
 class MonitorOptionsDialog(QDialog):
@@ -37,6 +38,7 @@ class MonitorOptionsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        decorate_buttons(self)
 
 
 class MonitorWorker(QObject):

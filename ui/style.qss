@@ -76,6 +76,27 @@ QLabel#pageTitle { font-size: 24px; font-weight: 600; }
 QLabel#subtitle { color: #a5b3c6; font-size: 13px; }
 QLabel#mutedLabel { color: #a5b3c6; font-size: 12px; }
 
+/* A short, visible path through the first scan. */
+QFrame#journeyStep {
+    background: #141f2d; border: 1px solid #29394c; border-radius: 9px;
+}
+QFrame#journeyStep[current="true"] { background: #14312f; border-color: #4e9e90; }
+QLabel#journeyNumber {
+    background: #26384e; color: #d1deef; border-radius: 13px; font-weight: 700;
+}
+QFrame#journeyStep[current="true"] QLabel#journeyNumber { background: #63d8c4; color: #0b3029; }
+QLabel#journeyTitle { color: #e5edf6; font-size: 13px; font-weight: 600; }
+QLabel#journeyCaption { color: #a5b3c6; font-size: 11px; }
+QFrame#disclosureSection { background: transparent; border: 1px solid #304258; border-radius: 8px; }
+QPushButton#disclosureButton {
+    text-align: left; padding: 11px 12px; border: none; border-radius: 7px;
+    background: #182636; color: #c5d3e4; font-weight: 600;
+}
+QPushButton#disclosureButton:hover { background: #22374c; }
+QPushButton#disclosureButton:focus { border: 1px solid #7ce0ce; }
+QPushButton#disclosureButton:disabled { color: #8998aa; }
+QFrame#filterFeedback { background: #192e3b; border-radius: 8px; padding: 4px; }
+
 /* Header status and result counts */
 QLabel#stateBadge, QLabel#countBadge {
     background: #192636;

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QHead
                             QVBoxLayout, QWidget)
 from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
 from ui.table_layout import RoomyTable, expand_window
+from ui.icons import decorate_buttons
 
 
 class TimelineWidget(QWidget):
@@ -122,3 +123,4 @@ class TimelineDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        decorate_buttons(self)

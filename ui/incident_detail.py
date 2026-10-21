@@ -29,6 +29,10 @@ from PyQt6.QtWidgets import (
 from ui.table_layout import RoomyTable
 from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
 from ui.timeline import TimelineWidget
+from ui.guidance import DisclosureSection, problem_explanation
+from ui.icons import decorate_buttons, icon
+from settings.terminal_service import open_terminal
+from settings.terminal_settings import SHELL_LABELS
 
 
 def _text(value, missing="Not available"):
@@ -102,14 +106,15 @@ def _field_form(fields):
 
 
 class DiagnosticStepWidget(QFrame):
-    """A recommendation card; the only command action copies text to the clipboard."""
+    """Copy a suggested command or explicitly open an empty matching terminal."""
 
     def __init__(self, number, step, parent=None):
         """Render a numbered diagnostic description, risk, and optional command.
 
         step is a supplied analysis dictionary. Nonblank command text appears in a
         read-only box with a shell label and exact-text clipboard action. Missing
-        commands create no command controls; no shell process is ever started.
+        commands create no command controls. Construction never launches a process;
+        the Open terminal action passes no command text to the terminal.
         """
         super().__init__(parent)
         self.setObjectName("diagnosticStep")
@@ -152,6 +157,12 @@ class DiagnosticStepWidget(QFrame):
             self.copy_button.setAccessibleName(f"Copy command for step {number}")
             self.copy_button.clicked.connect(lambda: QApplication.clipboard().setText(command))
             command_heading.addWidget(self.copy_button)
+            self.open_terminal_button = QPushButton("Open terminal", objectName="secondaryButton")
+            self.open_terminal_button.setIcon(icon("terminal"))
+            self.open_terminal_button.setToolTip(f"Open an empty {shell_name} terminal for this command.")
+            self.open_terminal_button.setEnabled(isinstance(shell, str) and shell in SHELL_LABELS)
+            self.open_terminal_button.clicked.connect(lambda: self._open_terminal(shell))
+            command_heading.addWidget(self.open_terminal_button)
             layout.addLayout(command_heading)
             self.command_box = QPlainTextEdit()
             self.command_box.setObjectName("diagnosticCommand")
@@ -161,6 +172,15 @@ class DiagnosticStepWidget(QFrame):
             self.command_box.setAccessibleName(f"Step {number} recommended command")
             self.command_box.setPlainText(command)
             layout.addWidget(self.command_box)
+            self.terminal_feedback = _body_label("", "mutedLabel")
+            self.terminal_feedback.hide()
+            layout.addWidget(self.terminal_feedback)
+        decorate_buttons(self)
+
+    def _open_terminal(self, shell):
+        _success, message = open_terminal(shell=shell)
+        self.terminal_feedback.setText(message)
+        self.terminal_feedback.show()
 
 
 class SourceEventsWidget(QWidget):
@@ -219,7 +239,7 @@ class SourceEventsWidget(QWidget):
         self.message.setObjectName("sourceEvents")
         self.message.setReadOnly(True)
         self.message.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
-        self.message.setMinimumHeight(80)
+        self.message.setMinimumHeight(64)
         self.message.setAccessibleName("Selected source event message")
         reader_layout.addWidget(self.message, 1)
         self.splitter.addWidget(reader)
@@ -304,6 +324,7 @@ class IncidentDetailWidget(QWidget):
     back_requested = pyqtSignal()
     analysis_requested = pyqtSignal()
     review_requested = pyqtSignal(str)
+    settings_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         """Build overview, AI, and source-event tabs and wire Back keyboard shortcuts.
@@ -320,15 +341,16 @@ class IncidentDetailWidget(QWidget):
         layout.setSpacing(16)
 
         navigation = QHBoxLayout()
-        self.back_button = QPushButton("← Back to dashboard")
+        self.back_button = QPushButton("Back to results")
+        self.back_button.setIcon(icon("back"))
         self.back_button.setObjectName("secondaryButton")
         self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_button.clicked.connect(self.back_requested.emit)
         navigation.addWidget(self.back_button)
         navigation.addStretch()
-        navigation.addWidget(QLabel("INCIDENT DETAILS", objectName="metricTitle"))
+        navigation.addWidget(QLabel("UNDERSTAND THIS PROBLEM", objectName="metricTitle"))
         layout.addLayout(navigation)
-        self.back_action = QAction("Back to dashboard", self)
+        self.back_action = QAction("Back to results", self)
         self.back_action.setShortcuts([QKeySequence("Esc"), QKeySequence("Alt+Left")])
         self.back_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.back_action.triggered.connect(self.back_requested.emit)
@@ -344,21 +366,30 @@ class IncidentDetailWidget(QWidget):
         heading.addWidget(self.priority, 0, Qt.AlignmentFlag.AlignLeft)
         headline.addLayout(heading, 1)
         score_column = QVBoxLayout()
-        score_column.addWidget(QLabel("INCIDENT SCORE", objectName="metricTitle"))
+        score_column.addWidget(QLabel("PRIORITY SCORE", objectName="metricTitle"))
+        score_column.setSpacing(4)
         self.score = QLabel(objectName="detailScore")
         self.score.setTextFormat(Qt.TextFormat.PlainText)
         self.score.setAccessibleName("Incident score out of 100")
+        self.score.setToolTip("A higher score means review this sooner. This is not a PC health score.")
         score_column.addWidget(self.score)
         headline.addLayout(score_column)
         layout.addLayout(headline)
 
         actions = QHBoxLayout()
         self.review_badge = _body_label("Active", "mutedLabel")
+        self.review_badge.setMinimumWidth(110)
         actions.addWidget(self.review_badge)
         actions.addStretch()
         self.review_buttons = []
-        for title, state in (("Acknowledge", "acknowledged"), ("Ignore", "ignored"), ("Restore", "active")):
+        for title, state, glyph, hint in (
+            ("Mark reviewed", "acknowledged", "check", "Record that you have seen this problem. This does not fix it."),
+            ("Hide problem", "ignored", "hide", "Hide this problem from the default results. Find it again using the Hidden filter."),
+            ("Show again", "active", "eye", "Return this problem to your list to review."),
+        ):
             button = QPushButton(title, objectName="secondaryButton")
+            button.setIcon(icon(glyph))
+            button.setToolTip(hint)
             button.clicked.connect(lambda _checked=False, state=state: self.review_requested.emit(state))
             actions.addWidget(button)
             self.review_buttons.append(button)
@@ -372,17 +403,28 @@ class IncidentDetailWidget(QWidget):
         self.tabs.tabBar().setDrawBase(False)
         layout.addWidget(self.tabs, 1)
         self.scroll_area, overview_layout = _scroll_page()
-        self.tabs.addTab(self.scroll_area, "Overview")
-        overview_layout.addWidget(self.review_controls)
-        summary_card, summary_layout = _section("Incident summary")
+        self.tabs.addTab(self.scroll_area, icon("info"), "Summary")
+        summary_card, summary_layout = _section("What happened")
+        self.plain_explanation = _body_label("", "detailFieldTitle")
+        summary_layout.addWidget(self.plain_explanation)
         self.summary = _body_label()
         self.summary.setAccessibleName("Incident summary")
         summary_layout.addWidget(self.summary)
         overview_layout.addWidget(summary_card)
+        guidance_card, guidance_layout = _section("Where to start")
+        self.priority_guidance = _body_label()
+        guidance_layout.addWidget(self.priority_guidance)
+        self.next_steps_button = QPushButton("See next steps", objectName="secondaryButton")
+        self.next_steps_button.setIcon(icon("arrow"))
+        self.next_steps_button.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
+        guidance_layout.addWidget(self.next_steps_button, 0, Qt.AlignmentFlag.AlignLeft)
+        overview_layout.addWidget(guidance_card)
+        overview_layout.addWidget(self.review_controls)
+        self.technical_details = DisclosureSection("Technical details and scoring")
 
         self.overview_grid = QGridLayout()
         self.overview_grid.setSpacing(16)
-        self.metadata, metadata_layout = _section("Incident information")
+        self.metadata, metadata_layout = _section("Windows log details")
         form, self.fields = _field_form((
             ("log_type", "Log type"), ("computer_name", "Computer"),
             ("providers", "Providers"), ("event_ids", "Event IDs"),
@@ -423,21 +465,40 @@ class IncidentDetailWidget(QWidget):
             self.score_fields[key] = value
             self.score_bars[key] = bar
         scoring_layout.addStretch()
-        overview_layout.addLayout(self.overview_grid)
+        self.technical_details.body.addLayout(self.overview_grid)
+        overview_layout.addWidget(self.technical_details)
         overview_layout.addStretch()
         self._arrange_overview()
 
         self.ai_scroll, ai_layout = _scroll_page()
-        self.tabs.addTab(self.ai_scroll, "AI analysis")
+        self.tabs.addTab(self.ai_scroll, icon("spark"), "Next steps (AI)")
+        ai_layout.addWidget(_body_label(
+            "Optional AI guidance can explain this problem and suggest what to try. "
+            "It sends this problem's details to OpenAI using your API key; API charges may apply.",
+            "mutedLabel",
+        ))
         ai_layout.addWidget(self.action_feedback)
         self.ai_status = _body_label("", "mutedLabel")
         self.ai_status.setAccessibleName("AI analysis status")
         ai_layout.addWidget(self.ai_status)
-        self.analyze_button = QPushButton("Analyze / retry AI", objectName="secondaryButton")
+        ai_actions = QHBoxLayout()
+        self.analyze_button = QPushButton("Explain with AI / retry", objectName="secondaryButton")
+        self.analyze_button.setIcon(icon("spark"))
         self.analyze_button.setToolTip("Send this incident to OpenAI using your saved key and model. API charges may apply.")
         self.analyze_button.clicked.connect(self.analysis_requested.emit)
-        ai_layout.addWidget(self.analyze_button)
-        self.ai_missing, missing_layout = _section("No AI analysis")
+        ai_actions.addWidget(self.analyze_button)
+        self.ai_settings_button = QPushButton("Set up AI", objectName="secondaryButton")
+        self.ai_settings_button.setIcon(icon("key"))
+        self.ai_settings_button.clicked.connect(self.settings_requested.emit)
+        ai_actions.addWidget(self.ai_settings_button)
+        self.open_terminal_button = QPushButton("Open terminal", objectName="secondaryButton")
+        self.open_terminal_button.setIcon(icon("terminal"))
+        self.open_terminal_button.setToolTip("Open an empty terminal using your preference in Settings → Terminal.")
+        self.open_terminal_button.clicked.connect(self._open_preferred_terminal)
+        ai_actions.addWidget(self.open_terminal_button)
+        ai_actions.addStretch()
+        ai_layout.addLayout(ai_actions)
+        self.ai_missing, missing_layout = _section("An explanation is optional")
         self.ai_missing_message = _body_label("AI analysis was not generated for this incident.")
         missing_layout.addWidget(self.ai_missing_message)
         ai_layout.addWidget(self.ai_missing)
@@ -446,7 +507,7 @@ class IncidentDetailWidget(QWidget):
         analysis_layout.setContentsMargins(0, 0, 0, 0)
         analysis_layout.setSpacing(16)
         analysis_layout.addWidget(_body_label("Saved AI analysis", "mutedLabel"))
-        self.diagnostic_section, self.diagnostic_layout = _section("Diagnostic Steps")
+        self.diagnostic_section, self.diagnostic_layout = _section("Checks you can try")
         self.diagnostic_empty = _body_label(
             "No structured diagnostic steps were generated for this incident.", "mutedLabel"
         )
@@ -454,9 +515,9 @@ class IncidentDetailWidget(QWidget):
         self.diagnostic_cards = []
         self.ai_fields = {}
         for key, title in (
-            ("explanation", "Explanation"), ("likely_causes", "Likely causes"),
-            ("recommended_actions", "Recommended actions"),
-            ("remediation_notes", "Remediation notes"),
+            ("explanation", "What this means"), ("likely_causes", "Possible causes"),
+            ("recommended_actions", "What you can try"),
+            ("remediation_notes", "Before making changes"),
         ):
             card, card_layout = _section(title)
             value = _body_label()
@@ -470,10 +531,15 @@ class IncidentDetailWidget(QWidget):
         ai_layout.addStretch()
 
         self.sources = SourceEventsWidget()
-        self.tabs.addTab(self.sources, "Source events")
+        self.tabs.addTab(self.sources, icon("file"), "Windows logs")
         self.timeline = TimelineWidget()
-        self.tabs.addTab(self.timeline, "Timeline")
+        self.tabs.addTab(self.timeline, icon("clock"), "Timeline")
         self.set_incident(None)
+        decorate_buttons(self)
+
+    def _open_preferred_terminal(self):
+        _success, message = open_terminal()
+        self.action_feedback.setText(message)
 
     def _set_diagnostic_steps(self, steps):
         """Replace diagnostic cards with supplied dictionary steps and update the empty state.
@@ -516,7 +582,9 @@ class IncidentDetailWidget(QWidget):
         """Refresh review controls from current metadata without rebuilding evidence tabs."""
         data = self.incident if isinstance(self.incident, dict) else {}
         state = data.get("review_state", "active")
-        self.review_badge.setText(f"Review: {state.capitalize()}")
+        self.review_badge.setText({
+            "active": "To review", "acknowledged": "Reviewed", "ignored": "Hidden from results",
+        }.get(state, "To review"))
         for button, target in zip(self.review_buttons, ("acknowledged", "ignored", "active")):
             button.setEnabled(bool(data) and state != target)
 
@@ -538,11 +606,21 @@ class IncidentDetailWidget(QWidget):
         priority = _text(data.get("incident_priority"), "Unknown")
         self.priority.setText(f"{priority} priority")
         self.priority.setProperty("priority", priority)
+        self.priority_guidance.setText({
+            "Critical": "Review this first, especially if your PC is crashing or something has stopped working.",
+            "High": "Review this soon, especially if you have noticed a related problem with your PC.",
+            "Medium": "Worth checking if you have noticed something going wrong. Review higher-priority problems first.",
+            "Low": "Lower priority in these logs. Review it if you have noticed a related problem.",
+        }.get(priority, "Read the summary and Windows logs to understand what was recorded."))
+        self.technical_details.set_expanded(False)
         self.priority.style().unpolish(self.priority)
         self.priority.style().polish(self.priority)
         score = data.get("incident_score")
         self.score.setText(f"{_text(score)} / 100" if score is not None else "Unavailable")
         self.summary.setText(_text(data.get("summary_text"), "No summary available."))
+        explanation = problem_explanation(data.get("incident_classification"))
+        self.plain_explanation.setText(explanation)
+        self.plain_explanation.setVisible(bool(explanation))
         for key, label in self.fields.items():
             label.setText(_text(data.get(key)))
         self.fields["log_type"].setText(_text(data.get("log_types") or data.get("log_type")))
@@ -593,7 +671,7 @@ class IncidentDetailWidget(QWidget):
 
         self.sources.set_events(data.get("events"))
         self.timeline.set_incidents([data] if data else [])
-        self.tabs.setTabText(2, f"Source events ({self.sources.table.rowCount()})")
+        self.tabs.setTabText(2, f"Windows logs ({self.sources.table.rowCount()})")
         self.tabs.setCurrentIndex(0)
         self.scroll_area.verticalScrollBar().setValue(0)
         self.ai_scroll.verticalScrollBar().setValue(0)

@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QApplication, QLabel, QLineEdit
 
 from settings.app_settings import AISettings, AppSettings
 from settings import credential_store
+from settings.ai_service import MissingCredentialsError, create_openai_client
 from ui.main_window import MainWindow
 from ui.settings_dialog import SettingsDialog
 
@@ -85,6 +86,55 @@ def test_key_storage_failure_stays_safe_and_clears_input(dialog, monkeypatch):
     monkeypatch.setattr(credential_store, "delete_openai_api_key", Mock(side_effect=RuntimeError("sk-private-error")))
     dialog.remove_key_button.click()
     assert "Could not remove" in dialog.message_label.text()
+
+
+def test_save_settings_applies_new_and_replacement_keys_without_restart(dialog, monkeypatch):
+    """The next client uses the key saved through the main settings button."""
+    saved = []
+    monkeypatch.setattr(credential_store, "save_openai_api_key", saved.append)
+    monkeypatch.setattr(credential_store, "get_openai_api_key", lambda: saved[-1] if saved else None)
+    constructor = Mock()
+    monkeypatch.setattr("openai.OpenAI", constructor)
+    with pytest.raises(MissingCredentialsError):
+        create_openai_client()
+    dialog.enabled_checkbox.setChecked(True)
+    dialog.model_input.setText("selected-model")
+    for key in ("sk-fake-first-key", "sk-fake-replacement-key"):
+        dialog.key_input.setText(key)
+        dialog.save_settings_button.click()
+        assert dialog.key_input.text() == ""
+        assert "No restart needed" in dialog.message_label.text()
+        assert dialog.key_status.text() == "API key configured"
+        create_openai_client().close()
+        assert constructor.call_args.kwargs["api_key"] == key
+    assert AppSettings().load().model == "selected-model"
+    assert AppSettings().load().enabled
+
+
+@pytest.mark.parametrize("action", ["save_settings_button", "restart_button"])
+def test_combined_save_reports_key_failure_and_prevents_restart(dialog, monkeypatch, action):
+    """A failed credential write cannot report success or restart the application."""
+    monkeypatch.setattr(credential_store, "save_openai_api_key", Mock(side_effect=RuntimeError("sk-private-error")))
+    restart = Mock()
+    dialog.restart_requested.connect(restart)
+    dialog.key_input.setText("sk-fake-new-key")
+    getattr(dialog, action).click()
+    assert dialog.key_input.text() == ""
+    assert "Could not save the key" in dialog.message_label.text()
+    assert "sk-private-error" not in dialog.message_label.text()
+    assert dialog.isVisible()
+    restart.assert_not_called()
+
+
+def test_invalid_preferences_prevent_restart(dialog):
+    """Restart leaves the dialog open so invalid settings can be corrected."""
+    restart = Mock()
+    dialog.restart_requested.connect(restart)
+    dialog.model_input.setText("invalid model")
+    dialog.restart_button.click()
+    assert "valid model" in dialog.message_label.text()
+    assert dialog.isVisible()
+    restart.assert_not_called()
 
 
 def test_controls_persist_and_validate_preferences(dialog):
@@ -179,6 +229,11 @@ def test_connection_runs_off_ui_thread_and_closes_safely(app, monkeypatch, close
         widget.test_button.click()
         worker, thread = widget._test_worker, widget._test_thread
         wait_until(app, started.is_set)
+        assert not widget.restart_button.isEnabled()
+        restart = Mock()
+        widget.restart_requested.connect(restart)
+        widget._restart_app()
+        restart.assert_not_called()
         ticks = []
         QTimer.singleShot(0, lambda: ticks.append(True))
         wait_until(app, lambda: bool(ticks))
@@ -223,7 +278,39 @@ def test_settings_button_opens_dialog_and_keeps_incidents(app):
         window.deleteLater()
 
 
-def test_closing_parent_waits_for_connection_thread(app, monkeypatch):
+@pytest.mark.parametrize("launched", [True, False])
+def test_restart_from_settings_saves_and_handles_launch_failure(app, monkeypatch, launched):
+    """Restart saves the key first and only closes the window if relaunch succeeds."""
+    saved = []
+    monkeypatch.setattr(credential_store, "save_openai_api_key", saved.append)
+    monkeypatch.setattr(credential_store, "get_openai_api_key", lambda: saved[-1] if saved else None)
+    relaunch = Mock(return_value=launched)
+    monkeypatch.setattr("ui.main_window.relaunch_app", relaunch)
+    window = MainWindow()
+    window.show()
+    try:
+        window.settings_button.click()
+        settings = window._settings_dialog
+        settings.enabled_checkbox.setChecked(True)
+        settings.model_input.setText("restart-model")
+        settings.key_input.setText("sk-fake-restart-key")
+        settings.restart_button.click()
+        wait_until(app, lambda: window._settings_dialog is None)
+        assert saved == ["sk-fake-restart-key"]
+        assert AppSettings().load().model == "restart-model"
+        relaunch.assert_called_once_with()
+        assert window.isVisible() is not launched
+        assert not window._restart_pending
+        if not launched:
+            assert "Could not restart" in window.status_label.text()
+            assert not window._close_pending
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+@pytest.mark.parametrize("restart", [False, True])
+def test_closing_parent_waits_for_connection_thread(app, monkeypatch, restart):
     """Check closing parent waits for connection thread."""
     release = threading.Event()
     started = threading.Event()
@@ -237,6 +324,8 @@ def test_closing_parent_waits_for_connection_thread(app, monkeypatch):
         return False, "Connection failed."
 
     monkeypatch.setattr("ui.settings_dialog.check_openai_connection", check)
+    relaunch = Mock(return_value=True)
+    monkeypatch.setattr("ui.main_window.relaunch_app", relaunch)
     window = MainWindow()
     window.show()
     try:
@@ -244,13 +333,49 @@ def test_closing_parent_waits_for_connection_thread(app, monkeypatch):
         settings = window._settings_dialog
         settings.test_button.click()
         wait_until(app, started.is_set)
-        window.close()
+        if restart:
+            window._restart_app()
+        else:
+            window.close()
         assert window.isVisible()
         assert settings._close_pending
+        relaunch.assert_not_called()
         release.set()
         wait_until(app, lambda: window._settings_dialog is None and not window.isVisible())
+        assert relaunch.call_count == int(restart)
     finally:
         release.set()
         wait_until(app, lambda: window._settings_dialog is None or window._settings_dialog._test_thread is None)
+        window.close()
+        window.deleteLater()
+
+
+def test_restart_waits_for_scan_thread(app, monkeypatch):
+    """An active scan completes its thread cleanup before another app is launched."""
+    release = threading.Event()
+    started = threading.Event()
+
+    def scan(*_args, **_kwargs):
+        started.set()
+        assert release.wait(3)
+        return []
+
+    monkeypatch.setattr("ui.main_window.scan_system", scan)
+    window = MainWindow()
+    relaunch = Mock(side_effect=lambda: window._scan_thread is None)
+    monkeypatch.setattr("ui.main_window.relaunch_app", relaunch)
+    window.show()
+    try:
+        window.run_scan()
+        wait_until(app, started.is_set)
+        window._restart_app()
+        assert window.isVisible()
+        relaunch.assert_not_called()
+        release.set()
+        wait_until(app, lambda: window._scan_thread is None and not window.isVisible())
+        relaunch.assert_called_once_with()
+    finally:
+        release.set()
+        wait_until(app, lambda: window._scan_thread is None)
         window.close()
         window.deleteLater()

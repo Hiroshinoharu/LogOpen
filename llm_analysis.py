@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from settings.app_settings import AppSettings
 from settings.ai_service import MissingCredentialsError, create_openai_client
 from settings.credential_store import CredentialStoreError
+from settings.terminal_settings import diagnostic_shell_policy
 
 
 @dataclass(frozen=True)
@@ -251,15 +252,14 @@ def select_incidents_for_llm(incidents, *, settings=None):
     return selected_incidents[:settings.max_analyses]
 
 
-def build_analysis_instructions():
+def build_analysis_instructions(*, shell_policy=None):
     """Append configured diagnostic shell rules to the base analysis instructions.
 
     Returns prompt text. Raises ValueError if the allowed list is empty/invalid,
     contains unsupported shells, or excludes the preferred shell. Configuration
     declares acceptable suggestions; it does not discover installed shells.
     """
-    allowed = config.ALLOWED_DIAGNOSTIC_SHELLS
-    preferred = config.PREFERRED_DIAGNOSTIC_SHELL
+    allowed, preferred = shell_policy if shell_policy is not None else diagnostic_shell_policy()
     if not isinstance(allowed, (list, tuple)) or not allowed:
         raise ValueError("ALLOWED_DIAGNOSTIC_SHELLS must be a non-empty list or tuple")
     if any(shell not in get_args(DiagnosticShell) for shell in allowed):
@@ -311,7 +311,8 @@ def analyse_incident_with_llm_result(incident, *, settings=None):
         return _analysis_failure("Incident data is invalid.")
     analysis_model = IncidentAnalysis
     try:
-        instructions = build_analysis_instructions()
+        shell_policy = diagnostic_shell_policy()
+        instructions = build_analysis_instructions(shell_policy=shell_policy)
     except ValueError:
         return _analysis_failure("Invalid diagnostic shell configuration.")
 
@@ -365,7 +366,7 @@ def analyse_incident_with_llm_result(incident, *, settings=None):
     if analysis is None:
         return _analysis_failure("The LLM response did not contain valid structured output.")
     elif any(
-        step.command and step.command.strip() and step.shell not in config.ALLOWED_DIAGNOSTIC_SHELLS
+        step.command and step.command.strip() and step.shell not in shell_policy[0]
         for step in analysis.diagnostic_steps
     ):
         return _analysis_failure("A diagnostic command has a missing or disallowed shell.")

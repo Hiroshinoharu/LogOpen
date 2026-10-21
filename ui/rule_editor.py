@@ -4,6 +4,7 @@ import json
 from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QPlainTextEdit,
                             QPushButton, QTabWidget, QVBoxLayout)
 from detection_rules import BUILTIN_RULES, parse_custom_rules
+from ui.icons import decorate_buttons, icon
 
 
 class RuleEditorDialog(QDialog):
@@ -24,10 +25,10 @@ class RuleEditorDialog(QDialog):
         tabs.setObjectName("detailTabs")
         self.editor = QPlainTextEdit(json.dumps(parse_custom_rules(rules_json), indent=2))
         self.editor.setAccessibleName("Custom detection rules JSON")
-        tabs.addTab(self.editor, "Custom rules")
+        tabs.addTab(self.editor, icon("settings"), "Custom rules")
         builtins = QPlainTextEdit(json.dumps(BUILTIN_RULES, indent=2))
         builtins.setReadOnly(True)
-        tabs.addTab(builtins, "Built-in rules (read only)")
+        tabs.addTab(builtins, icon("file"), "Built-in rules (read only)")
         layout.addWidget(tabs)
         example = QPushButton("Insert example into empty editor")
         example.clicked.connect(self._example)
@@ -39,6 +40,7 @@ class RuleEditorDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        decorate_buttons(self)
 
     def _example(self):
         """Insert an inert disabled sample only when no custom rules exist."""

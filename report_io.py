@@ -14,7 +14,6 @@ from errors import ReportExportError
 from json_reporting import export_incidents_to_json
 from models.scan_result import ScanResult
 
-
 class ReportImportError(ValueError):
     """A saved report cannot be read or has an unsupported data structure."""
 

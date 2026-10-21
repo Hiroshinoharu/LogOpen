@@ -28,6 +28,7 @@ UninstallDisplayIcon={app}\LogOpen.exe
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
+SetupIconFile={#SourceRoot}\assets\logopen.ico
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked

@@ -8,9 +8,9 @@ import config
 from PyQt6.QtCore import QObject, QThread, QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
-    QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+    QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QWidget,
     QProgressBar, QPushButton,
-    QApplication, QSystemTrayIcon, QStyle,
+    QApplication, QSystemTrayIcon, QStyle, QMenu,
 )
 
 from history_store import HistoryStore
@@ -24,6 +24,7 @@ from ui.history_dialog import ComparisonDialog, HistoryDialog
 from ui.scan_controls import FilterDialog, ScanOptionsDialog
 from ui.timeline import TimelineDialog
 from ui.monitoring import MonitorController, MonitorOptionsDialog
+from ui.icons import action_icon_name, icon
 
 
 class AnalysisWorker(QObject):
@@ -77,15 +78,26 @@ class WorkspaceMixin:
             )
         except (ValueError, TypeError):
             self.scan_options = ScanOptions()
-            scope_warning = "Saved scan scope was invalid. Defaults loaded; review Scan scope before scanning."
+            scope_warning = "Saved scan options were invalid. Defaults loaded; review Scan options before scanning."
         scope_row = QHBoxLayout()
-        self.scope_button = QPushButton("Scan scope…", objectName="secondaryButton")
+        self.scope_button = QPushButton("Scan options", objectName="secondaryButton")
+        self.scope_button.setIcon(icon("settings"))
+        self.scope_button.setToolTip("Choose how far back to look. Default options are a good place to start.")
         self.scope_button.clicked.connect(self._edit_scan_scope)
         scope_row.addWidget(self.scope_button)
         self.scope_label = QLabel(objectName="mutedLabel")
         self.scope_label.setTextFormat(Qt.TextFormat.PlainText)
         self.scope_label.setWordWrap(True)
         scope_row.addWidget(self.scope_label, 1)
+        self.history_button = QPushButton("Scan history", objectName="secondaryButton")
+        self.history_button.setIcon(icon("history"))
+        self.history_button.setToolTip("Reopen a previous scan without scanning again.")
+        self.history_button.clicked.connect(self._open_history)
+        scope_row.addWidget(self.history_button)
+        self.open_report_button = QPushButton("Open report", objectName="secondaryButton")
+        self.open_report_button.setIcon(icon("folder"))
+        self.open_report_button.clicked.connect(self._open_report)
+        scope_row.addWidget(self.open_report_button)
         self.cancel_button = QPushButton("Cancel scan", objectName="secondaryButton")
         self.cancel_button.clicked.connect(self._cancel_scan)
         self.cancel_button.hide()
@@ -100,27 +112,46 @@ class WorkspaceMixin:
         dashboard_layout.insertWidget(2, self.progress_bar)
         self.comparison_button = QPushButton("No comparison yet", objectName="comparisonButton")
         self.comparison_button.setEnabled(False)
+        self.comparison_button.setIcon(icon("history", "#80e5d3"))
+        self.comparison_button.hide()
         self.comparison_button.clicked.connect(self._show_comparison)
         dashboard_layout.insertWidget(5, self.comparison_button)
         filters = QHBoxLayout()
+        filters.setContentsMargins(0, 0, 0, 0)
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search incidents, providers, or source messages…")
+        self.search_input.setPlaceholderText("Search these problems…")
+        self.search_input.setAccessibleName("Search problems")
         self.search_input.setClearButtonEnabled(True)
-        self.search_input.setAccessibleName("Search incidents")
         self.search_input.setMinimumWidth(100)
         filters.addWidget(self.search_input, 1)
         self.priority_filter = QComboBox()
         self.priority_filter.addItems(["All priorities", "Critical", "High", "Medium", "Low"])
         self.priority_filter.setAccessibleName("Filter priority")
+        self.priority_filter.setToolTip("High and Critical problems are a useful place to start.")
         filters.addWidget(self.priority_filter)
         self.review_filter = QComboBox()
-        self.review_filter.addItems(["Hide ignored", "All reviews", "Active", "Acknowledged", "Ignored"])
+        for label, value in (("Visible problems", "visible"), ("All problems", "all"),
+                             ("To review", "active"), ("Reviewed", "acknowledged"), ("Hidden", "ignored")):
+            self.review_filter.addItem(label, value)
         self.review_filter.setAccessibleName("Filter review state")
+        self.review_filter.setToolTip("Choose whether to include problems you have already reviewed or hidden.")
         filters.addWidget(self.review_filter)
         self.filter_button = QPushButton("More filters…", objectName="secondaryButton")
+        self.filter_button.setIcon(icon("settings"))
         self.filter_button.clicked.connect(self._edit_filters)
         filters.addWidget(self.filter_button)
-        results_layout.insertLayout(1, filters)
+        self.filters_widget = QWidget()
+        self.filters_widget.setLayout(filters)
+        self.filters_widget.hide()
+        results_layout.insertWidget(1, self.filters_widget)
+        self.filter_feedback = QFrame(objectName="filterFeedback")
+        no_matches = QHBoxLayout(self.filter_feedback)
+        no_matches.addWidget(QLabel("No problems match these filters. Try a different search."), 1)
+        self.clear_filters_button = QPushButton("Show all problems", objectName="secondaryButton")
+        self.clear_filters_button.clicked.connect(self._show_all_problems)
+        no_matches.addWidget(self.clear_filters_button)
+        self.filter_feedback.hide()
+        results_layout.insertWidget(2, self.filter_feedback)
         self._filter_timer = QTimer(self)
         self._filter_timer.setSingleShot(True)
         self._filter_timer.setInterval(180)
@@ -140,6 +171,13 @@ class WorkspaceMixin:
         self.incident_detail.review_requested.connect(self._review_incident)
         self._update_scope_label()
         self._setup_monitoring()
+        help_menu = self.menuBar().addMenu("Help")
+        help_menu.addAction(icon("help"), "Quick guide", self.help_button.click)
+        help_menu.addAction(icon("download"), "Check for updates…", self._open_updates)
+        for menu in self.menuBar().findChildren(QMenu):
+            for action in menu.actions():
+                if not action.isSeparator() and action.icon().isNull():
+                    action.setIcon(icon(action_icon_name(action.text())))
         if scope_warning:
             self.warning_label.setText(scope_warning)
             self.warning_label.show()
@@ -147,9 +185,9 @@ class WorkspaceMixin:
     def _build_workspace_menus(self):
         """Expose history/import/export and review actions without crowding the header."""
         menu = self.menuBar().addMenu("File")
-        self.open_action = menu.addAction("Open report…", self._open_report)
+        self.open_action = menu.addAction(icon("folder"), "Open report…", self._open_report)
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
-        self.history_action = menu.addAction("Scan history…", self._open_history)
+        self.history_action = menu.addAction(icon("history"), "Scan history…", self._open_history)
         menu.addSeparator()
         self.export_action = menu.addAction("Export selected incidents…", self._export_selection)
         self.export_action.setEnabled(False)
@@ -161,6 +199,7 @@ class WorkspaceMixin:
         view.addAction("Clear filters", self._clear_filters)
         self.motion_action = QAction("Enable animations", self, checkable=True)
         view.addAction(self.motion_action)
+        view.addAction(icon("terminal"), "Terminal settings…", self._open_terminal_settings)
         review = self.menuBar().addMenu("Review")
         self.review_actions = []
         for text, state in (("Acknowledge selected", "acknowledged"),
@@ -172,8 +211,8 @@ class WorkspaceMixin:
 
     def _update_scope_label(self):
         """Describe the pending scope independently of the currently displayed report."""
-        self.scope_label.setText(f"{len(self.scan_options.log_types)} channels · "
-                                 f"last {self.scan_options.hours:g} hours")
+        self.scope_label.setText(f"Last {self.scan_options.hours:g} hours · "
+                                 f"{len(self.scan_options.log_types)} Windows logs")
         self.scope_label.setToolTip("\n".join(self.scan_options.log_types))
 
     def _edit_scan_scope(self):
@@ -200,7 +239,8 @@ class WorkspaceMixin:
 
     def _workspace_busy(self, busy):
         """Prevent changing datasets while a scan or manual analysis owns them."""
-        for control in (self.scope_button, self.open_action, self.history_action):
+        for control in (self.scope_button, self.open_action, self.history_action,
+                        self.history_button, self.open_report_button, self.updates_button):
             control.setEnabled(not busy)
         if hasattr(self, "monitor"):
             self.scope_button.setEnabled(not busy and not self.monitor.active and self.monitor.thread is None)
@@ -238,6 +278,7 @@ class WorkspaceMixin:
         }
         comparison = getattr(result, "comparison", {}) or {}
         self.comparison_button.setEnabled(bool(comparison))
+        self.comparison_button.setVisible(bool(comparison.get("comparable")))
         if comparison.get("comparable"):
             self.comparison_button.setText(
                 f"Changes: {comparison.get('new_count', 0)} new · "
@@ -300,6 +341,7 @@ class WorkspaceMixin:
         """Prevent overlapping foreground scans/AI while a monitoring worker runs."""
         self.scan_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
+        self._workspace_busy(busy)
         self.incident_detail.analyze_button.setEnabled(not busy and self.incident_detail.incident is not None)
         self.monitor_latest_action.setEnabled(not busy and self._latest_monitor_result is not None)
         self.motion.set_active(busy)
@@ -343,6 +385,11 @@ class WorkspaceMixin:
         self.review_filter.setCurrentIndex(0)
         self._apply_filters()
 
+    def _show_all_problems(self):
+        """Recover an empty filtered view, including problems hidden by review state."""
+        self._clear_filters()
+        self.review_filter.setCurrentIndex(1)
+
     def _matches_filters(self, incident):
         """Match literal text, priority, review state, and inclusive incident-start dates."""
         query = self.search_input.text().strip().casefold()
@@ -352,9 +399,9 @@ class WorkspaceMixin:
         if priority != "All priorities" and incident.get("incident_priority") != priority:
             return False
         state = incident.get("review_state", "active")
-        selected = self.review_filter.currentText()
-        if (selected == "Hide ignored" and state == "ignored") or (
-            selected not in ("Hide ignored", "All reviews") and state != selected.lower()
+        selected = self.review_filter.currentData()
+        if (selected == "visible" and state == "ignored") or (
+            selected not in ("visible", "all") and state != selected
         ):
             return False
         for key, field in (("provider", "providers"), ("classification", "incident_classification")):
@@ -389,6 +436,7 @@ class WorkspaceMixin:
         self.filter_button.setText("Filters active…" if any(self._extra_filters.get(key) for key in
                                   ("provider", "classification", "dates")) else "More filters…")
         self.export_visible_action.setEnabled(visible > 0)
+        self.filter_feedback.setVisible(bool(self._incidents) and visible == 0)
         self._update_copy_action()
 
     def _selected_incidents(self, visible=False):
@@ -503,7 +551,7 @@ class WorkspaceMixin:
             return
         preferences = app_settings.AppSettings().load()
         if not preferences.enabled:
-            self.incident_detail.action_feedback.setText("Enable AI analysis in Settings before requesting analysis.")
+            self.incident_detail.action_feedback.setText("Enable AI in Settings to get an explanation.")
             return
         self._analysis_target = incident
         self._analysis_thread = QThread(self)
@@ -557,7 +605,7 @@ class WorkspaceMixin:
         self._analysis_target = None
         self.scan_button.setEnabled(True)
         self.settings_button.setEnabled(True)
-        self.incident_detail.analyze_button.setText("Analyze / retry AI")
+        self.incident_detail.analyze_button.setText("Explain with AI / retry")
         self._workspace_busy(False)
         if self._close_pending:
             self.close()

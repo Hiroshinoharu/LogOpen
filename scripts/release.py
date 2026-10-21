@@ -8,10 +8,10 @@ creates a tag/release, after CI tests and packaging have succeeded.
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STABLE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
@@ -117,8 +117,9 @@ def release_plan(root=ROOT, *, before=None, bump="auto"):
 def write_plan(directory, *, root=ROOT, before=None, bump="auto", release=True):
     """Save a version plan and plain-text release notes; no tags or commits are written."""
     directory.mkdir(parents=True, exist_ok=True)
-    plan = release_plan(root, before=before, bump=bump) if release else dict(
-        version=current_version(root), commit=git("rev-parse", "HEAD", root=root), reused=False, bump="none")
+    plan = release_plan(root, before=before, bump=bump) if release else {
+        "version": current_version(root), "commit": git("rev-parse", "HEAD", root=root),
+        "reused": False, "bump": "none"}
     plan["tag"] = "v" + plan["version"]
     (directory / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
     # Include commits since the most recent ancestor release for useful notes,

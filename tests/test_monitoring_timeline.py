@@ -96,7 +96,8 @@ def test_monitor_runs_off_gui_thread_without_ai_and_preserves_reading(desktop, m
     assert window._current_result is window._latest_monitor_result
 
 
-def test_close_cancels_monitor_worker_before_destroying_window(desktop, monkeypatch):
+@pytest.mark.parametrize("restart", [False, True])
+def test_close_cancels_monitor_worker_before_destroying_window(desktop, monkeypatch, restart):
     """Closing during polling cooperatively stops the worker and waits for native cleanup."""
     window, app = desktop
     started = threading.Event()
@@ -110,13 +111,19 @@ def test_close_cancels_monitor_worker_before_destroying_window(desktop, monkeypa
         return result
 
     monkeypatch.setattr(monitor_ui, "scan_system", scan)
+    relaunch = Mock(side_effect=lambda: window.monitor.thread is None)
+    monkeypatch.setattr("ui.main_window.relaunch_app", relaunch)
     window.show()
     window.monitor.start(ScanOptions(), 30)
     wait_until(app, started.is_set)
-    window.close()
+    if restart:
+        window._restart_app()
+    else:
+        window.close()
     assert window._close_pending
     wait_until(app, lambda: window.monitor.thread is None and not window.isVisible())
     assert not window.monitor.active and not window.monitor.timer.isActive()
+    assert relaunch.call_count == int(restart)
 
 
 def test_monitor_defers_when_foreground_is_busy(desktop, monkeypatch):

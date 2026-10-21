@@ -177,6 +177,7 @@ class IncidentDetailTests(unittest.TestCase):
         incident["events"][0]["message"] += "\n" + "Long source message\n" * 200 + "x" * 20000
         self.widget.set_incident(incident)
         self.widget.resize(752, 490)
+        self.widget.technical_details.set_expanded(True)
         self.widget.show()
         self.app.processEvents()
         self.assertGreater(self.widget.scroll_area.verticalScrollBar().maximum(), 0)
@@ -236,7 +237,7 @@ class IncidentDetailTests(unittest.TestCase):
         self.widget.tabs.setCurrentIndex(2)
         self.widget.set_incident({"events": [None, {"event_id": 0}, "invalid"]})
         self.assertEqual(self.widget.tabs.currentIndex(), 0)
-        self.assertEqual(self.widget.tabs.tabText(2), "Source events (1)")
+        self.assertEqual(self.widget.tabs.tabText(2), "Windows logs (1)")
         self.assertEqual(self.widget.sources.table.currentRow(), 0)
         self.assertEqual(self.widget.sources.table.item(0, 2).text(), "0")
         self.assertEqual(self.widget.sources.message.toPlainText(), "No message available.")

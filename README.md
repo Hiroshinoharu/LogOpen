@@ -5,18 +5,51 @@ matched by detection rules. It groups related
 events into separate incidents, assigns deterministic classifications and scores,
 and produces terminal and JSON reports.
 
+## Your first desktop scan
+
+1. Choose **Scan my PC**. The defaults check recent Windows activity; an API key
+   is not required to scan.
+2. Start with **High** or **Critical** priority in **Problems to review**. Select
+   a row and choose **Understand problem**, or double-click the row.
+3. Read **Summary** for what happened and where to start. **Next steps (AI)**
+   offers optional AI explanations; **Set up AI** opens the key settings.
+   **Windows logs** contains the original evidence. **Technical details and
+   scoring** expands the detailed metadata.
+
+The three-step guide shows your place in the flow. **Quick guide** reopens the
+instructions at any time. Icons accompany text labels, and priority always has
+a written label. These results describe the Windows logs checked; they are not
+a complete PC health assessment.
+
 ## Desktop features
 
-- **Scan scope…** chooses a General, Security, Networking, Performance and updates,
+- **Updates** in the header (also **Help → Check for updates…**) checks the latest
+  stable release in [Hiroshinoharu/LogOpen](https://github.com/Hiroshinoharu/LogOpen/releases).
+  Choose the installer or portable ZIP and **Download update**. Downloads show
+  progress, support cancellation, and are saved only after size and SHA256 checks.
+  **Open download folder** locates the verified file. Close LogOpen and run the
+  installer, or extract the portable ZIP into a new folder. Installation is manual.
+  Checks run only when requested; no GitHub token, API key, or incident data is sent.
+- **Settings → Terminal** chooses PowerShell, Command Prompt, or Bash via WSL,
+  in a standard window or Windows Terminal. **Save Settings** applies the command
+  format to new AI suggestions. **Open selected terminal** tries the choice before
+  saving. **View → Terminal settings…** opens this page directly.
+  **Open terminal** beside a saved command opens that command's recorded shell,
+  using the selected window host. It opens an empty terminal; it never passes the
+  suggested command to the process. Bash requires WSL with Bash installed;
+  Windows Terminal must be installed to use that host.
+- **Scan options** chooses a General, Security, Networking, Performance and updates,
   or Custom profile, with editable channels, lookback hours, and record limit.
-  **Browse channels…** searches registered Windows channels and checks read access.
-  **Detection rules…** edits validated custom JSON rules and shows built-in rules.
+  **Advanced: Windows logs and detection rules** contains channel and record
+  limits. **Choose Windows logs…** searches registered Windows channels and
+  checks read access. **Detection rules…** edits validated custom JSON rules
+  and shows built-in rules.
   Desktop choices persist across launches. The CLI keeps using `config.py` defaults.
 - **Cancel scan** stops collection, grouping, or further AI requests cooperatively.
   An active Windows read or API request finishes first. Available partial results
   remain visible; cancellation preserves the previously saved report and history.
   The final short save phase cannot be cancelled.
-- **File → Scan history…** opens previous scans. Comparisons identify new,
+- **Scan history** in the main window or **File → Scan history…** opens previous scans. Comparisons identify new,
   persistent, and no-longer-observed issue families. Absence is reported only for
   complete scans with the same logs, lookback, record limit, and detection rules; it does not prove
   that an issue has been fixed.
@@ -27,10 +60,10 @@ and produces terminal and JSON reports.
   arrays without rescanning or contacting OpenAI.
 - **File → Export selected/filtered incidents…** writes JSON, CSV, or a readable
   Markdown report to a chosen location. Selection follows sorting and filtering.
-- **Overview → Acknowledge / Ignore / Restore** remembers review decisions for
+- **Summary → Mark reviewed / Hide problem / Show again** remembers review decisions for
   the same machine/classification/provider/event-ID issue family across scans.
   Ignored issues remain in evidence/history and skip automatic AI requests.
-- **AI analysis → Analyze / retry AI** requests one selected incident using the
+- **Next steps (AI) → Explain with AI / retry** requests one selected incident using the
   saved model and key, even if automatic selection skipped it. AI must be enabled;
   normal API charges apply. A failed retry keeps any previous successful analysis.
   Results opened from local history are updated there; imported files are only
@@ -130,8 +163,16 @@ Open **Settings** in the desktop header. Enable or disable AI analysis, enter yo
 own password-masked OpenAI API key, and select **Save Key**. The input is cleared
 after saving; stored keys are represented only by **API key configured**. Use
 **Remove API Key** to delete the saved credential. Key changes take effect
-immediately; **Save Settings** persists the enabled state, model, and analysis
-limit. Close discards unsaved preferences. Settings are unavailable during a scan.
+on the next AI request, without restarting; **Save Settings** saves any newly
+typed key along with the enabled state, model, and analysis limit. After saving
+a key, use **Test Connection**, retry AI on an existing incident, or run a new
+scan. Existing results are not automatically reanalyzed. Close discards unsaved
+preferences and typed keys. Settings are unavailable during a scan.
+
+**Restart App** saves settings and any typed key, then reopens LogOpen. Restarting
+stops live monitoring and waits for background work to finish. Saved scans remain
+available in History. If the new process cannot be started, the current window
+stays open and shows an error.
 
 Preferences apply to the next scan, including terminal scans. Saved preferences
 override `ENABLE_LLM_ANALYSIS`, `DEFAULT_ANALYSIS_MODEL`, and
@@ -185,7 +226,13 @@ LLM eligibility, score ordering, and incident processing flow are preserved.
 
 ## Diagnostic command shells
 
-Configure the shells used for new AI diagnostic recommendations in `config.py`:
+Choose **Settings → Terminal** to set the command format for new AI diagnostic
+recommendations. Saving applies to the next AI request without restarting. An
+explicit saved choice restricts new command suggestions to that format. Existing
+analyses retain their original shell labels, and their **Open terminal** buttons
+match those labels.
+
+When no terminal preference has been saved, `config.py` supplies the defaults:
 
 ```python
 ALLOWED_DIAGNOSTIC_SHELLS = ("powershell", "cmd")
@@ -194,11 +241,11 @@ PREFERRED_DIAGNOSTIC_SHELL = "powershell"
 
 Supported identifiers are `powershell`, `cmd`, and `bash`. The preferred shell
 must be in the allowed list. Enable `bash` only when you have a suitable Bash
-environment on Windows, such as WSL or Git Bash. Restart LogOpen after editing
-the settings; existing analyses keep their original shell metadata.
+environment on Windows, such as WSL or Git Bash. The app's Bash launcher uses WSL.
+Restart LogOpen after editing `config.py`; use the UI for changes during a session.
 
 Each diagnostic command is labeled PowerShell, Command Prompt, or Bash in the
-AI analysis tab. Older commands without metadata show “Shell not specified”.
+Next steps (AI) tab. Older commands without metadata show “Shell not specified”.
 Steps without commands use `shell: null`. Commands can be selected and copied;
 LogOpen does not execute them or install shells.
 
@@ -600,9 +647,11 @@ operations. Closing the window during a scan waits for the worker to finish.
 [ui/incident_detail.py](ui/incident_detail.py) displays the selected incident in
 three tabs:
 
-- **Overview:** metadata and score breakdown.
-- **AI analysis:** explanations and diagnostic steps.
-- **Source events:** original event records and messages.
+- **Summary:** what happened, where to start, review actions, and expandable
+  technical details and scoring.
+- **Next steps (AI):** optional explanations and suggested checks, with direct
+  access to AI setup.
+- **Windows logs:** original event records and messages.
 
 Opening an incident uses existing results and does not trigger another scan or
 AI request. [ui/style.qss](ui/style.qss) controls the visual styling.

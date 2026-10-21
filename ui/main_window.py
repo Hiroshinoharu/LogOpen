@@ -31,6 +31,10 @@ from PyQt6.QtWidgets import (
 import config
 from errors import describe_error
 from main import scan_system
+from ui.app_restart import relaunch_app
+from ui.guidance import QuickStartDialog, ScanJourney
+from ui.icons import decorate_buttons, icon
+from ui.update_dialog import UpdateDialog
 from ui.incident_detail import IncidentDetailWidget
 from ui.settings_dialog import SettingsDialog
 from ui.table_sorting import SortableTableItem, numeric_key
@@ -127,6 +131,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.warning_label.clear()
         self.warning_label.hide()
         self._clear_incidents()
+        self.journey.set_step(0)
+        self.results_hint.setText("Reading recent activity. Your results will appear here when the scan finishes.")
         self._current_result = None
         self._cancel_event = Event()
         self.cancel_button.setEnabled(True)
@@ -181,6 +187,11 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             incident.get("event_count", 0) for incident in incidents
         )))
         self.result_count.setText(f"{len(incidents)} FOUND")
+        self.journey.set_step(1 if incidents else 0)
+        self.results_hint.setText(
+            "Start with High or Critical. Select a row to understand it."
+            if incidents else "A scan groups related Windows warnings and errors into problems you can review."
+        )
         self.last_scan.setText(f"Last scan at {datetime.now():%H:%M}")
         if not complete:
             self._set_state("warning", "INCOMPLETE")
@@ -197,8 +208,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             self._show_empty_state(
                 "✓" if complete else "!",
                 "No incidents found" if complete else "No incidents found in collected events",
-                "No recent events matched the selected severity and detection rules\n"
-                "in this scan of your configured logs." if complete else
+                "No matching problems were found in the Windows logs checked.\n"
+                "If something still feels wrong, try a longer time range in Scan options." if complete else
                 "This scan is incomplete. Review the warnings above\n"
                 "before drawing conclusions about your system.",
             )
@@ -206,7 +217,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.warning_label.setVisible(bool(warnings))
         status = "incomplete" if not complete else "complete with warnings" if warnings else "complete"
         self.status_label.setText(
-            f"Scan {status} - {len(incidents)} incidents found"
+            f"Scan {status} · {len(incidents)} {'problem' if len(incidents) == 1 else 'problems'} found."
         )
         if getattr(incidents, "cancelled", False):
             self._set_state("warning", "CANCELLED")
@@ -219,6 +230,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         """Clear stale results and display a failed-scan state on the GUI thread."""
         self._clear_incidents()
         self.warning_label.clear()
+        self.journey.set_step(0)
         self.warning_label.hide()
         self.status_label.setText(f"Scan failed: {message}")
         self._set_state("error", "SCAN FAILED")
@@ -242,7 +254,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.progress_bar.hide()
         self._workspace_busy(False)
         self.settings_button.setEnabled(True)
-        self.scan_button.setText("Scan for Incidents")
+        self.scan_button.setText("Scan my PC")
         if self._close_pending:
             self.close()
 
@@ -258,6 +270,11 @@ class MainWindow(WorkspaceMixin, QMainWindow):
                 self._close_pending = True
                 event.ignore()
                 return
+        if self._updates_dialog is not None:
+            self._close_pending = True
+            self._updates_dialog.reject()
+            event.ignore()
+            return
         if self._settings_dialog is not None:
             self._close_pending = True
             self._settings_dialog.reject()
@@ -274,7 +291,20 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             self.incident_detail.action_feedback.setText("Waiting for the AI request to finish before closing…")
             event.ignore()
             return
+        if self._restart_pending:
+            self._restart_pending = False
+            if not relaunch_app():
+                self._close_pending = False
+                self.status_label.setText("Could not restart LogOpen. Please close and reopen the app manually.")
+                event.ignore()
+                return
         super().closeEvent(event)
+
+    @pyqtSlot()
+    def _restart_app(self):
+        """Relaunch only after the normal close path has finished background work."""
+        self._restart_pending = True
+        self.close()
 
     @pyqtSlot()
     def _open_settings(self):
@@ -287,12 +317,38 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self._settings_dialog = SettingsDialog(self)
         self._settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._settings_dialog.finished.connect(self._settings_closed)
+        self._settings_dialog.restart_requested.connect(self._restart_app)
         self._settings_dialog.open()
 
     @pyqtSlot(int)
     def _settings_closed(self, _result):
         """Drop the dialog reference and schedule a pending parent-window close."""
         self._settings_dialog = None
+        if self._close_pending:
+            QTimer.singleShot(0, self.close)
+
+    @pyqtSlot()
+    def _open_terminal_settings(self):
+        self._open_settings()
+        if self._settings_dialog is not None:
+            self._settings_dialog.tabs.setCurrentIndex(1)
+
+    @pyqtSlot()
+    def _open_updates(self):
+        if self._scan_thread is not None or self._analysis_thread is not None:
+            return
+        if self._updates_dialog is not None:
+            self._updates_dialog.raise_()
+            self._updates_dialog.activateWindow()
+            return
+        self._updates_dialog = UpdateDialog(self)
+        self._updates_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._updates_dialog.finished.connect(self._updates_closed)
+        self._updates_dialog.open()
+
+    @pyqtSlot(int)
+    def _updates_closed(self, _result):
+        self._updates_dialog = None
         if self._close_pending:
             QTimer.singleShot(0, self.close)
 
@@ -320,6 +376,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         """
         self._clear_incidents()
         self._incidents = list(incidents)
+        self.filters_widget.setVisible(bool(self._incidents))
         sorting_enabled = self.incident_table.isSortingEnabled()
         self.incident_table.setSortingEnabled(False)
         self.incident_table.setRowCount(len(incidents))
@@ -345,6 +402,11 @@ class MainWindow(WorkspaceMixin, QMainWindow):
                 if column == 0:
                     # Store a source index so row sorting cannot change the mapping.
                     item.setData(Qt.ItemDataRole.UserRole, row)
+                    glyph, color = {
+                        "Critical": ("critical", "#ffadb7"), "High": ("warning", "#f4bc72"),
+                        "Medium": ("info", "#adcaff"), "Low": ("info", "#80e5d3"),
+                    }.get(value, ("info", "#b8c9df"))
+                    item.setIcon(icon(glyph, color, 16))
                 if column in (2, 4):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 # Qt tooltips can interpret HTML; source text must stay literal.
@@ -355,10 +417,17 @@ class MainWindow(WorkspaceMixin, QMainWindow):
                 self.incident_table.setItem(row, column, item)
         self.incident_table.setSortingEnabled(sorting_enabled)
         self.roomy_incidents.fit_contents()
+        for row in range(self.incident_table.rowCount()):
+            self.incident_table.item(row, 2).setToolTip(
+                "A higher score means review this sooner. This ranks log activity; it is not a PC health score."
+            )
 
     def _clear_incidents(self):
         """Clear stored incidents, table, and detail page and return to the dashboard."""
         self._incidents = []
+        if hasattr(self, "filters_widget"):
+            self.filters_widget.hide()
+            self.filter_feedback.hide()
         if hasattr(self, "export_action"):
             self.export_action.setEnabled(False)
             for action in self.review_actions:
@@ -395,12 +464,14 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.incident_detail.set_incident(incident)
         self.incident_detail.analyze_button.setEnabled(self._analysis_thread is None and self._scan_thread is None and self.monitor.thread is None)
         self.page_stack.setCurrentWidget(self.incident_detail)
+        self.journey.set_step(2)
         self.incident_detail.back_button.setFocus()
 
     @pyqtSlot()
     def _show_incident_list(self):
         """Return to the dashboard and table focus, preserving the current selection."""
         self.page_stack.setCurrentWidget(self.dashboard)
+        self.journey.set_step(1 if self._incidents else 0)
         if self._incidents:
             self.results_stack.setCurrentWidget(self.incident_table)
             self.incident_table.setFocus()
@@ -442,11 +513,14 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self._scan_thread = None
         self._scan_worker = None
         self._settings_dialog = None
+        self._updates_dialog = None
         self._close_pending = False
+        self._restart_pending = False
         self._incidents = []
         self._cancel_event = Event()
 
         self.setWindowTitle("LogOpen")
+        self.setWindowIcon(icon("logo", size=32))
         expand_window(self, 1500, 950)
         self.setMinimumSize(800, 620)
         self.setStyleSheet(Path(__file__).with_name("style.qss").read_text(encoding="utf-8"))
@@ -468,14 +542,27 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         brand_text.setSpacing(3)
         self.title = _label("LogOpen", "brandTitle")
         brand_text.addWidget(self.title)
-        self.subtitle = _label("Windows Incident Analysis", "subtitle")
+        self.subtitle = _label("Make sense of your Windows problems", "subtitle")
+        self.subtitle.setWordWrap(True)
+        self.subtitle.setMinimumWidth(250)
         brand_text.addWidget(self.subtitle)
         brand_row.addLayout(brand_text)
         brand_row.addStretch()
+        self.help_button = QPushButton("Quick guide", objectName="secondaryButton")
+        self.help_button.setIcon(icon("help"))
+        self.help_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.help_button.clicked.connect(lambda: QuickStartDialog(self).exec())
+        brand_row.addWidget(self.help_button)
+        self.updates_button = QPushButton("Updates", objectName="secondaryButton")
+        self.updates_button.setIcon(icon("download"))
+        self.updates_button.setToolTip("Check GitHub and download the latest LogOpen release.")
+        self.updates_button.clicked.connect(self._open_updates)
+        brand_row.addWidget(self.updates_button)
         self.settings_button = QPushButton("Settings")
+        self.settings_button.setIcon(icon("settings"))
         self.settings_button.setObjectName("secondaryButton")
         self.settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings_button.setToolTip("Configure AI analysis and your OpenAI API key")
+        self.settings_button.setToolTip("Choose AI help, your API key, and your preferred terminal")
         self.settings_button.clicked.connect(self._open_settings)
         brand_row.addWidget(self.settings_button)
         self.state_badge = _label("READY TO SCAN", "stateBadge")
@@ -487,6 +574,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         divider.setObjectName("divider")
         divider.setFixedHeight(1)
         layout.addWidget(divider)
+        self.journey = ScanJourney()
+        layout.addWidget(self.journey)
 
         self.page_stack = QStackedWidget()
         self.dashboard = QWidget()
@@ -500,19 +589,20 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         heading_row.setSpacing(24)
         heading_text = QVBoxLayout()
         heading_text.setSpacing(6)
-        heading_text.addWidget(_label("Incident overview", "pageTitle"))
-        self.status_label = _label("Ready to scan for incidents.", "statusLabel")
+        heading_text.addWidget(_label("What needs your attention?", "pageTitle"))
+        self.status_label = _label("Start a scan to find recent problems recorded by Windows.", "statusLabel")
         self.status_label.setWordWrap(True)
         self.status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.status_label.setAccessibleName("Current scan status")
         heading_text.addWidget(self.status_label)
         heading_row.addLayout(heading_text, 1)
-        self.scan_button = QPushButton("Scan for Incidents")
+        self.scan_button = QPushButton("Scan my PC")
+        self.scan_button.setIcon(icon("scan", "#0b3029"))
         self.scan_button.setObjectName("scanButton")
         self.scan_button.setMinimumSize(196, 46)
         self.scan_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.scan_button.setToolTip("Scan recent Windows warnings and errors")
-        self.scan_button.setAccessibleName("Scan for Incidents")
+        self.scan_button.setAccessibleName("Scan my PC for recent Windows problems")
         self.scan_button.clicked.connect(self.run_scan)
         heading_row.addWidget(self.scan_button)
         dashboard_layout.addLayout(heading_row)
@@ -526,14 +616,14 @@ class MainWindow(WorkspaceMixin, QMainWindow):
 
         metrics = QHBoxLayout()
         metrics.setSpacing(14)
-        card, self.incident_total = _metric_card("INCIDENTS FOUND", "In the latest scan")
+        card, self.incident_total = _metric_card("PROBLEMS FOUND", "Related log entries grouped together")
         metrics.addWidget(card, 1)
         card, self.attention_total = _metric_card(
-            "NEEDS ATTENTION", "High & critical priority", "warm"
+            "REVIEW FIRST", "Problems with High or Critical priority", "warm"
         )
         metrics.addWidget(card, 1)
         card, self.event_total = _metric_card(
-            "EVENTS GROUPED", "Warnings & errors in incidents", "teal"
+            "LOG ENTRIES", "Windows records behind these problems", "teal"
         )
         metrics.addWidget(card, 1)
         self.metrics_panel = QWidget()
@@ -549,15 +639,17 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         results_header = QHBoxLayout()
         results_heading = QVBoxLayout()
         results_heading.setSpacing(4)
-        self.results_title = _label("Incidents", "sectionTitle")
+        self.results_title = _label("Problems to review", "sectionTitle")
         self.results_hint = _label(
-            "Double-click a row or press Enter to view incident details.", "mutedLabel"
+            "A scan groups related Windows warnings and errors into problems you can review.", "mutedLabel"
         )
         self.results_hint.setWordWrap(True)
         results_heading.addWidget(self.results_title)
         results_heading.addWidget(self.results_hint)
         results_header.addLayout(results_heading, 1)
-        self.detail_button = QPushButton("View details")
+        self.detail_button = QPushButton("Understand problem")
+        self.detail_button.setIcon(icon("arrow"))
+        self.detail_button.setToolTip("Select a problem in the list, then open its summary and next steps.")
         self.detail_button.setObjectName("secondaryButton")
         self.detail_button.setEnabled(False)
         self.detail_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -575,7 +667,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.incident_table.setSortingEnabled(True)
         self.incident_table.setObjectName("incidentTable")
         self.incident_table.setHorizontalHeaderLabels(
-            ["Priority", "Classification", "Score", "Recurring", "Events"]
+            ["Priority", "What happened", "Priority score", "Seen before", "Log entries"]
         )
         for column in (2, 4):
             self.incident_table.horizontalHeaderItem(column).setTextAlignment(
@@ -605,8 +697,9 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         rows.hide()
         rows.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         rows.setDefaultSectionSize(46)
-        self.roomy_incidents = RoomyTable(self.incident_table, [130, 500, 130, 130, 110], flexible=1)
+        self.roomy_incidents = RoomyTable(self.incident_table, [130, 400, 130, 130, 110], flexible=1)
         self.copy_action = QAction("Copy selected rows", self.incident_table)
+        self.copy_action.setIcon(icon("copy"))
         self.copy_action.setShortcut(QKeySequence.StandardKey.Copy)
         self.copy_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.copy_action.setEnabled(False)
@@ -619,6 +712,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
 
         self.incident_detail = IncidentDetailWidget()
         self.incident_detail.back_requested.connect(self._show_incident_list)
+        self.incident_detail.settings_requested.connect(self._open_settings)
         self.page_stack.addWidget(self.incident_detail)
 
         self.empty_state = QWidget()
@@ -639,9 +733,9 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         empty_layout.addStretch()
         self.results_stack.addWidget(self.empty_state)
         self._show_empty_state(
-            "24h", "Start with a system scan",
-            "Review recent warnings and errors from your Windows logs,\n"
-            "grouped into incidents that are easier to understand.",
+            "1", "Your first step: scan your PC",
+            "Click Scan my PC above. No setup or API key is needed to scan.\n"
+            "Then choose a problem to see what happened and what to do next.",
         )
         results_layout.addWidget(self.results_stack, 1)
         dashboard_layout.addWidget(results_panel, 1)
@@ -649,7 +743,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         footer = QHBoxLayout()
         footer.setSpacing(16)
         scope = _label(
-            "Local history · Commands are suggestions only",
+            "Scans read Windows logs. Suggested steps are never run automatically.",
             "scopeLabel",
         )
         scope.setWordWrap(True)
@@ -660,12 +754,24 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.setTabOrder(self.scan_button, self.incident_table)
         self.setTabOrder(self.incident_table, self.detail_button)
         self._setup_workspace(dashboard_layout, results_layout)
+        decorate_buttons(self)
+        self.page_stack.currentChanged.connect(self._update_layout_density)
+        self._update_layout_density()
 
     def resizeEvent(self, event):
         """Prioritize readable result rows over summary cards in short windows."""
         super().resizeEvent(event)
+        self._update_layout_density()
+
+    def _update_layout_density(self):
+        """Keep the results and log reader usable in a short or narrow window."""
         if hasattr(self, "metrics_panel"):
             self.metrics_panel.setVisible(self.height() >= 760)
+        if hasattr(self, "state_badge"):
+            self.state_badge.setVisible(self.width() >= 1000)
+        if hasattr(self, "page_stack"):
+            self.journey.setVisible(self.height() >= 760 or self.page_stack.currentWidget() is self.dashboard)
+            self.journey.set_compact(self.height() < 760)
 
 def main():
     """Create the QApplication, show MainWindow, and enter the Qt event loop.

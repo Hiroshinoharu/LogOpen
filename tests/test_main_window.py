@@ -161,7 +161,7 @@ class MainWindowThreadingTests(unittest.TestCase):
         self.assertEqual(self.window.incident_total.text(), "1")
         self.assertEqual(self.window.attention_total.text(), "1")
         self.assertEqual(
-            self.window.status_label.text(), "Scan complete - 1 incidents found"
+            self.window.status_label.text(), "Scan complete · 1 problem found."
         )
         self.assertEqual(
             [name for name, _ in self.window.slot_threads], ["success", "finished"]
@@ -174,7 +174,7 @@ class MainWindowThreadingTests(unittest.TestCase):
                 self.window.scan_button.click()
                 self.finish_scan(self.window._scan_worker, self.window._scan_thread)
                 self.assertEqual(
-                    self.window.status_label.text(), "Scan complete - 0 incidents found"
+                    self.window.status_label.text(), "Scan complete · 0 problems found."
                 )
                 self.assertEqual(self.window.incident_table.rowCount(), 0)
             self.assertEqual(scan.call_count, 3)
@@ -234,7 +234,7 @@ class MainWindowThreadingTests(unittest.TestCase):
             self.window.scan_button.click()
             self.finish_scan(self.window._scan_worker, self.window._scan_thread)
         self.assertEqual(
-            self.window.status_label.text(), "Scan complete - 0 incidents found"
+            self.window.status_label.text(), "Scan complete · 0 problems found."
         )
 
     def check_close_during_scan(self, error=None):
