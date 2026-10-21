@@ -89,11 +89,50 @@ def test_monitor_runs_off_gui_thread_without_ai_and_preserves_reading(desktop, m
     window.monitor.start(ScanOptions((DEFENDER,), automatic_ai=True), 30)
     wait_until(app, lambda: window._latest_monitor_result is not None and window.monitor.thread is None)
     assert len(calls) == 1 and not calls[0][0].automatic_ai
+    assert calls[0][0].collect_all_events
     assert calls[0][0].log_types == (DEFENDER,) and calls[0][1] is not app.thread()
     assert window._current_result is old
     assert window.monitor.timer.isActive()
     window._view_monitor_result()
     assert window._current_result is window._latest_monitor_result
+
+
+def test_monitor_can_keep_focused_collection_and_defaults_to_all_levels(desktop, monkeypatch):
+    window, app = desktop
+    dialog = monitor_ui.MonitorOptionsDialog(window)
+    assert dialog.all_events.isChecked()
+    dialog.close()
+    calls = []
+    monkeypatch.setattr(monitor_ui, "scan_system", lambda options, **_kw: calls.append(options) or ScanResult())
+    window.monitor.start(ScanOptions(), 30, collect_all_events=False)
+    wait_until(app, lambda: bool(calls) and window.monitor.thread is None)
+    assert not calls[0].collect_all_events and not calls[0].automatic_ai
+
+
+def test_routine_activity_timeline_and_actions_work_without_problems(desktop, monkeypatch):
+    """All-level activity stays accessible even when the incident list is empty."""
+    window, _app = desktop
+    event = make_event(level="Information", message="routine recorded activity")
+    result = ScanResult()
+    result.collected_events = [event]
+    timeline = TimelineWidget(window)
+    timeline.set_incidents(result, collected_events=result.collected_events)
+    assert timeline.table.rowCount() == 1
+    assert timeline.table.item(0, 6).text() == "Recorded activity"
+    assert "routine recorded activity" in timeline.evidence.toPlainText()
+    dialog = Mock()
+    monkeypatch.setattr("ui.workspace.TimelineDialog", dialog)
+    window._show_scan_results(result)
+    assert not window.timeline_action.isEnabled()
+    assert window.collected_events_action.isEnabled()
+    window.collected_events_action.trigger()
+    assert dialog.call_args.kwargs["collected_events"] == [event]
+    window._monitor_completed(result, [])
+    window._monitor_busy(False)
+    assert window.monitor_events_action.isEnabled()
+    window.monitor_events_action.trigger()
+    assert dialog.call_args.kwargs["collected_events"] == [event]
+    assert window._current_result is result
 
 
 @pytest.mark.parametrize("restart", [False, True])

@@ -85,8 +85,31 @@
             "recurrence_count_7d": 5,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Windows recorded a DNS Client warning (Event ID 1014) at the supplied time: the lookup for \u201cwpad\u201d timed out because none of the configured DNS servers responded. WPAD is a name Windows may use to discover proxy settings, so this could delay automatic proxy discovery or affect web access if that discovery is needed. The report says this classification occurred five times in seven days, but the supplied event sample contains one event; the cause and any current impact remain uncertain.",
+                "likely_causes": [
+                    "A temporary lack of response from the configured DNS servers is possible; the event message directly reports that none responded to this lookup, but does not explain why."
+                ],
+                "recommended_actions": [
+                    "If you noticed slow or unavailable web access near the recorded time, check whether it has happened again and whether it affects only one app or more broadly; this helps determine whether the warning had a visible impact.",
+                    "If proxy-related web access problems persist, review the Proxy settings in Windows Settings without changing them. This can show whether automatic proxy discovery is enabled and help guide further investigation.",
+                    "If the warning continues alongside connectivity problems, ask the person who manages your network or internet connection to check DNS availability and the configured DNS servers."
+                ],
+                "remediation_notes": [
+                    "If web access is working normally and the warning does not recur, the supplied evidence alone does not justify changing DNS or proxy settings.",
+                    "The event is from the supplied timestamp; it does not establish that a DNS problem is happening now."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In a standard PowerShell window, review recent System log events with ID 1014. Check their times and messages for repeated lookups or patterns near any connectivity problems; this can help establish whether similar warnings recur, but will not by itself identify the cause.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=1014} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "Application",
@@ -194,7 +217,7 @@
             "is_recurring": false,
             "review_state": "active",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "This incident does not meet the AI analysis criteria."
         },
         {
             "log_type": "System",
@@ -547,8 +570,35 @@
             "recurrence_count_7d": 12,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Five DistributedCOM event 10016 warnings were recorded in the System log within about 37 seconds on October 20, 2026; three mention Windows Security Center components. They report that local activation or launch permission was not granted, which could matter if a component needed that access, but the events do not show that anything stopped working or establish a root cause. The reported 12 occurrences in seven days are a recurrence measure, not a diagnosis or a measure of risk.",
+                "likely_causes": [
+                    "A COM component requested local activation or launch without the permission recorded for that request; this is directly described by the warnings, but the evidence does not establish whether the permissions are incorrect or the requests are expected."
+                ],
+                "recommended_actions": [
+                    "Open Windows Security from the Start menu and check whether it opens and whether it shows any protection alerts; the events mention Security Center components, but do not prove Windows Security is impaired.",
+                    "If you are noticing a related problem, note what is failing and when, then share that information with your IT support person or a technician along with these event details."
+                ],
+                "remediation_notes": [
+                    "Do not change DCOM permissions based on these warnings alone. Reconsider further investigation if Windows Security or another affected feature is actually malfunctioning."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In Windows Security, check whether the app opens and whether its status page shows an alert. Normal operation would indicate that these log entries alone are not evidence of a visible Security Center problem.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "In a standard, non-elevated PowerShell window, inspect recent System event 10016 records and compare their times and messages with the supplied entries. Similar permission warnings provide context, but do not by themselves identify a fault.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} -MaxEvents 50 | Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "System",
@@ -844,8 +894,29 @@
             "recurrence_count_7d": 13,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Windows recorded four DistributedCOM Event 10016 warnings in the System log within about 57 seconds on the supplied date. The messages say local activation permission was not granted for two COM servers; this could matter if a related feature is failing, but the events alone do not show a user-visible fault or identify its cause. \u201cMedium\u201d is LogOpen\u2019s assessment; Windows recorded the events as warnings.",
+                "likely_causes": [
+                    "A local component requested activation of a COM server without the Local Activation permission described in the event. That denied request is recorded, but the evidence does not establish whether the permission is unexpectedly configured or the request is harmless background activity."
+                ],
+                "recommended_actions": [
+                    "Check whether you noticed a specific app or Windows feature failing around the recorded time. If nothing was affected, these warnings alone do not justify changing permissions.",
+                    "If there was a problem, open Event Viewer and inspect the System and Application logs around the recorded times for related errors. This may show whether the warnings coincided with a concrete failure."
+                ],
+                "remediation_notes": [
+                    "Do not change Component Services permissions solely to silence these warnings; a permission change can affect security and is not supported by the evidence here. If a feature is failing, ask a support person or administrator to investigate the COM server identities and surrounding events before changing settings."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In a standard PowerShell window, list recent System-log Event 10016 entries and review their times and messages. Compare them with any reported app or feature problem; matching warnings provide context but do not by themselves prove a cause.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "System",
@@ -961,8 +1032,37 @@
             "recurrence_count_7d": 14,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "At 22:20 UTC on October 20, 2026, Windows recorded a DistributedCOM warning (Event ID 10016): a local application container identified as OpenAI.Codex was denied Local Activation permission for a COM server. This could affect an operation that depends on that activation, but the event alone does not show that you experienced a problem or establish why the permission was denied. LogOpen\u2019s medium priority and recurrence counts are investigation aids; they do not prove a fault or that every occurrence involved the same application.",
+                "likely_causes": [
+                    "A permission mismatch or an activation request the COM server did not allow is the direct possibility indicated by the warning; the event does not establish whether this is expected behavior or a cause of any user-visible problem."
+                ],
+                "recommended_actions": [
+                    "Check whether the application identified in the event is having a specific problem when you use it. If it works normally, avoid changing permissions based on this warning alone.",
+                    "Review nearby System log events in Event Viewer and look for repeated 10016 warnings with the same application and COM-server details. This can help determine whether the recorded event is part of a consistent pattern.",
+                    "If a reproducible problem coincides with these warnings, ask the application\u2019s support team or a Windows administrator to investigate the COM-server permissions before making changes in Component Services."
+                ],
+                "remediation_notes": [
+                    "If the application continues to work normally, no permission change is indicated by this evidence alone.",
+                    "If you investigate a change, verify afterward whether the specific application problem improves; the evidence does not establish that changing permissions is necessary or safe."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In Event Viewer, inspect the System log around October 20, 2026 at 22:20 UTC. Compare nearby DistributedCOM 10016 entries and their messages to see whether the same application and COM server recur; nearby events can add context but do not by themselves prove a cause.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "Try the affected application\u2019s relevant feature and note any specific error or failure and when it occurs. Comparing that timing with the warning helps assess whether there is an observable impact; the warning alone does not establish one.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "System",
@@ -1255,8 +1355,37 @@
             "recurrence_count_7d": 15,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "At the recorded time, Windows logged four DistributedCOM warnings saying that the Local Service account lacked Local Activation permission for two COM servers. This may matter if a related Windows feature failed at that time, but the entries alone do not show that anything failed or that the PC is currently affected. LogOpen\u2019s medium priority and recurrence count are investigation aids, not proof of a fault; the cause and any user impact remain uncertain.",
+                "likely_causes": [
+                    "A COM server activation was attempted without the permission recorded in the warnings; the event text establishes the permission mismatch, but not why it occurred or whether it caused a problem.",
+                    "The warnings may reflect routine Windows component behavior without a noticeable user impact; the supplied events do not establish whether that is the case here."
+                ],
+                "recommended_actions": [
+                    "Check whether you noticed a Windows feature or application problem at the recorded time. If nothing was affected, the warnings alone do not justify changing permissions.",
+                    "If there was a problem, review nearby System and Application events in Event Viewer to see whether another event provides context. Avoid changing DCOM permissions unless investigation ties the issue to a specific component and a trusted support source recommends it."
+                ],
+                "remediation_notes": [
+                    "If a related symptom returns, note its time and whether it occurs alongside new errors; this can help distinguish a recurring warning from an issue affecting use.",
+                    "The supplied collection covers the System and Application logs for 24 hours, but it does not establish whether other logs or times contain relevant evidence."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In Event Viewer, inspect the System and Application logs around the recorded time. Look for nearby errors or warnings that coincide with an observed symptom; nearby entries can add context but do not by themselves prove a cause.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "To review matching System events in PowerShell, run this read-only query. Compare the timestamps and messages with the time of any symptom; results can show recurrence but cannot establish that the warnings caused a problem.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "System",
@@ -1372,8 +1501,37 @@
             "recurrence_count_7d": 16,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "At 2026-10-21 00:14 UTC, DistributedCOM recorded warning Event ID 10016 in the System log: a COM server activation request from the named account lacked Local Activation permission. This type of warning can occur without a visible problem, and the record does not identify which application made the request or prove that anything malfunctioned. LogOpen's medium priority reflects its own scoring, including recurrence classifications; Windows recorded one event in this incident.",
+                "likely_causes": [
+                    "A COM server permission check did not allow Local Activation for the account shown in the event; the record does not establish why the request occurred or whether it affected an application."
+                ],
+                "recommended_actions": [
+                    "If the PC and applications are working normally, leave the permission settings unchanged; this warning alone does not show that a change is needed.",
+                    "If you notice an application problem, note which application and when it occurs, then review nearby System and Application events in Event Viewer to see whether the timing or messages provide useful context.",
+                    "If a specific application is affected repeatedly, ask its support team or a Windows administrator to assess the event and its COM permission before changing settings in Component Services."
+                ],
+                "remediation_notes": [
+                    "Check whether the suspected application issue stops or continues, and compare its timing with later warnings; matching timing may help investigation but does not by itself prove a cause.",
+                    "The supplied collection covers the System and Application logs for 24 hours, not every Windows log or the PC's full history."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In Event Viewer, open Windows Logs > System and inspect other Event ID 10016 entries around the recorded time. Compare their messages and times; similar entries may show whether this warning recurs, but do not by themselves identify a faulty application.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "For a read-only list of recent System log entries with this event ID, run this in a standard PowerShell session. Review the time, provider, and message for patterns; the results can add context but cannot establish a root cause.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "Application",
@@ -1464,7 +1622,7 @@
             "is_recurring": true,
             "review_state": "ignored",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "Automatic AI analysis is skipped for ignored incidents."
         },
         {
             "log_type": "System",
@@ -1542,7 +1700,7 @@
             "is_recurring": false,
             "review_state": "active",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "This incident does not meet the AI analysis criteria."
         },
         {
             "log_type": "System",
@@ -1616,7 +1774,7 @@
             "is_recurring": false,
             "review_state": "active",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "This incident does not meet the AI analysis criteria."
         },
         {
             "log_type": "System",
@@ -1703,8 +1861,38 @@
             "recurrence_count_7d": 6,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "At 2026-10-21 18:05 UTC, the DNS Client recorded a timeout while looking up \u201cwpad\u201d; none of the configured DNS servers responded to that request. WPAD is a method some networks use to find proxy settings, so this might delay proxy discovery or affect access, but the event does not show that browsing failed or that DNS is currently unavailable. The incident assessment reports six classifications in seven days, but the cause of those timeouts is uncertain and the assessment score is not a diagnosis.",
+                "likely_causes": [
+                    "A temporary lack of response from the configured DNS servers is possible; the event directly says none responded to this lookup, but does not explain why.",
+                    "A network or DNS configuration issue is also possible if similar timeouts continue; the recurring assessment is a clue to check, not proof of a continuing fault."
+                ],
+                "recommended_actions": [
+                    "First, check whether you currently have trouble opening websites or connecting to your usual network. If everything works, this historical timeout may not need intervention.",
+                    "If problems recur, review recent DNS Client timeout events in Event Viewer or with the read-only command below, and compare their times with any connection problems.",
+                    "If the timeouts continue and this is a work or school network, ask its support team to check DNS and proxy auto-discovery settings; avoid changing them without knowing the intended network setup."
+                ],
+                "remediation_notes": [
+                    "To verify whether the issue is ongoing, look for new timeout events and note whether they coincide with actual access problems.",
+                    "The supplied collection covers System and Application logs for 24 hours; it does not establish the cause or current status, and it does not include a seven-day event history."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "Read recent System log events with ID 1014 and inspect their times and messages. This can show whether similar timeouts are appearing; matching events alone do not prove a cause. Runs in a standard PowerShell session.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=1014; StartTime=(Get-Date).AddDays(-7)} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "Inspect the DNS server addresses configured for the network adapters. Compare them with the settings expected for your network; the output by itself cannot show whether a server is responding.",
+                        "command": "Get-DnsClientServerAddress",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "Application",
@@ -1778,7 +1966,7 @@
             "is_recurring": false,
             "review_state": "active",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "This incident does not meet the AI analysis criteria."
         },
         {
             "log_type": "System",
@@ -2313,8 +2501,36 @@
             "recurrence_count_7d": 17,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Windows recorded eight DistributedCOM Event ID 10016 warnings in the System log over about 86 seconds. The messages report that requested local launch or activation permissions were not granted; this may be harmless if the related Windows features and apps work normally, and the warnings alone do not establish a fault. LogOpen\u2019s \u201cHigh\u201d priority is an assessment score, not Windows severity; the recorded Windows level is Warning, and the underlying cause or impact is uncertain.",
+                "likely_causes": [
+                    "A permission setting did not allow the requested local launch or activation for the listed COM servers, as the event messages state; the logs do not establish why those permissions were set that way or whether anything failed as a result."
+                ],
+                "recommended_actions": [
+                    "First check whether you noticed a problem at the recorded time, such as Windows Security or an affected app failing to open or work; if not, avoid changing DCOM permissions based on these warnings alone.",
+                    "If there was a problem, use Event Viewer to inspect System events just before and after the recorded period. Nearby errors may provide context, though timing alone does not prove a connection."
+                ],
+                "remediation_notes": [
+                    "The supplied collection covers the System and Application logs for 24 hours, not every Windows log or time period.",
+                    "If Windows Security or an app is malfunctioning, note the exact symptom and whether it continues; that information would help determine whether these warnings are relevant."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In Event Viewer, inspect the System log around the recorded time and look for other warnings or errors near these entries. Related events may help guide further investigation, but proximity does not prove a cause.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "In a standard PowerShell window, list recent System log events with ID 10016 and review their times and messages for recurring entries or changes. This confirms what was logged, not whether a permission warning caused a user-visible problem.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "Application",
@@ -2405,7 +2621,7 @@
             "is_recurring": true,
             "review_state": "ignored",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "Automatic AI analysis is skipped for ignored incidents."
         },
         {
             "log_type": "System",
@@ -2698,8 +2914,37 @@
             "recurrence_count_7d": 18,
             "is_recurring": true,
             "review_state": "active",
-            "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Windows recorded four DistributedCOM Event ID 10016 warnings in the System log at about 18:19 UTC on October 21, 2026. They report that the Local Service account lacked Local Activation permission for two COM servers; this may matter if a related Windows feature is failing, but the events alone do not show a user-visible fault or identify its cause. LogOpen\u2019s medium priority and recurrence count are investigation aids, not proof of severity or likelihood of harm.",
+                "likely_causes": [
+                    "A COM server activation was attempted under the Local Service account without the permission recorded in the event; the messages establish this permission mismatch, but not why it occurred or whether it affected functionality."
+                ],
+                "recommended_actions": [
+                    "First check whether you have a specific Windows feature or application problem around the recorded time. If everything works normally, avoid changing DCOM permissions solely to remove these warnings.",
+                    "If there is a related problem, review nearby System and Application log entries in Event Viewer and compare their times with the problem. This may provide context about which feature was affected.",
+                    "If a feature is failing, ask a support professional or administrator to identify the COM components before considering permission changes; changing activation permissions can affect system behavior."
+                ],
+                "remediation_notes": [
+                    "If you investigate a specific symptom, check whether it improves and whether matching warnings recur afterward; fewer warnings alone do not prove the underlying issue is resolved.",
+                    "The supplied collection covers System and Application logs for 24 hours, but it does not establish whether a particular feature is affected or what the COM servers do."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "Read recent System Event ID 10016 entries and compare their times and messages with any actual symptom. This is a read-only check and normally does not require administrator privileges; matching entries can show whether the same permission warning continues, but cannot by themselves prove a cause.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "In Event Viewer, inspect System and Application entries near the recorded time and note whether another warning or error coincides with a specific feature problem. Such timing can guide further investigation but does not prove causation.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    }
+                ]
+            }
         },
         {
             "log_type": "System",
@@ -2815,39 +3060,126 @@
             "recurrence_count_7d": 19,
             "is_recurring": true,
             "review_state": "active",
+            "llm_analysis_status": "completed",
+            "llm_analysis_message": "AI analysis completed.",
+            "llm_analysis": {
+                "explanation": "Windows recorded a DistributedCOM warning (Event ID 10016) in the System log at 2026-10-21 18:58 UTC: a local activation request was denied because the COM server\u2019s permissions did not grant access to the named account. This might affect the component that made the request, but the event does not identify the requesting app or show that anything visibly failed, so the cause and impact are uncertain. LogOpen\u2019s Medium priority reflects warning and recurrence counts; it is not a diagnosis, and the evidence includes one source event.",
+                "likely_causes": [
+                    "A process requested local activation of the COM server without the required permission for the account. The event records the denial, but does not establish which process made the request or why."
+                ],
+                "recommended_actions": [
+                    "Consider whether an app or feature you were using around the recorded time showed a problem. If nothing was affected, this warning alone does not justify changing permissions.",
+                    "If a specific app or feature was affected, note its name and the time of the problem, then ask the app\u2019s support contact or a Windows administrator to investigate before changing Component Services permissions."
+                ],
+                "remediation_notes": [
+                    "If you investigate, compare any repeated entries with the times of actual app problems; repeated log entries alone do not show that the problem is ongoing or caused by this event.",
+                    "The collected evidence covers System and Application logs for 24 hours, but does not establish that other logs or periods are clear."
+                ],
+                "diagnostic_steps": [
+                    {
+                        "description": "In a standard, non-elevated PowerShell session, review recent System events with this event ID. Compare their times and messages with the recorded warning; matching entries can show whether similar warnings recur, but do not identify the root cause by themselves.",
+                        "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                        "shell": "powershell",
+                        "risk_level": "safe"
+                    },
+                    {
+                        "description": "In Event Viewer, inspect Application events near the recorded time and compare them with any app problem you noticed. A nearby event may provide context, but timing alone does not prove that it is related.",
+                        "command": null,
+                        "shell": null,
+                        "risk_level": "safe"
+                    }
+                ]
+            }
+        },
+        {
+            "log_type": "System",
+            "log_types": [
+                "System"
+            ],
+            "computer_name": "Maxs-PC",
+            "providers": [
+                "Tcpip"
+            ],
+            "providers_counts": {
+                "Tcpip": 1
+            },
+            "event_ids": [
+                4266
+            ],
+            "event_ids_counts": {
+                "4266": 1
+            },
+            "time_generated_start": "2026-10-21T19:12:44.213285+00:00",
+            "time_generated_end": "2026-10-21T19:12:44.213285+00:00",
+            "levels": [
+                "Warning"
+            ],
+            "highest_severity": "Warning",
+            "incident_classification": "UDP Ephemeral Port Exhaustion",
+            "event_classification_counts": {
+                "UDP Ephemeral Port Exhaustion": 1
+            },
+            "event_count": 1,
+            "events": [
+                {
+                    "log_type": "System",
+                    "computer_name": "Maxs-PC",
+                    "provider": "Tcpip",
+                    "event_id": 4266,
+                    "time_generated": "2026-10-21T19:12:44.213285+00:00",
+                    "level": "Warning",
+                    "record_number": 104301,
+                    "event_data": [
+                        {
+                            "name": "0",
+                            "value": ""
+                        }
+                    ],
+                    "keywords": 36028797018963968,
+                    "message": "A request to allocate an ephemeral port number from the global UDP port space has failed due to all such ports being in use.",
+                    "ProcessID": "4",
+                    "ThreadID": "352"
+                }
+            ],
+            "incident_duration": "0:00:00",
+            "provider_classifications": {
+                "Tcpip": "TCP/IP"
+            },
+            "incident_score": 35,
+            "incident_priority": "Low",
+            "incident_score_reasons": [
+                "Warning-level incident detected",
+                "Incident classification 'UDP Ephemeral Port Exhaustion' has an impact score of 15"
+            ],
+            "incident_score_breakdown": {
+                "severity": 20,
+                "event_count": 0,
+                "classification_impact": 15,
+                "recurrence": 0,
+                "duration": 0
+            },
+            "summary_text": "Low-priority UDP Ephemeral Port Exhaustion incident in the System log on Maxs-PC involving TCP/IP. It contains 1 event and lasted 0 seconds. Score 35 because warning-level events were present and incident classification 'UDP Ephemeral Port Exhaustion' has an impact score of 15.",
+            "recurrence_count_24h": 1,
+            "recurrence_count_7d": 1,
+            "is_recurring": false,
+            "review_state": "active",
             "llm_analysis_status": "not_selected",
-            "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+            "llm_analysis_message": "This incident does not meet the AI analysis criteria."
         }
     ],
     "complete": true,
     "coverage": {
-        "Windows PowerShell": {
-            "complete": true,
-            "records_read": 820,
-            "matched_events": 0,
-            "oldest_time": "2026-10-20T22:14:13.933059+00:00",
-            "stop_reason": "time_boundary",
-            "window_hours": 24.0
-        },
         "System": {
             "complete": true,
-            "records_read": 438,
-            "matched_events": 32,
+            "records_read": 456,
+            "matched_events": 33,
             "oldest_time": "2026-10-20T22:13:04.804896+00:00",
-            "stop_reason": "time_boundary",
-            "window_hours": 24.0
-        },
-        "HardwareEvents": {
-            "complete": true,
-            "records_read": 0,
-            "matched_events": 0,
-            "oldest_time": null,
             "stop_reason": "time_boundary",
             "window_hours": 24.0
         },
         "Application": {
             "complete": true,
-            "records_read": 254,
+            "records_read": 299,
             "matched_events": 5,
             "oldest_time": "2026-10-20T22:13:31.968533+00:00",
             "stop_reason": "time_boundary",
@@ -2856,20 +3188,19 @@
     },
     "warnings": [],
     "cancelled": false,
-    "scan_id": "e95475b1-db29-43b8-bc8b-51635d000f69",
-    "created_at": "2026-10-21T19:02:49.435229+00:00",
+    "scan_id": "85d2fa39-78fb-4612-9eb9-cfca490e26d0",
+    "created_at": "2026-10-21T19:50:28.861943+00:00",
     "scan_options": {
         "log_types": [
-            "Windows PowerShell",
             "System",
-            "HardwareEvents",
             "Application"
         ],
         "hours": 24.0,
         "max_records": 100000,
-        "profile": "custom",
+        "profile": "general",
         "rules_json": "[{\"channel\":\"Application\",\"enabled\":false,\"event_ids\":[1000],\"id\":\"my-app-event\",\"label\":\"My Application Event\",\"provider\":\"MyApplication\",\"severity\":\"Warning\"}]",
-        "automatic_ai": false,
+        "automatic_ai": true,
+        "collect_all_events": false,
         "detection_version": 2
     },
     "comparison": {
@@ -2960,8 +3291,31 @@
                 "recurrence_count_7d": 5,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Windows recorded a DNS Client warning (Event ID 1014) at the supplied time: the lookup for \u201cwpad\u201d timed out because none of the configured DNS servers responded. WPAD is a name Windows may use to discover proxy settings, so this could delay automatic proxy discovery or affect web access if that discovery is needed. The report says this classification occurred five times in seven days, but the supplied event sample contains one event; the cause and any current impact remain uncertain.",
+                    "likely_causes": [
+                        "A temporary lack of response from the configured DNS servers is possible; the event message directly reports that none responded to this lookup, but does not explain why."
+                    ],
+                    "recommended_actions": [
+                        "If you noticed slow or unavailable web access near the recorded time, check whether it has happened again and whether it affects only one app or more broadly; this helps determine whether the warning had a visible impact.",
+                        "If proxy-related web access problems persist, review the Proxy settings in Windows Settings without changing them. This can show whether automatic proxy discovery is enabled and help guide further investigation.",
+                        "If the warning continues alongside connectivity problems, ask the person who manages your network or internet connection to check DNS availability and the configured DNS servers."
+                    ],
+                    "remediation_notes": [
+                        "If web access is working normally and the warning does not recur, the supplied evidence alone does not justify changing DNS or proxy settings.",
+                        "The event is from the supplied timestamp; it does not establish that a DNS problem is happening now."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In a standard PowerShell window, review recent System log events with ID 1014. Check their times and messages for repeated lookups or patterns near any connectivity problems; this can help establish whether similar warnings recur, but will not by itself identify the cause.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=1014} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "Application",
@@ -3069,7 +3423,7 @@
                 "is_recurring": false,
                 "review_state": "active",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "This incident does not meet the AI analysis criteria."
             },
             {
                 "log_type": "System",
@@ -3422,8 +3776,35 @@
                 "recurrence_count_7d": 12,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Five DistributedCOM event 10016 warnings were recorded in the System log within about 37 seconds on October 20, 2026; three mention Windows Security Center components. They report that local activation or launch permission was not granted, which could matter if a component needed that access, but the events do not show that anything stopped working or establish a root cause. The reported 12 occurrences in seven days are a recurrence measure, not a diagnosis or a measure of risk.",
+                    "likely_causes": [
+                        "A COM component requested local activation or launch without the permission recorded for that request; this is directly described by the warnings, but the evidence does not establish whether the permissions are incorrect or the requests are expected."
+                    ],
+                    "recommended_actions": [
+                        "Open Windows Security from the Start menu and check whether it opens and whether it shows any protection alerts; the events mention Security Center components, but do not prove Windows Security is impaired.",
+                        "If you are noticing a related problem, note what is failing and when, then share that information with your IT support person or a technician along with these event details."
+                    ],
+                    "remediation_notes": [
+                        "Do not change DCOM permissions based on these warnings alone. Reconsider further investigation if Windows Security or another affected feature is actually malfunctioning."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In Windows Security, check whether the app opens and whether its status page shows an alert. Normal operation would indicate that these log entries alone are not evidence of a visible Security Center problem.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "In a standard, non-elevated PowerShell window, inspect recent System event 10016 records and compare their times and messages with the supplied entries. Similar permission warnings provide context, but do not by themselves identify a fault.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} -MaxEvents 50 | Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "System",
@@ -3719,8 +4100,29 @@
                 "recurrence_count_7d": 13,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Windows recorded four DistributedCOM Event 10016 warnings in the System log within about 57 seconds on the supplied date. The messages say local activation permission was not granted for two COM servers; this could matter if a related feature is failing, but the events alone do not show a user-visible fault or identify its cause. \u201cMedium\u201d is LogOpen\u2019s assessment; Windows recorded the events as warnings.",
+                    "likely_causes": [
+                        "A local component requested activation of a COM server without the Local Activation permission described in the event. That denied request is recorded, but the evidence does not establish whether the permission is unexpectedly configured or the request is harmless background activity."
+                    ],
+                    "recommended_actions": [
+                        "Check whether you noticed a specific app or Windows feature failing around the recorded time. If nothing was affected, these warnings alone do not justify changing permissions.",
+                        "If there was a problem, open Event Viewer and inspect the System and Application logs around the recorded times for related errors. This may show whether the warnings coincided with a concrete failure."
+                    ],
+                    "remediation_notes": [
+                        "Do not change Component Services permissions solely to silence these warnings; a permission change can affect security and is not supported by the evidence here. If a feature is failing, ask a support person or administrator to investigate the COM server identities and surrounding events before changing settings."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In a standard PowerShell window, list recent System-log Event 10016 entries and review their times and messages. Compare them with any reported app or feature problem; matching warnings provide context but do not by themselves prove a cause.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "System",
@@ -3836,8 +4238,37 @@
                 "recurrence_count_7d": 14,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "At 22:20 UTC on October 20, 2026, Windows recorded a DistributedCOM warning (Event ID 10016): a local application container identified as OpenAI.Codex was denied Local Activation permission for a COM server. This could affect an operation that depends on that activation, but the event alone does not show that you experienced a problem or establish why the permission was denied. LogOpen\u2019s medium priority and recurrence counts are investigation aids; they do not prove a fault or that every occurrence involved the same application.",
+                    "likely_causes": [
+                        "A permission mismatch or an activation request the COM server did not allow is the direct possibility indicated by the warning; the event does not establish whether this is expected behavior or a cause of any user-visible problem."
+                    ],
+                    "recommended_actions": [
+                        "Check whether the application identified in the event is having a specific problem when you use it. If it works normally, avoid changing permissions based on this warning alone.",
+                        "Review nearby System log events in Event Viewer and look for repeated 10016 warnings with the same application and COM-server details. This can help determine whether the recorded event is part of a consistent pattern.",
+                        "If a reproducible problem coincides with these warnings, ask the application\u2019s support team or a Windows administrator to investigate the COM-server permissions before making changes in Component Services."
+                    ],
+                    "remediation_notes": [
+                        "If the application continues to work normally, no permission change is indicated by this evidence alone.",
+                        "If you investigate a change, verify afterward whether the specific application problem improves; the evidence does not establish that changing permissions is necessary or safe."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In Event Viewer, inspect the System log around October 20, 2026 at 22:20 UTC. Compare nearby DistributedCOM 10016 entries and their messages to see whether the same application and COM server recur; nearby events can add context but do not by themselves prove a cause.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "Try the affected application\u2019s relevant feature and note any specific error or failure and when it occurs. Comparing that timing with the warning helps assess whether there is an observable impact; the warning alone does not establish one.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "System",
@@ -4130,8 +4561,37 @@
                 "recurrence_count_7d": 15,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "At the recorded time, Windows logged four DistributedCOM warnings saying that the Local Service account lacked Local Activation permission for two COM servers. This may matter if a related Windows feature failed at that time, but the entries alone do not show that anything failed or that the PC is currently affected. LogOpen\u2019s medium priority and recurrence count are investigation aids, not proof of a fault; the cause and any user impact remain uncertain.",
+                    "likely_causes": [
+                        "A COM server activation was attempted without the permission recorded in the warnings; the event text establishes the permission mismatch, but not why it occurred or whether it caused a problem.",
+                        "The warnings may reflect routine Windows component behavior without a noticeable user impact; the supplied events do not establish whether that is the case here."
+                    ],
+                    "recommended_actions": [
+                        "Check whether you noticed a Windows feature or application problem at the recorded time. If nothing was affected, the warnings alone do not justify changing permissions.",
+                        "If there was a problem, review nearby System and Application events in Event Viewer to see whether another event provides context. Avoid changing DCOM permissions unless investigation ties the issue to a specific component and a trusted support source recommends it."
+                    ],
+                    "remediation_notes": [
+                        "If a related symptom returns, note its time and whether it occurs alongside new errors; this can help distinguish a recurring warning from an issue affecting use.",
+                        "The supplied collection covers the System and Application logs for 24 hours, but it does not establish whether other logs or times contain relevant evidence."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In Event Viewer, inspect the System and Application logs around the recorded time. Look for nearby errors or warnings that coincide with an observed symptom; nearby entries can add context but do not by themselves prove a cause.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "To review matching System events in PowerShell, run this read-only query. Compare the timestamps and messages with the time of any symptom; results can show recurrence but cannot establish that the warnings caused a problem.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "System",
@@ -4247,8 +4707,37 @@
                 "recurrence_count_7d": 16,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "At 2026-10-21 00:14 UTC, DistributedCOM recorded warning Event ID 10016 in the System log: a COM server activation request from the named account lacked Local Activation permission. This type of warning can occur without a visible problem, and the record does not identify which application made the request or prove that anything malfunctioned. LogOpen's medium priority reflects its own scoring, including recurrence classifications; Windows recorded one event in this incident.",
+                    "likely_causes": [
+                        "A COM server permission check did not allow Local Activation for the account shown in the event; the record does not establish why the request occurred or whether it affected an application."
+                    ],
+                    "recommended_actions": [
+                        "If the PC and applications are working normally, leave the permission settings unchanged; this warning alone does not show that a change is needed.",
+                        "If you notice an application problem, note which application and when it occurs, then review nearby System and Application events in Event Viewer to see whether the timing or messages provide useful context.",
+                        "If a specific application is affected repeatedly, ask its support team or a Windows administrator to assess the event and its COM permission before changing settings in Component Services."
+                    ],
+                    "remediation_notes": [
+                        "Check whether the suspected application issue stops or continues, and compare its timing with later warnings; matching timing may help investigation but does not by itself prove a cause.",
+                        "The supplied collection covers the System and Application logs for 24 hours, not every Windows log or the PC's full history."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In Event Viewer, open Windows Logs > System and inspect other Event ID 10016 entries around the recorded time. Compare their messages and times; similar entries may show whether this warning recurs, but do not by themselves identify a faulty application.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "For a read-only list of recent System log entries with this event ID, run this in a standard PowerShell session. Review the time, provider, and message for patterns; the results can add context but cannot establish a root cause.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "Application",
@@ -4339,7 +4828,7 @@
                 "is_recurring": true,
                 "review_state": "ignored",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "Automatic AI analysis is skipped for ignored incidents."
             },
             {
                 "log_type": "System",
@@ -4417,7 +4906,7 @@
                 "is_recurring": false,
                 "review_state": "active",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "This incident does not meet the AI analysis criteria."
             },
             {
                 "log_type": "System",
@@ -4491,7 +4980,7 @@
                 "is_recurring": false,
                 "review_state": "active",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "This incident does not meet the AI analysis criteria."
             },
             {
                 "log_type": "System",
@@ -4578,8 +5067,38 @@
                 "recurrence_count_7d": 6,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "At 2026-10-21 18:05 UTC, the DNS Client recorded a timeout while looking up \u201cwpad\u201d; none of the configured DNS servers responded to that request. WPAD is a method some networks use to find proxy settings, so this might delay proxy discovery or affect access, but the event does not show that browsing failed or that DNS is currently unavailable. The incident assessment reports six classifications in seven days, but the cause of those timeouts is uncertain and the assessment score is not a diagnosis.",
+                    "likely_causes": [
+                        "A temporary lack of response from the configured DNS servers is possible; the event directly says none responded to this lookup, but does not explain why.",
+                        "A network or DNS configuration issue is also possible if similar timeouts continue; the recurring assessment is a clue to check, not proof of a continuing fault."
+                    ],
+                    "recommended_actions": [
+                        "First, check whether you currently have trouble opening websites or connecting to your usual network. If everything works, this historical timeout may not need intervention.",
+                        "If problems recur, review recent DNS Client timeout events in Event Viewer or with the read-only command below, and compare their times with any connection problems.",
+                        "If the timeouts continue and this is a work or school network, ask its support team to check DNS and proxy auto-discovery settings; avoid changing them without knowing the intended network setup."
+                    ],
+                    "remediation_notes": [
+                        "To verify whether the issue is ongoing, look for new timeout events and note whether they coincide with actual access problems.",
+                        "The supplied collection covers System and Application logs for 24 hours; it does not establish the cause or current status, and it does not include a seven-day event history."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "Read recent System log events with ID 1014 and inspect their times and messages. This can show whether similar timeouts are appearing; matching events alone do not prove a cause. Runs in a standard PowerShell session.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=1014; StartTime=(Get-Date).AddDays(-7)} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "Inspect the DNS server addresses configured for the network adapters. Compare them with the settings expected for your network; the output by itself cannot show whether a server is responding.",
+                            "command": "Get-DnsClientServerAddress",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "Application",
@@ -4653,7 +5172,7 @@
                 "is_recurring": false,
                 "review_state": "active",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "This incident does not meet the AI analysis criteria."
             },
             {
                 "log_type": "System",
@@ -5188,8 +5707,36 @@
                 "recurrence_count_7d": 17,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Windows recorded eight DistributedCOM Event ID 10016 warnings in the System log over about 86 seconds. The messages report that requested local launch or activation permissions were not granted; this may be harmless if the related Windows features and apps work normally, and the warnings alone do not establish a fault. LogOpen\u2019s \u201cHigh\u201d priority is an assessment score, not Windows severity; the recorded Windows level is Warning, and the underlying cause or impact is uncertain.",
+                    "likely_causes": [
+                        "A permission setting did not allow the requested local launch or activation for the listed COM servers, as the event messages state; the logs do not establish why those permissions were set that way or whether anything failed as a result."
+                    ],
+                    "recommended_actions": [
+                        "First check whether you noticed a problem at the recorded time, such as Windows Security or an affected app failing to open or work; if not, avoid changing DCOM permissions based on these warnings alone.",
+                        "If there was a problem, use Event Viewer to inspect System events just before and after the recorded period. Nearby errors may provide context, though timing alone does not prove a connection."
+                    ],
+                    "remediation_notes": [
+                        "The supplied collection covers the System and Application logs for 24 hours, not every Windows log or time period.",
+                        "If Windows Security or an app is malfunctioning, note the exact symptom and whether it continues; that information would help determine whether these warnings are relevant."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In Event Viewer, inspect the System log around the recorded time and look for other warnings or errors near these entries. Related events may help guide further investigation, but proximity does not prove a cause.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "In a standard PowerShell window, list recent System log events with ID 10016 and review their times and messages for recurring entries or changes. This confirms what was logged, not whether a permission warning caused a user-visible problem.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "Application",
@@ -5280,7 +5827,7 @@
                 "is_recurring": true,
                 "review_state": "ignored",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "Automatic AI analysis is skipped for ignored incidents."
             },
             {
                 "log_type": "System",
@@ -5573,8 +6120,37 @@
                 "recurrence_count_7d": 18,
                 "is_recurring": true,
                 "review_state": "active",
-                "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Windows recorded four DistributedCOM Event ID 10016 warnings in the System log at about 18:19 UTC on October 21, 2026. They report that the Local Service account lacked Local Activation permission for two COM servers; this may matter if a related Windows feature is failing, but the events alone do not show a user-visible fault or identify its cause. LogOpen\u2019s medium priority and recurrence count are investigation aids, not proof of severity or likelihood of harm.",
+                    "likely_causes": [
+                        "A COM server activation was attempted under the Local Service account without the permission recorded in the event; the messages establish this permission mismatch, but not why it occurred or whether it affected functionality."
+                    ],
+                    "recommended_actions": [
+                        "First check whether you have a specific Windows feature or application problem around the recorded time. If everything works normally, avoid changing DCOM permissions solely to remove these warnings.",
+                        "If there is a related problem, review nearby System and Application log entries in Event Viewer and compare their times with the problem. This may provide context about which feature was affected.",
+                        "If a feature is failing, ask a support professional or administrator to identify the COM components before considering permission changes; changing activation permissions can affect system behavior."
+                    ],
+                    "remediation_notes": [
+                        "If you investigate a specific symptom, check whether it improves and whether matching warnings recur afterward; fewer warnings alone do not prove the underlying issue is resolved.",
+                        "The supplied collection covers System and Application logs for 24 hours, but it does not establish whether a particular feature is affected or what the COM servers do."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "Read recent System Event ID 10016 entries and compare their times and messages with any actual symptom. This is a read-only check and normally does not require administrator privileges; matching entries can show whether the same permission warning continues, but cannot by themselves prove a cause.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "In Event Viewer, inspect System and Application entries near the recorded time and note whether another warning or error coincides with a specific feature problem. Such timing can guide further investigation but does not prove causation.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
             },
             {
                 "log_type": "System",
@@ -5690,31 +6266,133 @@
                 "recurrence_count_7d": 19,
                 "is_recurring": true,
                 "review_state": "active",
+                "llm_analysis_status": "completed",
+                "llm_analysis_message": "AI analysis completed.",
+                "llm_analysis": {
+                    "explanation": "Windows recorded a DistributedCOM warning (Event ID 10016) in the System log at 2026-10-21 18:58 UTC: a local activation request was denied because the COM server\u2019s permissions did not grant access to the named account. This might affect the component that made the request, but the event does not identify the requesting app or show that anything visibly failed, so the cause and impact are uncertain. LogOpen\u2019s Medium priority reflects warning and recurrence counts; it is not a diagnosis, and the evidence includes one source event.",
+                    "likely_causes": [
+                        "A process requested local activation of the COM server without the required permission for the account. The event records the denial, but does not establish which process made the request or why."
+                    ],
+                    "recommended_actions": [
+                        "Consider whether an app or feature you were using around the recorded time showed a problem. If nothing was affected, this warning alone does not justify changing permissions.",
+                        "If a specific app or feature was affected, note its name and the time of the problem, then ask the app\u2019s support contact or a Windows administrator to investigate before changing Component Services permissions."
+                    ],
+                    "remediation_notes": [
+                        "If you investigate, compare any repeated entries with the times of actual app problems; repeated log entries alone do not show that the problem is ongoing or caused by this event.",
+                        "The collected evidence covers System and Application logs for 24 hours, but does not establish that other logs or periods are clear."
+                    ],
+                    "diagnostic_steps": [
+                        {
+                            "description": "In a standard, non-elevated PowerShell session, review recent System events with this event ID. Compare their times and messages with the recorded warning; matching entries can show whether similar warnings recur, but do not identify the root cause by themselves.",
+                            "command": "Get-WinEvent -FilterHashtable @{LogName='System'; Id=10016} | Select-Object -First 50 TimeCreated, Id, ProviderName, LevelDisplayName, Message",
+                            "shell": "powershell",
+                            "risk_level": "safe"
+                        },
+                        {
+                            "description": "In Event Viewer, inspect Application events near the recorded time and compare them with any app problem you noticed. A nearby event may provide context, but timing alone does not prove that it is related.",
+                            "command": null,
+                            "shell": null,
+                            "risk_level": "safe"
+                        }
+                    ]
+                }
+            },
+            {
+                "log_type": "System",
+                "log_types": [
+                    "System"
+                ],
+                "computer_name": "Maxs-PC",
+                "providers": [
+                    "Tcpip"
+                ],
+                "providers_counts": {
+                    "Tcpip": 1
+                },
+                "event_ids": [
+                    4266
+                ],
+                "event_ids_counts": {
+                    "4266": 1
+                },
+                "time_generated_start": "2026-10-21T19:12:44.213285+00:00",
+                "time_generated_end": "2026-10-21T19:12:44.213285+00:00",
+                "levels": [
+                    "Warning"
+                ],
+                "highest_severity": "Warning",
+                "incident_classification": "UDP Ephemeral Port Exhaustion",
+                "event_classification_counts": {
+                    "UDP Ephemeral Port Exhaustion": 1
+                },
+                "event_count": 1,
+                "events": [
+                    {
+                        "log_type": "System",
+                        "computer_name": "Maxs-PC",
+                        "provider": "Tcpip",
+                        "event_id": 4266,
+                        "time_generated": "2026-10-21T19:12:44.213285+00:00",
+                        "level": "Warning",
+                        "record_number": 104301,
+                        "event_data": [
+                            {
+                                "name": "0",
+                                "value": ""
+                            }
+                        ],
+                        "keywords": 36028797018963968,
+                        "message": "A request to allocate an ephemeral port number from the global UDP port space has failed due to all such ports being in use.",
+                        "ProcessID": "4",
+                        "ThreadID": "352"
+                    }
+                ],
+                "incident_duration": "0:00:00",
+                "provider_classifications": {
+                    "Tcpip": "TCP/IP"
+                },
+                "incident_score": 35,
+                "incident_priority": "Low",
+                "incident_score_reasons": [
+                    "Warning-level incident detected",
+                    "Incident classification 'UDP Ephemeral Port Exhaustion' has an impact score of 15"
+                ],
+                "incident_score_breakdown": {
+                    "severity": 20,
+                    "event_count": 0,
+                    "classification_impact": 15,
+                    "recurrence": 0,
+                    "duration": 0
+                },
+                "summary_text": "Low-priority UDP Ephemeral Port Exhaustion incident in the System log on Maxs-PC involving TCP/IP. It contains 1 event and lasted 0 seconds. Score 35 because warning-level events were present and incident classification 'UDP Ephemeral Port Exhaustion' has an impact score of 15.",
+                "recurrence_count_24h": 1,
+                "recurrence_count_7d": 1,
+                "is_recurring": false,
+                "review_state": "active",
                 "llm_analysis_status": "not_selected",
-                "llm_analysis_message": "Automatic AI is off for this scan; manual analysis is available."
+                "llm_analysis_message": "This incident does not meet the AI analysis criteria."
             }
         ],
         "no_longer_observed": [],
         "new_count": 0,
-        "persistent_count": 16,
+        "persistent_count": 17,
         "no_longer_observed_count": 0,
         "comparable": true,
-        "previous_scan_id": "6ec71982-8a85-4ac7-a194-a780a4401eb0",
-        "previous_created_at": "2026-10-21T18:36:19.267735+00:00",
+        "previous_scan_id": "d0f05adc-c5f8-42f1-980c-1d7603b9e91b",
+        "previous_created_at": "2026-10-21T19:25:02.521581+00:00",
         "previous_scope": {
             "automatic_ai": true,
             "detection_version": 2,
             "hours": 24.0,
             "log_types": [
-                "Windows PowerShell",
                 "System",
-                "HardwareEvents",
                 "Application"
             ],
             "max_records": 100000,
-            "profile": "custom",
+            "profile": "general",
             "rules_json": "[{\"channel\":\"Application\",\"enabled\":false,\"event_ids\":[1000],\"id\":\"my-app-event\",\"label\":\"My Application Event\",\"provider\":\"MyApplication\",\"severity\":\"Warning\"}]"
         },
         "reason": "Compared completed scans with the same logs, time window, and record limit."
-    }
+    },
+    "collected_events": null
 }

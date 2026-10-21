@@ -33,7 +33,16 @@ class MonitorOptionsDialog(QDialog):
         self.notifications = QCheckBox("Show desktop notifications for new high-priority incidents")
         self.notifications.setChecked(True)
         form.addRow(self.notifications)
+        self.all_events = QCheckBox("Collect all event levels, including routine activity")
+        self.all_events.setChecked(True)
+        self.all_events.setAccessibleName("Collect all event levels during monitoring")
+        form.addRow(self.all_events)
         layout.addLayout(form)
+        scope_note = QLabel("All levels are saved for the selected Windows logs within your scan's time window "
+                            "and entry limit. Review them with Monitor → View collected events. "
+                            "Routine activity does not become a problem or trigger an alert.")
+        scope_note.setWordWrap(True)
+        layout.addWidget(scope_note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -83,18 +92,19 @@ class MonitorController(QObject):
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._tick)
 
-    def start(self, options, interval):
+    def start(self, options, interval, *, collect_all_events=True):
         """Begin a fresh session with an immutable scope and a silent baseline scan."""
         if self.active or self.thread is not None:
             return
         if type(interval) is not int or not 30 <= interval <= 3600:
             raise ValueError("Monitoring interval must be between 30 and 3600 seconds.")
-        self.options = replace(options, automatic_ai=False)
+        self.options = replace(options, automatic_ai=False, collect_all_events=collect_all_events)
         self.interval = interval * 1000
         self.tracker = AlertTracker()
         self.active = True
         self.timer.start(0)
-        self.status.emit("Monitoring starting; automatic AI is off.")
+        scope = "all event levels" if collect_all_events else "warnings and detection rules"
+        self.status.emit(f"Monitoring starting: {scope}; automatic AI is off.")
 
     def stop(self):
         """Stop scheduling and request cancellation of any active scan."""
@@ -140,7 +150,9 @@ class MonitorController(QObject):
         self.completed.emit(result, alerts)
         coverage = ("incomplete coverage" if not getattr(result, "complete", True) else
                     "complete with warnings" if getattr(result, "warnings", ()) else "complete")
-        self.status.emit(f"Monitoring: {len(result)} incidents, {len(alerts)} new alerts; {coverage}.")
+        events = getattr(result, "collected_events", None)
+        count = f"{len(events):,} events collected, " if events is not None else ""
+        self.status.emit(f"Monitoring: {count}{len(result)} incidents, {len(alerts)} new alerts; {coverage}.")
 
     @pyqtSlot()
     def _finished(self):

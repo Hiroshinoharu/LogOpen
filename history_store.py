@@ -47,13 +47,18 @@ def _scope(options):
     logs = options.get("log_types", [])
     if isinstance(logs, str):
         logs = [logs]
-    return {
+    scope = {
         "log_types": sorted({str(name).casefold() for name in logs}),
         "hours": float(options["hours"]) if options.get("hours") is not None else None,
         "max_records": int(options.get("max_records", 100_000)),
         "rules_json": options.get("rules_json", "[]"),
         "detection_version": options.get("detection_version", 1),
     }
+    # Keep focused-scan scope keys identical to existing databases. Broad event
+    # collection has its own baseline and cannot hide a change in coverage.
+    if options.get("collect_all_events") is True:
+        scope["collect_all_events"] = True
+    return scope
 
 
 def _options(options):

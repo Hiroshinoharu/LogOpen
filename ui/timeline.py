@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QHead
 from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
 from ui.table_layout import RoomyTable, expand_window
 from ui.icons import decorate_buttons
+from monitoring import evidence_id
 
 
 class TimelineWidget(QWidget):
@@ -49,7 +50,7 @@ class TimelineWidget(QWidget):
         splitter.setSizes([350, 200])
         layout.addWidget(splitter, 1)
 
-    def set_incidents(self, incidents):
+    def set_incidents(self, incidents, *, collected_events=None):
         """Flatten retained evidence and sort by instant, keeping stable source objects.
 
         Gaps are measured between chronological events in the supplied dataset,
@@ -57,6 +58,10 @@ class TimelineWidget(QWidget):
         """
         self.entries = [(event, incident.get("incident_classification", "Unclassified"))
                         for incident in incidents for event in (incident.get("events") or []) if isinstance(event, dict)]
+        if collected_events is not None:
+            labels = {evidence_id(event): label for event, label in self.entries}
+            self.entries = [(event, labels.get(evidence_id(event), "Recorded activity"))
+                            for event in collected_events]
         self.entries.sort(key=lambda pair: timestamp_key(pair[0].get("time_generated")))
         self.table.setSortingEnabled(False)
         self.table.blockSignals(True)
@@ -111,14 +116,14 @@ class TimelineWidget(QWidget):
 class TimelineDialog(QDialog):
     """Show all supplied incidents' evidence in one timeline without rescanning."""
 
-    def __init__(self, incidents, parent=None):
+    def __init__(self, incidents, parent=None, *, collected_events=None):
         """Snapshot the visible incident selection into a resizable evidence window."""
         super().__init__(parent)
-        self.setWindowTitle("Incident timeline")
+        self.setWindowTitle("All collected events" if collected_events is not None else "Incident timeline")
         expand_window(self, 1700, 1000)
         layout = QVBoxLayout(self)
         self.timeline = TimelineWidget()
-        self.timeline.set_incidents(incidents)
+        self.timeline.set_incidents(incidents, collected_events=collected_events)
         layout.addWidget(self.timeline)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)

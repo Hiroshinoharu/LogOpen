@@ -20,6 +20,9 @@ def isolated_ai_settings(monkeypatch, tmp_path):
         settings_path, QSettings.Format.IniFormat,
     ))
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # Never read the developer's persisted Windows environment credentials.
+    monkeypatch.setattr(credential_store, "_windows_environment_key", lambda _scope: None)
+    monkeypatch.setenv("LOGOPEN_DISABLE_SOUNDS", "1")
     backend = Mock(CRED_TYPE_GENERIC=1, CRED_PERSIST_LOCAL_MACHINE=2)
     missing = OSError("Test credential not found")
     missing.winerror = 1168

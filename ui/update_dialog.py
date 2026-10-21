@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 from ui.icons import decorate_buttons, icon
 from update_service import Release, UpdateError, download_release, latest_release, version_tuple
 from version_info import application_version
+from ui.sounds import SoundEffects
 
 
 class UpdateWorker(QObject):
@@ -58,6 +59,7 @@ class UpdateDialog(QDialog):
         self._close_pending = False
         self._close_result = QDialog.DialogCode.Rejected
         self.current_version = application_version()
+        self.sounds = SoundEffects()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 22, 24, 20)
         layout.setSpacing(14)
@@ -159,7 +161,7 @@ class UpdateDialog(QDialog):
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.result.connect(self._show_result)
-        self._worker.error.connect(self.status.setText)
+        self._worker.error.connect(self._show_error)
         self._worker.progress.connect(self.progress.setValue)
         self._worker.finished.connect(self._thread.quit)
         self._thread.finished.connect(self._worker.deleteLater)
@@ -196,6 +198,14 @@ class UpdateDialog(QDialog):
                                 if self._download_path.suffix.lower() == ".exe" else
                                 "Download verified and saved. Extract the ZIP into a new folder, then open LogOpen.exe.")
             self.folder_button.show()
+            if not self._close_pending:
+                self.sounds.play("success")
+
+    @pyqtSlot(str)
+    def _show_error(self, message):
+        self.status.setText(message)
+        if not self._close_pending and not message.startswith("Download cancelled."):
+            self.sounds.play("attention")
 
     @pyqtSlot()
     def _finished(self):

@@ -98,7 +98,7 @@ def test_save_settings_applies_new_and_replacement_keys_without_restart(dialog, 
     with pytest.raises(MissingCredentialsError):
         create_openai_client()
     dialog.enabled_checkbox.setChecked(True)
-    dialog.model_input.setText("selected-model")
+    dialog.model_input.setCurrentText("selected-model")
     for key in ("sk-fake-first-key", "sk-fake-replacement-key"):
         dialog.key_input.setText(key)
         dialog.save_settings_button.click()
@@ -130,7 +130,7 @@ def test_invalid_preferences_prevent_restart(dialog):
     """Restart leaves the dialog open so invalid settings can be corrected."""
     restart = Mock()
     dialog.restart_requested.connect(restart)
-    dialog.model_input.setText("invalid model")
+    dialog.model_input.setCurrentText("invalid model")
     dialog.restart_button.click()
     assert "valid model" in dialog.message_label.text()
     assert dialog.isVisible()
@@ -140,11 +140,11 @@ def test_invalid_preferences_prevent_restart(dialog):
 def test_controls_persist_and_validate_preferences(dialog):
     """Check controls persist and validate preferences."""
     dialog.enabled_checkbox.setChecked(False)
-    dialog.model_input.setText(" user-model ")
+    dialog.model_input.setCurrentText(" user-model ")
     dialog.max_analyses_input.setValue(8)
     dialog.save_settings_button.click()
     assert AppSettings().load() == AISettings(False, "user-model", 8)
-    dialog.model_input.setText("sk-fake-key-in-wrong-field")
+    dialog.model_input.setCurrentText("sk-fake-key-in-wrong-field")
     dialog.save_settings_button.click()
     assert AppSettings().load().model == "user-model"
     assert "valid model" in dialog.message_label.text()
@@ -292,7 +292,7 @@ def test_restart_from_settings_saves_and_handles_launch_failure(app, monkeypatch
         window.settings_button.click()
         settings = window._settings_dialog
         settings.enabled_checkbox.setChecked(True)
-        settings.model_input.setText("restart-model")
+        settings.model_input.setCurrentText("restart-model")
         settings.key_input.setText("sk-fake-restart-key")
         settings.restart_button.click()
         wait_until(app, lambda: window._settings_dialog is None)

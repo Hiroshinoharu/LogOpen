@@ -1,7 +1,7 @@
 """Pydantic schemas for structured AI explanations and diagnostic suggestions."""
 
 from typing import Literal
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 DiagnosticShell = Literal["powershell", "cmd", "bash"]
@@ -18,11 +18,11 @@ class DiagnosticStep(BaseModel):
     Commands are displayed/copied, never executed by this model or the UI.
     Risk labels are model output rather than verification that a command is safe.
     """
-    description: str
-    command: str | None = None
+    description: str = Field(description="A plain-language check, why it helps, and what result to look for; state elevation if required.")
+    command: str | None = Field(default=None, description="One valid command for the declared shell, without Markdown or a prompt prefix; null for a UI or prose-only step.")
     # Optional for compatibility with reports generated before shell metadata.
-    shell: DiagnosticShell | None = None
-    risk_level: Literal["safe", "caution", "system_change"]
+    shell: DiagnosticShell | None = Field(default=None, description="The command's shell; null when command is null. Follow the configured allowed shells.")
+    risk_level: Literal["safe", "caution", "system_change"] = Field(description="safe for ordinary read-only checks, caution for temporary changes or elevated diagnostics, system_change for persistent changes.")
 
     @model_validator(mode="after")
     def validate_command_shell(self):
@@ -44,8 +44,8 @@ class IncidentAnalysis(BaseModel):
     DiagnosticStep objects. Every field is required, but lists may be empty.
     model_dump(mode="json") produces the dictionary stored on an incident.
     """
-    explanation: str
-    likely_causes: list[str]
-    recommended_actions: list[str]
-    remediation_notes: list[str]
-    diagnostic_steps: list[DiagnosticStep]
+    explanation: str = Field(description="Two to four plain-language sentences explaining the recorded evidence, possible impact, and uncertainty.")
+    likely_causes: list[str] = Field(description="Up to three evidence-supported hypotheses with the clue for each; empty when a cause is unsupported.")
+    recommended_actions: list[str] = Field(description="One to four useful next actions, lowest disruption first, with where to act and why; avoid duplicating diagnostic commands.")
+    remediation_notes: list[str] = Field(description="Up to three relevant verification, escalation, or missing-evidence notes; may be empty.")
+    diagnostic_steps: list[DiagnosticStep] = Field(description="Up to four focused checks; include commands only when useful and reliable. May be empty.")

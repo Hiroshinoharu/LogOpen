@@ -23,6 +23,17 @@ a complete PC health assessment.
 
 ## Desktop features
 
+- **Settings → App** includes **Create desktop shortcut**, a sound toggle, and
+  **Test sound**. The shortcut uses the LogOpen icon and your Windows desktop
+  location, including OneDrive desktops. New installations select the desktop
+  shortcut by default; it can be deselected during setup.
+- Subtle sound cues mark a scan starting, scan/AI completion, a verified update
+  download, and errors. **View → Sound effects** offers quick muting. The preference
+  saves immediately. Opening saved reports or history does not play scan sounds.
+  Playback is asynchronous and has no effect on scanning if audio is unavailable.
+  The original WAV cues are bundled; regenerate them with
+  `python scripts/generate_sounds.py`. Automated/offscreen runs remain silent;
+  `LOGOPEN_DISABLE_SOUNDS=1` also disables playback.
 - **Updates** in the header (also **Help → Check for updates…**) checks the latest
   stable release in [Hiroshinoharu/LogOpen](https://github.com/Hiroshinoharu/LogOpen/releases).
   Choose the installer or portable ZIP and **Download update**. Downloads show
@@ -77,6 +88,11 @@ a complete PC health assessment.
   after the previous scan finishes. It uses the current scope, saves history,
   and keeps your current reading view intact. The first scan is a silent baseline;
   later new High/Critical active incidents can trigger desktop notifications.
+  By default it collects every event level in the selected logs, within the
+  current time window and record cap. **Monitor → View collected events…** shows
+  routine activity alongside problem evidence. Routine events are not scored as
+  problems or sent for automatic AI analysis. Uncheck **Collect all event levels**
+  before starting to collect only warnings and detection-rule matches.
   Monitoring always skips automatic AI and stops when the app closes. Use
   **View latest monitoring scan** to review results, or **Stop monitoring** to stop.
 
@@ -177,10 +193,33 @@ stays open and shows an error.
 Preferences apply to the next scan, including terminal scans. Saved preferences
 override `ENABLE_LLM_ANALYSIS`, `DEFAULT_ANALYSIS_MODEL`, and
 `MAX_LLM_ANALYSES_PER_RUN` in `config.py`; those values supply initial defaults.
-The current model default is `gpt-5.6-luna`. Enter any compatible model identifier;
-there is no bundled model catalog. The scan limit is bounded to **1–20**. Invalid
+The current model default is `gpt-5.6-luna`. **Settings → AI help → Choose an AI
+model** is an editable dropdown with starter choices and your saved model.
+**Load available models** retrieves candidate text models for your key using
+OpenAI's [models list endpoint](https://developers.openai.com/api/reference/python/resources/models/methods/list).
+It runs in the background, keeps the current selection, and sends no incident
+data. Known specialist/audio/image models are filtered out; the endpoint does
+not establish Responses or structured-output support. You can enter any compatible
+model ID, including custom models. Opening Settings performs no API request.
+Select **Save Settings** to apply the choice. The scan limit is bounded to **1–20**. Invalid
 stored models fall back to the default, malformed limits recover to a bounded
 default, and unrecognized enabled values or unreadable settings disable AI.
+
+The dropdown labels verified models **Budget**, **Balanced**, or **Higher cost**.
+The price card shows standard USD input/output rates and the same illustrative
+usage for each model: 10,000 input and 2,000 billed output tokens. Changing the
+analysis count updates the example scan cost. This is an illustration, not a
+prediction, bill, or spending cap; reasoning, actual usage, caching, processing
+tier, and account settings can change charges. The AI detail page also shows
+the model and cost category for the next request.
+
+Rates in `settings/model_catalog.py` were checked against the official OpenAI
+[pricing page](https://developers.openai.com/api/docs/pricing) and model pages on
+**21 October 2026**. The bundled table covers `gpt-5.6-luna`, `gpt-6-luna`,
+`gpt-6.1-sol`, and `gpt-6-astra`. Other IDs, dated snapshots, and fine-tuned
+models say **Price unknown**; prices are never inferred from names. **View
+OpenAI pricing** opens the current official page. Loading model metadata does
+not refresh prices. Choosing a model leaves the saved default unchanged until Save.
 
 Non-secret preferences use QSettings with organization/application **LogOpen**
 (on Windows, `HKEY_CURRENT_USER\Software\LogOpen\LogOpen`). The key is stored
@@ -193,8 +232,16 @@ or exported reports. Unexpected AI exceptions are replaced with fixed messages.
 Credential precedence is:
 
 1. The securely stored user key.
-2. `OPENAI_API_KEY` in the process environment, for development/testing.
-3. No credentials: skip AI and continue deterministic analysis.
+2. `OPENAI_API_KEY` in the process environment.
+3. `OPENAI_API_KEY` in Windows user environment settings (`HKCU\Environment`).
+4. `OPENAI_API_KEY` in Windows system environment settings.
+5. No credentials: skip AI and continue deterministic analysis.
+
+Settings checks these locations on opening. **Check this PC for a key** checks
+again and shows its source without displaying or copying the secret. Only the
+named environment value is read. Persisted Windows settings are checked afresh
+for each AI request, so a key added there after launch can be used without a
+restart. An existing process key still takes precedence over persisted values.
 
 If secure storage is unavailable, saving/removing keys reports a safe error.
 The environment fallback still works; without it, AI is skipped. Removing a saved
@@ -212,9 +259,9 @@ generating an analysis. A successful test confirms authentication and model
 metadata access; it does not prove inference quota or structured-output support.
 Restricted keys need model-read permission for this check.
 
-The test uses a QObject worker on a QThread, a 10-second request timeout, and no
+Connection testing and model loading use QObject workers on a QThread, a 10-second request timeout, and no
 automatic retries. Results are delivered by Qt signals to UI-thread slots. The
-dialog prevents overlapping tests and waits for the worker to finish when closed,
+dialog prevents overlapping checks and waits for the worker to finish when closed,
 including when its parent window closes. Error messages never include raw SDK
 exceptions. Explicit testing works even when incident AI analysis is disabled.
 
@@ -559,6 +606,22 @@ preferences. The default limit is **three analyses per scan**.
 aggregate counts, and source evidence for the model. It includes up to **25
 source events** and truncates individual messages after approximately **1,500
 characters**.
+
+Automatic and manual requests share the same instruction and schema guidance.
+They include a bounded snapshot of scan scope, channel coverage, stop reasons,
+and warnings when available. This excludes unrelated collected activity and
+previous AI advice. Legacy reports with no coverage are explicitly treated as
+unknown. Evidence is escaped inside an `incident_evidence` block; instructions
+tell the model to treat event messages and imported text as data, including any
+embedded requests to override the task.
+
+The prompt asks for short, plain-language explanations, evidence-supported
+hypotheses, practical UI checks, and observations that determine what to do next.
+It separates recorded facts from possible impact and causes, treats scores as
+heuristics, and describes how to verify an improvement. Field descriptions in
+the Pydantic schema reinforce the same guidance. List/length targets are prompt
+guidance, preserving compatibility with older saved responses. Existing shell,
+least-privilege, provider-identity, and device-identifier rules still apply.
 
 `analyse_incident_with_llm_result()` calls `client.responses.parse()` and requests output
 matching the Pydantic models in

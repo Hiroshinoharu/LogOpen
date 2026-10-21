@@ -62,6 +62,16 @@ QDialog#settingsDialog QCheckBox { spacing: 9px; padding: 5px 0; }
 QDialog#settingsDialog QCheckBox::indicator { width: 20px; height: 20px; }
 QLabel#settingsMessage { color: #ffbd95; font-size: 12px; }
 QLabel#settingsMessage[success="true"] { color: #80e5d3; }
+QFrame#modelCostCard {
+    background: #142333;
+    border: 1px solid #34485f;
+    border-radius: 9px;
+}
+QLabel#modelCostTier { color: #afcaff; font-weight: 600; font-size: 14px; }
+QLabel#modelCostTier[tier="Budget"] { color: #80e5d3; }
+QLabel#modelCostTier[tier="Higher cost"], QLabel#modelCostTier[tier="Price unknown"] { color: #f4bc72; }
+QLabel#modelCostHint { color: #afcaff; font-size: 12px; }
+QLabel#modelCostHint[tier="Higher cost"], QLabel#modelCostHint[tier="Price unknown"] { color: #f4bc72; }
 QLabel { background: transparent; }
 QLabel#brandMark {
     background: #63d8c4;

@@ -124,7 +124,8 @@ class ScanOptionsDialog(QDialog):
             names = tuple(dict.fromkeys(name.strip() for name in self.logs.text().split(",") if name.strip()))
             self.options = ScanOptions(log_types=names, hours=self.hours.value(),
                                        max_records=self.limit.value(), profile=self.profile.currentData(),
-                                       rules_json=self.rules_json, automatic_ai=self.automatic_ai.isChecked())
+                                       rules_json=self.rules_json, automatic_ai=self.automatic_ai.isChecked(),
+                                       collect_all_events=self.options.collect_all_events)
         except ValueError as exc:
             self.advanced.set_expanded(True)
             self.error.setText(str(exc))

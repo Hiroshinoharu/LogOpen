@@ -1,7 +1,7 @@
 """Store the OpenAI key in Windows Credential Manager and resolve its fallback.
 
 The generic credential target is LogOpen/OpenAI for the current Windows user.
-Saved keys take precedence over OPENAI_API_KEY in the process environment.
+Saved keys take precedence over OPENAI_API_KEY in the process, user, then system environment.
 No plaintext file fallback is used. Backend exceptions are replaced with a
 fixed message because their contents may include sensitive data.
 """
@@ -112,13 +112,45 @@ def delete_openai_api_key():
             raise CredentialStoreError() from None
 
 
+def _windows_environment_key(scope):
+    """Read only OPENAI_API_KEY from Windows' persisted environment, without caching.
+
+    A key added since launch is usable without restarting. Missing/inaccessible
+    values are ignored; no registry changes or environment enumeration occur.
+    """
+    try:
+        import winreg
+        root, path = ((winreg.HKEY_CURRENT_USER, "Environment") if scope == "user" else
+                      (winreg.HKEY_LOCAL_MACHINE,
+                       r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"))
+        with winreg.OpenKey(root, path) as handle:
+            value, kind = winreg.QueryValueEx(handle, "OPENAI_API_KEY")
+        if kind in (winreg.REG_SZ, winreg.REG_EXPAND_SZ) and isinstance(value, str):
+            return value.strip() or None
+    except (ImportError, OSError, ValueError):
+        pass
+    return None
+
+
+def _environment_key():
+    """Return (secret, source) in process/user/system order; never expose the secret."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if key:
+        return key, "the environment"
+    for scope in ("user", "system"):
+        key = _windows_environment_key(scope)
+        if key:
+            return key, f"Windows {scope} environment settings"
+    return None, None
+
+
 def environment_key_configured():
-    """Return whether OPENAI_API_KEY contains nonblank text, without exposing it."""
-    return bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    """Check process and persisted Windows environment key availability."""
+    return _environment_key()[0] is not None
 
 
 def resolve_openai_api_key():
-    """Return the saved key, falling back to the process environment when needed.
+    """Return the saved key, falling back to process/user/system environment settings.
 
     A missing stored key or unavailable secure storage allows OPENAI_API_KEY.
     If neither source supplies a key, return None unless storage failed, in
@@ -132,7 +164,7 @@ def resolve_openai_api_key():
     except CredentialStoreError:
         storage_failed = True
         key = None
-    key = key or os.environ.get("OPENAI_API_KEY", "").strip() or None
+    key = key or _environment_key()[0]
     if key is None and storage_failed:
         raise CredentialStoreError()
     return key
@@ -145,13 +177,16 @@ def credential_status():
     returns neither the secret nor backend error details. Used to refresh UI
     labels while leaving the password field empty.
     """
+    storage_failed = False
     try:
         if get_openai_api_key():
             return "API key configured"
     except CredentialStoreError:
-        if environment_key_configured():
-            return "Secure storage unavailable; using OPENAI_API_KEY from the environment."
+        storage_failed = True
+    key, source = _environment_key()
+    if key:
+        prefix = "Secure storage unavailable; using" if storage_failed else "Using"
+        return f"{prefix} OPENAI_API_KEY from {source}."
+    if storage_failed:
         return "Secure credential storage unavailable. AI analysis will be skipped."
-    if environment_key_configured():
-        return "Using OPENAI_API_KEY from the environment."
     return "No API key configured. AI analysis will be skipped."

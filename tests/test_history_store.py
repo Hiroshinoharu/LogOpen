@@ -51,6 +51,33 @@ def test_history_round_trip_restores_dates_coverage_and_ai(tmp_path):
     assert store.list_scans()[0]["log_types"] == SCOPE["log_types"]
 
 
+def test_routine_activity_survives_history_and_report_without_incidents(tmp_path):
+    """An empty problem list can still contain useful all-level monitoring evidence."""
+    from json_reporting import export_incidents_to_json
+    from report_io import load_report
+    store = HistoryStore(tmp_path / "history.sqlite3")
+    result = scan(options={**SCOPE, "collect_all_events": True})
+    result.collected_events = [make_event(time_generated=NOW, level="Information", event_id=98765)]
+    scan_id = store.save_scan(result)
+    restored = store.load_scan(scan_id)
+    assert not restored and restored.collected_events == result.collected_events
+    path = tmp_path / "activity.json"
+    export_incidents_to_json(restored, path)
+    assert load_report(path).collected_events == result.collected_events
+
+
+def test_broad_collection_uses_separate_baseline_but_focused_scope_is_compatible(tmp_path):
+    """Existing scans remain comparable; changing event coverage starts another baseline."""
+    store = HistoryStore(tmp_path / "history.sqlite3")
+    store.save_scan(scan(incident_at()))
+    focused = scan(options={**SCOPE, "collect_all_events": False})
+    assert store.compare_scan(focused)["comparable"]
+    broad = scan(options={**SCOPE, "collect_all_events": True})
+    assert not store.compare_scan(broad)["comparable"]
+    store.save_scan(broad)
+    assert store.compare_scan(scan(options=broad.scan_options))["comparable"]
+
+
 def test_default_store_obeys_isolated_data_directory(tmp_path, monkeypatch):
     """The test/development override prevents writes into the actual user profile."""
     monkeypatch.setenv("LOGOPEN_DATA_DIR", str(tmp_path / "isolated"))

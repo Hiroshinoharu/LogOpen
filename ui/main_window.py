@@ -6,10 +6,10 @@ Closing is deferred until active scan/settings workers finish safely.
 """
 
 import sys
-from threading import Event
 from datetime import datetime
 from html import escape
 from pathlib import Path
+from threading import Event
 
 from PyQt6.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QKeySequence
@@ -34,12 +34,13 @@ from main import scan_system
 from ui.app_restart import relaunch_app
 from ui.guidance import QuickStartDialog, ScanJourney
 from ui.icons import decorate_buttons, icon
-from ui.update_dialog import UpdateDialog
 from ui.incident_detail import IncidentDetailWidget
 from ui.settings_dialog import SettingsDialog
-from ui.table_sorting import SortableTableItem, numeric_key
-from ui.workspace import WorkspaceMixin
+from ui.sounds import SoundEffects
 from ui.table_layout import RoomyTable, expand_window
+from ui.table_sorting import SortableTableItem, numeric_key
+from ui.update_dialog import UpdateDialog
+from ui.workspace import WorkspaceMixin
 
 
 def _label(text, name):
@@ -167,6 +168,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self._scan_thread.finished.connect(self._scan_thread.deleteLater)
         self._scan_thread.finished.connect(self._scan_finished)
         self._scan_thread.start()
+        self.sounds.play("start")
 
     @pyqtSlot(object)
     def _show_scan_results(self, incidents):
@@ -224,6 +226,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             self.status_label.setText(f"Scan cancelled - {len(incidents)} partial incidents available")
         self._remember_result(incidents)
         self.motion.reveal()
+        if self._scan_thread is not None and not self._close_pending and not getattr(incidents, "cancelled", False):
+            self.sounds.play("success" if complete and not warnings else "attention")
 
     @pyqtSlot(str)
     def _show_scan_error(self, message):
@@ -239,6 +243,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             "!", "This scan couldn't be completed",
             "Check the status message above, then try scanning again.",
         )
+        if self._scan_thread is not None and not self._close_pending:
+            self.sounds.play("attention")
 
     @pyqtSlot()
     def _scan_finished(self):
@@ -318,12 +324,14 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self._settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._settings_dialog.finished.connect(self._settings_closed)
         self._settings_dialog.restart_requested.connect(self._restart_app)
+        self._settings_dialog.sounds_changed.connect(self._sync_sound_action)
         self._settings_dialog.open()
 
     @pyqtSlot(int)
     def _settings_closed(self, _result):
         """Drop the dialog reference and schedule a pending parent-window close."""
         self._settings_dialog = None
+        self.incident_detail.refresh_ai_model_hint()
         if self._close_pending:
             QTimer.singleShot(0, self.close)
 
@@ -510,6 +518,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         """
         super().__init__()
 
+        self.sounds = SoundEffects()
         self._scan_thread = None
         self._scan_worker = None
         self._settings_dialog = None

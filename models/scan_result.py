@@ -19,6 +19,8 @@ class ScanResult(list):
         scan_options: JSON-compatible collection scope for history comparisons.
         comparison: New/persistent/no-longer-observed results against a prior scan.
         history_saved: Runtime-only flag identifying a locally persisted scan.
+        collected_events: All retained event levels when requested, otherwise None.
+            Routine activity stays out of incident scoring and automatic AI.
 
     AI and export failures do not themselves set complete to False. Callers must
     inspect metadata rather than infer scan success from the number of incidents.
@@ -40,6 +42,7 @@ class ScanResult(list):
         self.scan_options = {}
         self.comparison = {}
         self.history_saved = False
+        self.collected_events = None
 
     def as_report(self):
         """Return the incidents, coverage, identity, scope, and comparison envelope.
@@ -58,4 +61,5 @@ class ScanResult(list):
             "created_at": self.created_at,
             "scan_options": dict(self.scan_options),
             "comparison": self.comparison,
+            "collected_events": None if self.collected_events is None else list(self.collected_events),
         }

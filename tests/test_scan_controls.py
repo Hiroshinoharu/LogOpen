@@ -34,6 +34,7 @@ def workflow(monkeypatch):
     {"hours": 0}, {"hours": True}, {"hours": float("nan")},
     {"hours": float("inf")}, {"hours": 24 * 366},
     {"max_records": 0}, {"max_records": True}, {"max_records": 1.2},
+    {"collect_all_events": "true"}, {"collect_all_events": 1},
 ])
 def test_invalid_scan_options_fail_before_collection(changes):
     """Reject ambiguous or unbounded scope values at the input boundary."""
@@ -76,6 +77,39 @@ def test_custom_scope_progress_and_history_workflow(workflow):
     assert progress[0][1] == 0 and progress[-1][1] == 100
     workflow.save_scan.assert_called_once_with(result, options)
     main.export_incidents_to_json.assert_called_once_with(result, "reports/incidents.json")
+
+
+@pytest.mark.parametrize("all_events", [False, True])
+def test_all_level_collection_keeps_routine_activity_out_of_problems(workflow, all_events):
+    """Retain all requested evidence without scoring routine events or sending them to AI."""
+    events = [make_event(time_generated=datetime.now(), provider="RoutineProvider", event_id=98765, level=level)
+              for level in ("Information", "Success Audit", "Verbose", "Unknown", "Warning")]
+
+    def collect(_name, **kwargs):
+        levels = kwargs["levels"]
+        return [event for event in events if levels is None or event["level"] in levels]
+
+    main.get_recent_events.side_effect = collect
+    options = ScanOptions(("System",), max_records=100, automatic_ai=False, collect_all_events=all_events)
+    result = main.scan_system(options, history_store=workflow)
+    assert [event for incident in result for event in incident["events"]] == [events[-1]]
+    assert result.collected_events == (events if all_events else None)
+    assert main.get_recent_events.call_args.kwargs["limit"] == 100
+    main.add_llm_analyses.assert_not_called()
+
+
+def test_all_level_partial_coverage_keeps_events_and_warnings(workflow):
+    """Broadening levels must not turn a capped collection into a complete scan."""
+    events = event_collection.CollectedEvents()
+    events.append(make_event(time_generated=datetime.now(), level="Information", event_id=98765))
+    events.records_read = 100
+    events.stop_reason = "record_limit"
+    events.warn("The record cap was reached.")
+    main.get_recent_events.return_value = events
+    result = main.scan_system(ScanOptions(("System",), automatic_ai=False, collect_all_events=True), history_store=workflow)
+    assert not result and result.collected_events == events
+    assert not result.complete and result.coverage["System"]["stop_reason"] == "record_limit"
+    assert "The record cap was reached." in result.warnings
 
 
 def test_cancellation_before_collection_does_not_touch_storage(workflow):

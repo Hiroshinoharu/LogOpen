@@ -1,4 +1,6 @@
-"""Small OpenAI client boundary shared by analysis and connection testing."""
+"""OpenAI client boundary shared by analysis, model discovery, and connection testing."""
+
+import re
 
 from settings.credential_store import CredentialStoreError, resolve_openai_api_key
 
@@ -80,3 +82,54 @@ def check_openai_connection(model):
         return False, "OpenAI returned an error. Try again later."
     except Exception:
         return False, "Connection test failed. Check your AI settings and try again."
+
+
+def list_openai_models():
+    """List candidate text models using metadata only, with safe error messages.
+
+    The models endpoint does not describe endpoint/structured-output support.
+    Hide known non-text/specialist families, allow manual IDs in the UI, and
+    never claim that listing a model guarantees analysis access. No inference
+    or incident data is sent. Call from a worker, not the GUI thread.
+    """
+    try:
+        from openai import (APIConnectionError, APIStatusError, APITimeoutError,
+                            AuthenticationError, RateLimitError)
+    except ImportError:
+        return [], "The OpenAI SDK is not installed."
+    try:
+        from settings.app_settings import validate_model
+        with create_openai_client(timeout=10.0, max_retries=0) as client:
+            models = client.models.list()
+        candidates = set()
+        for model in models:
+            try:
+                name = validate_model(model.id)
+            except (ValueError, AttributeError):
+                continue
+            base = name.removeprefix("ft:").split(":", 1)[0]
+            if (re.match(r"^(?:gpt-\d|o[1-9](?:-|$))", base)
+                    and not any(part in base for part in (
+                        "audio", "realtime", "image", "transcribe", "tts",
+                        "search", "deep-research", "codex", "chat", "instruct",
+                    ))):
+                candidates.add(name)
+        if not candidates:
+            return [], "No candidate text models were returned. You can still enter a compatible model ID."
+        return sorted(candidates), f"Loaded {len(candidates)} text models. Your current selection has been kept."
+    except MissingCredentialsError:
+        return [], "No API key configured. Save a key or set OPENAI_API_KEY, then try again."
+    except CredentialStoreError:
+        return [], "Secure credential storage unavailable. Check Windows Credential Manager."
+    except AuthenticationError:
+        return [], "Authentication failed. Check or replace your OpenAI API key."
+    except (APIConnectionError, APITimeoutError):
+        return [], "Could not connect to OpenAI. Check your network and try again."
+    except RateLimitError:
+        return [], "OpenAI rate limit reached. Try again later."
+    except APIStatusError as error:
+        if error.status_code in (403, 404):
+            return [], "Could not list models. Check that your API key has model-read permission."
+        return [], "OpenAI returned an error while listing models. Try again later."
+    except Exception:
+        return [], "Could not load models. Your current selection is unchanged."

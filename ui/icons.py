@@ -38,6 +38,9 @@ _PATHS = {
     "stop": '<rect x="5" y="5" width="14" height="14" rx="2"/>',
     "plus": '<path d="M12 4v16M4 12h16"/>',
     "terminal": '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m6 9 3 3-3 3M12 15h5"/>',
+    "desktop": '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M12 17v4M7 21h10M5 7h5v5H5z"/>',
+    "sound": '<path d="M3 9h4l5-5v16l-5-5H3zM16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14"/>',
+    "muted": '<path d="M3 9h4l5-5v16l-5-5H3zM17 9l5 6M17 15l5-6"/>',
     "filter": '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
     "trash": '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
 }
@@ -72,6 +75,7 @@ def action_icon_name(text):
         (("close",), "close"), (("remove", "delete"), "trash"),
         (("download", "update"), "download"), (("export",), "export"),
         (("terminal",), "terminal"), (("reset", "restore"), "restart"),
+        (("sound",), "sound"), (("shortcut", "desktop"), "desktop"),
         (("save", "apply"), "save"), (("insert", "add"), "plus"),
         (("hide", "ignore"), "hide"), (("filter", "search"), "filter"),
         (("open", "browse", "choose windows"), "folder"),

@@ -211,7 +211,7 @@ def test_manual_ai_runs_in_worker_updates_history_and_closes_safely(window, monk
     threads = []
     analysis = IncidentAnalysis(explanation="Test analysis", likely_causes=[],
                                 recommended_actions=[], remediation_notes=[], diagnostic_steps=[])
-    def analyze(incident, *, settings):
+    def analyze(incident, *, settings, scan_context=None):
         """Simulate a paid boundary with no network and a test-controlled response."""
         threads.append(QThread.currentThread())
         assert settings.model == "example-model"

@@ -33,6 +33,8 @@ from ui.guidance import DisclosureSection, problem_explanation
 from ui.icons import decorate_buttons, icon
 from settings.terminal_service import open_terminal
 from settings.terminal_settings import SHELL_LABELS
+from settings.app_settings import AppSettings
+from settings.model_catalog import cost_label
 
 
 def _text(value, missing="Not available"):
@@ -481,6 +483,9 @@ class IncidentDetailWidget(QWidget):
         self.ai_status = _body_label("", "mutedLabel")
         self.ai_status.setAccessibleName("AI analysis status")
         ai_layout.addWidget(self.ai_status)
+        self.ai_model_hint = _body_label("", "modelCostHint")
+        self.ai_model_hint.setAccessibleName("Model and cost category for the next AI request")
+        ai_layout.addWidget(self.ai_model_hint)
         ai_actions = QHBoxLayout()
         self.analyze_button = QPushButton("Explain with AI / retry", objectName="secondaryButton")
         self.analyze_button.setIcon(icon("spark"))
@@ -598,6 +603,7 @@ class IncidentDetailWidget(QWidget):
         scores and AI explanations are never recomputed by this view.
         """
         self.incident = incident
+        self.refresh_ai_model_hint()
         self.action_feedback.clear()
         self.analyze_button.setEnabled(incident is not None)
         self.update_review_state()
@@ -675,3 +681,16 @@ class IncidentDetailWidget(QWidget):
         self.tabs.setCurrentIndex(0)
         self.scroll_area.verticalScrollBar().setValue(0)
         self.ai_scroll.verticalScrollBar().setValue(0)
+
+    def refresh_ai_model_hint(self):
+        """Keep the next request's model/cost visible without making an API call."""
+        preferences = AppSettings().load()
+        if preferences.enabled:
+            tier = cost_label(preferences.model)
+            self.ai_model_hint.setText(f"Next AI request: {preferences.model} · {tier}. Review prices in Settings.")
+        else:
+            tier = "Off"
+            self.ai_model_hint.setText("AI is off. Choose a model and review its price in Settings.")
+        self.ai_model_hint.setProperty("tier", tier)
+        self.ai_model_hint.style().unpolish(self.ai_model_hint)
+        self.ai_model_hint.style().polish(self.ai_model_hint)

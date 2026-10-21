@@ -24,6 +24,7 @@ class ScanOptions:
     profile: str = "general"
     rules_json: str = "[]"
     automatic_ai: bool = True
+    collect_all_events: bool = False
 
     def __post_init__(self):
         """Validate fields and normalize log names without changing global config."""
@@ -43,6 +44,8 @@ class ScanOptions:
             raise ValueError("Select a known scan profile.")
         if type(self.automatic_ai) is not bool:
             raise ValueError("automatic_ai must be true or false.")
+        if type(self.collect_all_events) is not bool:
+            raise ValueError("collect_all_events must be true or false.")
         rules = parse_custom_rules(self.rules_json)
         object.__setattr__(self, "rules_json", json.dumps(rules, sort_keys=True, separators=(",", ":")))
 
@@ -51,4 +54,5 @@ class ScanOptions:
         return {"log_types": list(self.log_types), "hours": self.hours,
                 "max_records": self.max_records, "profile": self.profile,
                 "rules_json": self.rules_json, "automatic_ai": self.automatic_ai,
+                "collect_all_events": self.collect_all_events,
                 "detection_version": 2}

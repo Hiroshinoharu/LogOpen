@@ -53,6 +53,22 @@ def _duration(value):
         raise ReportImportError("incident_duration is too large.") from exc
 
 
+def _restore_events(events, prefix):
+    """Validate and copy event evidence from incidents or an all-level collection."""
+    if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
+        raise ReportImportError(f"{prefix}: events must be a list of objects.")
+    restored_events = []
+    for event in events:
+        restored = dict(event)
+        if "time_generated" in restored:
+            restored["time_generated"] = _datetime(restored["time_generated"], "Event time_generated")
+        for field in ("log_type", "computer_name", "provider", "level", "message"):
+            if field in restored and not isinstance(restored[field], str):
+                raise ReportImportError(f"{prefix}: event {field} must be text.")
+        restored_events.append(restored)
+    return restored_events
+
+
 def _restore_incident(value, index):
     """Validate one incident and copy nested event/date data into useful Python types."""
     prefix = f"Incident {index + 1}"
@@ -80,18 +96,7 @@ def _restore_incident(value, index):
             incident[field] = _datetime(incident[field], f"{prefix}: {field}")
     if "incident_duration" in incident:
         incident["incident_duration"] = _duration(incident["incident_duration"])
-    events = incident.get("events", [])
-    if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
-        raise ReportImportError(f"{prefix}: events must be a list of objects.")
-    incident["events"] = []
-    for event in events:
-        restored = dict(event)
-        if "time_generated" in restored:
-            restored["time_generated"] = _datetime(restored["time_generated"], "Event time_generated")
-        for field in ("log_type", "computer_name", "provider", "level", "message"):
-            if field in restored and not isinstance(restored[field], str):
-                raise ReportImportError(f"{prefix}: event {field} must be text.")
-        incident["events"].append(restored)
+    incident["events"] = _restore_events(incident.get("events", []), prefix)
     analysis = incident.get("llm_analysis")
     if analysis is not None:
         if not isinstance(analysis, dict):
@@ -119,6 +124,9 @@ def parse_report(data):
     else:
         raise ReportImportError("Expected an incident array or an object containing an incidents array.")
     result = ScanResult(_restore_incident(value, index) for index, value in enumerate(envelope["incidents"]))
+    collected = envelope.get("collected_events")
+    if collected is not None:
+        result.collected_events = _restore_events(collected, "Collected events")
     for field in ("complete", "cancelled"):
         value = envelope.get(field, field == "complete")
         if not isinstance(value, bool):

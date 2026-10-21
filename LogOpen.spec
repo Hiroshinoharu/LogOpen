@@ -12,6 +12,7 @@ from scripts.release import build_metadata, current_version
 build_metadata(os.environ.get('LOGOPEN_BUILD_VERSION') or current_version(root), root)
 runtime_data = [
     (str(root / 'ui' / 'style.qss'), 'ui'),
+    (str(root / 'assets' / 'sounds'), 'assets/sounds'),
     (str(root / 'build' / 'version' / 'VERSION'), '.'),
     (str(root / 'requirements.txt'), '.'),
     (str(root / 'docs' / 'distribution.md'), 'docs'),

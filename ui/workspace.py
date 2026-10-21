@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from history_store import HistoryStore
-from llm_analysis import AIAnalysisResult, analyse_incident_with_llm_result
+from llm_analysis import AIAnalysisResult, analyse_incident_with_llm_result, build_scan_context
 from models.scan_options import ScanOptions
 from models.scan_result import ScanResult
 from report_io import load_report, export_selected
@@ -33,17 +33,19 @@ class AnalysisWorker(QObject):
     result = pyqtSignal(object)
     finished = pyqtSignal()
 
-    def __init__(self, incident, preferences):
+    def __init__(self, incident, preferences, scan_context=None):
         """Snapshot evidence and settings before moving the worker to its thread."""
         super().__init__()
         self.incident = deepcopy(incident)
         self.preferences = preferences
+        self.scan_context = deepcopy(scan_context)
 
     @pyqtSlot()
     def run(self):
         """Deliver a validated outcome, hiding unexpected exceptions from the UI."""
         try:
-            outcome = analyse_incident_with_llm_result(self.incident, settings=self.preferences)
+            outcome = analyse_incident_with_llm_result(self.incident, settings=self.preferences,
+                                                      scan_context=self.scan_context)
             self.result.emit(outcome)
         except Exception:
             self.result.emit(AIAnalysisResult("failed", "AI analysis failed. Check AI Settings and try again."))
@@ -196,9 +198,15 @@ class WorkspaceMixin:
         view = self.menuBar().addMenu("View")
         self.timeline_action = view.addAction("Timeline of filtered incidents…", self._show_timeline)
         self.timeline_action.setEnabled(False)
+        self.collected_events_action = view.addAction(icon("clock"), "All collected events…", self._show_collected_events)
+        self.collected_events_action.setEnabled(False)
         view.addAction("Clear filters", self._clear_filters)
         self.motion_action = QAction("Enable animations", self, checkable=True)
         view.addAction(self.motion_action)
+        self.sound_action = QAction("Sound effects", self, checkable=True)
+        self._sync_sound_action(self.sounds.preferences.enabled())
+        self.sound_action.toggled.connect(self._set_sound_enabled)
+        view.addAction(self.sound_action)
         view.addAction(icon("terminal"), "Terminal settings…", self._open_terminal_settings)
         review = self.menuBar().addMenu("Review")
         self.review_actions = []
@@ -246,8 +254,22 @@ class WorkspaceMixin:
             self.scope_button.setEnabled(not busy and not self.monitor.active and self.monitor.thread is None)
             self.monitor_start_action.setEnabled(not busy and not self.monitor.active and self.monitor.thread is None)
             self.monitor_latest_action.setEnabled(not busy and self._latest_monitor_result is not None)
+            self.monitor_events_action.setEnabled(not busy and self._latest_monitor_result is not None)
         self.incident_detail.analyze_button.setEnabled(not busy and self.incident_detail.incident is not None)
         self.motion.set_active(busy)
+
+    def _sync_sound_action(self, enabled):
+        self.sound_action.blockSignals(True)
+        self.sound_action.setChecked(enabled)
+        self.sound_action.setIcon(icon("sound" if enabled else "muted"))
+        self.sound_action.blockSignals(False)
+
+    def _set_sound_enabled(self, enabled):
+        try:
+            self.sounds.preferences.save(enabled)
+        except Exception:
+            self.status_label.setText("Could not save sound preferences. Check your user profile permissions.")
+        self._sync_sound_action(self.sounds.preferences.enabled())
 
     def _show_progress(self, stage, percent):
         """Update stage text and progress only on the GUI thread."""
@@ -288,11 +310,19 @@ class WorkspaceMixin:
             self.comparison_button.setText("Scan comparison: no matching complete baseline yet")
         self.export_visible_action.setEnabled(bool(result))
         self.timeline_action.setEnabled(bool(result))
+        self.collected_events_action.setEnabled(getattr(result, "collected_events", None) is not None)
         self._apply_filters()
 
     def _show_timeline(self):
         """Open chronological source evidence for the currently filtered incident rows."""
         TimelineDialog(self._selected_incidents(visible=True), self).exec()
+
+    def _show_collected_events(self):
+        """Review all levels in the opened scan, including scans without problems."""
+        result = self._current_result
+        events = getattr(result, "collected_events", None)
+        if events is not None:
+            TimelineDialog(result, self, collected_events=events).exec()
 
     def _setup_monitoring(self):
         """Create inactive monitoring controls and a session-only tray indicator."""
@@ -308,6 +338,8 @@ class WorkspaceMixin:
         self.monitor_stop_action.setEnabled(False)
         self.monitor_latest_action = menu.addAction("View latest monitoring scan", self._view_monitor_result)
         self.monitor_latest_action.setEnabled(False)
+        self.monitor_events_action = menu.addAction(icon("clock"), "View collected events…", self._view_monitor_events)
+        self.monitor_events_action.setEnabled(False)
         self.monitor_label = QLabel("Monitoring off")
         self.monitor_label.setTextFormat(Qt.TextFormat.PlainText)
         self.statusBar().addWidget(self.monitor_label, 1)
@@ -335,7 +367,7 @@ class WorkspaceMixin:
         self.scope_button.setEnabled(False)
         if self._monitor_notifications and QSystemTrayIcon.isSystemTrayAvailable():
             self.monitor_tray.show()
-        self.monitor.start(self.scan_options, dialog.interval.value())
+        self.monitor.start(self.scan_options, dialog.interval.value(), collect_all_events=dialog.all_events.isChecked())
 
     def _monitor_busy(self, busy):
         """Prevent overlapping foreground scans/AI while a monitoring worker runs."""
@@ -344,6 +376,7 @@ class WorkspaceMixin:
         self._workspace_busy(busy)
         self.incident_detail.analyze_button.setEnabled(not busy and self.incident_detail.incident is not None)
         self.monitor_latest_action.setEnabled(not busy and self._latest_monitor_result is not None)
+        self.monitor_events_action.setEnabled(not busy and self._latest_monitor_result is not None)
         self.motion.set_active(busy)
 
     def _monitor_completed(self, result, alerts):
@@ -352,6 +385,14 @@ class WorkspaceMixin:
         if alerts and self._monitor_notifications and self.monitor_tray.isVisible():
             self.monitor_tray.showMessage("LogOpen: new incidents", f"{len(alerts)} new high-priority incidents. Open LogOpen to review the evidence.",
                                           QSystemTrayIcon.MessageIcon.Warning, 8000)
+
+    def _view_monitor_events(self):
+        """Open the latest monitoring evidence without replacing the current report."""
+        result = self._latest_monitor_result
+        if (result is not None and self._scan_thread is None and self._analysis_thread is None
+                and self.monitor.thread is None):
+            events = getattr(result, "collected_events", None)
+            TimelineDialog(result, self, collected_events=events).exec()
 
     def _view_monitor_result(self):
         """Open the most recent monitoring snapshot when foreground work is idle."""
@@ -555,7 +596,7 @@ class WorkspaceMixin:
             return
         self._analysis_target = incident
         self._analysis_thread = QThread(self)
-        self._analysis_worker = AnalysisWorker(incident, preferences)
+        self._analysis_worker = AnalysisWorker(incident, preferences, build_scan_context(self._current_result))
         self._analysis_worker.moveToThread(self._analysis_thread)
         self._analysis_thread.started.connect(self._analysis_worker.run)
         self._analysis_worker.result.connect(self._show_manual_analysis)
@@ -597,6 +638,9 @@ class WorkspaceMixin:
             self.incident_detail.analyze_button.setEnabled(False)
             self.incident_detail.action_feedback.setText(message)
         self.status_label.setText(message)
+
+        if not self._close_pending:
+            self.sounds.play("success" if outcome.status == "completed" else "attention")
 
     def _manual_analysis_finished(self):
         """Restore controls only after the analysis thread exits; honor deferred closing."""

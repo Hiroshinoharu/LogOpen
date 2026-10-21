@@ -31,14 +31,14 @@ SetupLogging=yes
 SetupIconFile={#SourceRoot}\assets\logopen.ico
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a &desktop shortcut"
 
 [Files]
 Source: "{#SourceRoot}\dist\LogOpen\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\LogOpen"; Filename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"
-Name: "{autodesktop}\LogOpen"; Filename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"; Tasks: desktopicon
+Name: "{autodesktop}\LogOpen"; Filename: "{app}\LogOpen.exe"; IconFilename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"; Tasks: desktopicon
 
 [Dirs]
 Name: "{localappdata}\LogOpen"; Flags: uninsneveruninstall

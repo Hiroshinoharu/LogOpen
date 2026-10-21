@@ -20,6 +20,7 @@ from incident_recurrence import apply_recurrence_metadata
 from json_reporting import export_incidents_to_json
 from llm_analysis import (
     analyse_incident_with_llm_result,
+    build_scan_context,
     select_incidents_for_llm,
     should_analyse_incident_with_llm,
 )
@@ -125,7 +126,9 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
             progress(f"Analyzing incident {index + 1} of {len(selected_incidents)} with AI…",
                      70 + int(23 * index / max(len(selected_incidents), 1)))
         try:
-            outcome = analyse_incident_with_llm_result(incident, settings=settings)
+            outcome = analyse_incident_with_llm_result(
+                incident, settings=settings, scan_context=build_scan_context(incident_summaries),
+            )
             incident["llm_analysis"] = (
                 outcome.analysis.model_dump(mode="json")
                 if outcome.analysis is not None
@@ -197,6 +200,8 @@ def _run_workflow(options=None, *, progress=None, cancel_event=None, history_sto
     collection_errors = []
     incident_summaries = ScanResult()
     incident_summaries.scan_options = options.as_dict()
+    if options.collect_all_events:
+        incident_summaries.collected_events = []
     rules = RuleSet(options.rules_json)
 
     def report_progress(message, percent):
@@ -237,7 +242,8 @@ def _run_workflow(options=None, *, progress=None, cancel_event=None, history_sto
             return finish_cancelled()
         report_progress(f"Reading {log_type}…", int(50 * log_index / len(options.log_types)))
         try:
-            collection_options = {"hours": options.hours, "levels": DEFAULT_LEVELS,
+            collection_options = {"hours": options.hours,
+                                  "levels": None if options.collect_all_events else DEFAULT_LEVELS,
                                   "event_matcher": rules.matches}
             if cancel_event is not None:
                 collection_options["cancel_event"] = cancel_event
@@ -260,6 +266,8 @@ def _run_workflow(options=None, *, progress=None, cancel_event=None, history_sto
                 _write_status(f"Warning: {message}", error=True)
             events.sort(key=lambda event: event["time_generated"])
             log_problem_events = filter_events_by_time(events, options.hours)
+            if options.collect_all_events:
+                incident_summaries.collected_events.extend(log_problem_events)
             log_problem_events = [event for event in log_problem_events if rules.apply(event)]
             problem_events.extend(log_problem_events)
         except (EventCollectionError, ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:

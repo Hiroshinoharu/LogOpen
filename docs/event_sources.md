@@ -41,6 +41,11 @@ shutdown performance reports. Ordinary PowerShell script-block records are not
 included automatically merely because the Security profile selected that channel.
 Use a specific custom rule if those informational records are needed.
 
+This describes the problem-detection list. Monitoring's **Collect all event
+levels** option additionally saves routine Information, Success Audit, Verbose,
+and other levels as source activity. Those events do not become incidents unless
+they match the normal severity or detection rules.
+
 Every rule matches the **provider and event ID**, plus an exact channel or `*`.
 An event ID from an unrelated provider cannot trigger that rule. Labels describe
 the recorded event: a failed login is not automatically called an intrusion,
@@ -93,10 +98,23 @@ evidence pane preserves original timestamps, payload fields, record numbers,
 process/thread IDs, correlation IDs where supplied, and matching rule labels.
 Gap values refer to the full chronological dataset, not just filtered rows.
 
+**Monitor → View collected events…** shows every event retained by the latest
+monitoring scan, including scans with no problems. Routine events are labeled
+**Recorded activity**. This view keeps the currently open report in place.
+After opening a saved monitoring scan from History or a JSON report, use
+**View → All collected events…** to review that scan's activity. The optional
+`collected_events` report field preserves timestamps and structured evidence;
+older reports without that field continue to open normally.
+
 ## Monitoring and notifications
 
 Monitoring is opt-in and never starts on launch. It snapshots the current scope;
 stop it before changing that scope. A scan is followed by a 30–3,600-second wait.
+**Collect all event levels** is selected by default. It broadens severity
+collection only for the selected channels and current lookback/record cap;
+it does not enable disabled channels or bypass access restrictions. Uncheck it
+for focused collection. All-level and focused scans use separate comparison
+baselines. Capturing routine activity increases saved report/history size.
 Foreground scans, manual AI, and modal dialogs defer the next poll. Results go to
 normal scan history and `reports/incidents.json`; repeated scans therefore consume
 disk space. History retention/pruning is not automated.

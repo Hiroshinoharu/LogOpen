@@ -72,10 +72,16 @@ It does not install the compiler system-wide. An existing compiler can be suppli
 
 The installer is written to
 `dist/installer/LogOpen-0.1.0-Setup-x64.exe`. It installs in
-`%LOCALAPPDATA%\Programs\LogOpen`, adds a Start menu shortcut and an optional
-desktop shortcut, and includes an uninstaller. Installation requires no elevation.
+`%LOCALAPPDATA%\Programs\LogOpen`, adds a Start menu shortcut and a desktop
+shortcut selected by default for new installations, and includes an uninstaller.
+Users can deselect the desktop shortcut during setup or recreate it later from
+**Settings → App → Create desktop shortcut**. Both use the LogOpen icon.
+Installation requires no elevation.
 Uninstall removes application files and shortcuts, preserving scan data,
 preferences, and saved credentials.
+
+The installer includes the short WAV effects under `assets/sounds` in the bundle.
+**Settings → App** and **View → Sound effects** control their saved mute preference.
 
 ## Startup and data
 
