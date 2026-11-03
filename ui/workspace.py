@@ -1,19 +1,21 @@
 """Desktop history, filters, report exchange, review state, and manual AI actions."""
 
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime
 
 import config
+from detection_rules import PROFILES, SCAN_GOALS
 
-from PyQt6.QtCore import QObject, QThread, QTimer, Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtCore import QObject, QThread, QTimer, Qt, QItemSelectionModel, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QWidget,
-    QProgressBar, QPushButton,
+    QProgressBar, QPushButton, QVBoxLayout, QSizePolicy,
     QApplication, QSystemTrayIcon, QStyle, QMenu,
 )
 
-from history_store import HistoryStore
+from history_store import HistoryStore, incident_key
 from llm_analysis import AIAnalysisResult, analyse_incident_with_llm_result, build_scan_context
 from models.scan_options import ScanOptions
 from models.scan_result import ScanResult
@@ -25,6 +27,8 @@ from ui.scan_controls import FilterDialog, ScanOptionsDialog
 from ui.timeline import TimelineDialog
 from ui.monitoring import MonitorController, MonitorOptionsDialog
 from ui.icons import action_icon_name, icon
+from ui.guidance import problem_explanation
+from ui.table_sorting import numeric_key
 
 
 class AnalysisWorker(QObject):
@@ -112,6 +116,23 @@ class WorkspaceMixin:
         self.progress_bar.setAccessibleName("Scan progress")
         self.progress_bar.hide()
         dashboard_layout.insertWidget(2, self.progress_bar)
+        self.scan_goal_widget = QWidget()
+        goal_row = QHBoxLayout(self.scan_goal_widget)
+        goal_row.setContentsMargins(0, 0, 0, 0)
+        self.scan_goal_label = QLabel("What would you like to check?")
+        goal_row.addWidget(self.scan_goal_label)
+        self.scan_goal = QComboBox()
+        self.scan_goal.setAccessibleName("Choose a symptom to scan")
+        for key, (label, _description) in SCAN_GOALS.items():
+            self.scan_goal.addItem(label, key)
+        self.scan_goal_label.setBuddy(self.scan_goal)
+        self.scan_goal.setMinimumContentsLength(18)
+        goal_row.addWidget(self.scan_goal)
+        self.scan_goal_hint = QLabel(objectName="mutedLabel")
+        self.scan_goal_hint.setWordWrap(True)
+        goal_row.addWidget(self.scan_goal_hint, 1)
+        self.scan_goal.currentIndexChanged.connect(self._choose_scan_goal)
+        dashboard_layout.insertWidget(1, self.scan_goal_widget)
         self.comparison_button = QPushButton("No comparison yet", objectName="comparisonButton")
         self.comparison_button.setEnabled(False)
         self.comparison_button.setIcon(icon("history", "#80e5d3"))
@@ -127,13 +148,14 @@ class WorkspaceMixin:
         self.search_input.setMinimumWidth(100)
         filters.addWidget(self.search_input, 1)
         self.priority_filter = QComboBox()
-        self.priority_filter.addItems(["All priorities", "Critical", "High", "Medium", "Low"])
+        self.priority_filter.addItems(["All priorities", "Critical", "High", "Medium", "Low", "High and Critical"])
         self.priority_filter.setAccessibleName("Filter priority")
         self.priority_filter.setToolTip("High and Critical problems are a useful place to start.")
         filters.addWidget(self.priority_filter)
         self.review_filter = QComboBox()
         for label, value in (("Visible problems", "visible"), ("All problems", "all"),
-                             ("To review", "active"), ("Reviewed", "acknowledged"), ("Hidden", "ignored")):
+                             ("To review", "active"), ("Reviewed", "acknowledged"), ("Hidden", "ignored"),
+                             ("Hidden temporarily", "snoozed")):
             self.review_filter.addItem(label, value)
         self.review_filter.setAccessibleName("Filter review state")
         self.review_filter.setToolTip("Choose whether to include problems you have already reviewed or hidden.")
@@ -146,6 +168,27 @@ class WorkspaceMixin:
         self.filters_widget.setLayout(filters)
         self.filters_widget.hide()
         results_layout.insertWidget(1, self.filters_widget)
+        self.start_here_card = QFrame(objectName="startHereCard")
+        start_layout = QHBoxLayout(self.start_here_card)
+        start_layout.setContentsMargins(12, 10, 12, 10)
+        start_text = QVBoxLayout()
+        start_text.setSpacing(4)
+        self.start_here_title = QLabel(objectName="detailFieldTitle")
+        self.start_here_title.setTextFormat(Qt.TextFormat.PlainText)
+        self.start_here_title.setWordWrap(True)
+        self.start_here_explanation = QLabel(objectName="mutedLabel")
+        self.start_here_explanation.setTextFormat(Qt.TextFormat.PlainText)
+        self.start_here_explanation.setWordWrap(True)
+        start_text.addWidget(self.start_here_title)
+        start_text.addWidget(self.start_here_explanation)
+        start_layout.addLayout(start_text, 1)
+        self.start_here_button = QPushButton("Understand this problem", objectName="secondaryButton")
+        self.start_here_button.setIcon(icon("arrow"))
+        self.start_here_button.clicked.connect(self._open_start_here)
+        start_layout.addWidget(self.start_here_button)
+        self._start_here_incident = None
+        self.start_here_card.hide()
+        results_layout.insertWidget(2, self.start_here_card)
         self.filter_feedback = QFrame(objectName="filterFeedback")
         no_matches = QHBoxLayout(self.filter_feedback)
         no_matches.addWidget(QLabel("No problems match these filters. Try a different search."), 1)
@@ -153,7 +196,7 @@ class WorkspaceMixin:
         self.clear_filters_button.clicked.connect(self._show_all_problems)
         no_matches.addWidget(self.clear_filters_button)
         self.filter_feedback.hide()
-        results_layout.insertWidget(2, self.filter_feedback)
+        results_layout.insertWidget(3, self.filter_feedback)
         self._filter_timer = QTimer(self)
         self._filter_timer.setSingleShot(True)
         self._filter_timer.setInterval(180)
@@ -173,6 +216,7 @@ class WorkspaceMixin:
         self.incident_detail.review_requested.connect(self._review_incident)
         self._update_scope_label()
         self._setup_monitoring()
+        self._setup_productivity(results_layout)
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction(icon("help"), "Quick guide", self.help_button.click)
         help_menu.addAction(icon("download"), "Check for updates…", self._open_updates)
@@ -180,6 +224,8 @@ class WorkspaceMixin:
             for action in menu.actions():
                 if not action.isSeparator() and action.icon().isNull():
                     action.setIcon(icon(action_icon_name(action.text())))
+        for action in self.menuBar().actions():
+            action.setIcon(QIcon())
         if scope_warning:
             self.warning_label.setText(scope_warning)
             self.warning_label.show()
@@ -187,6 +233,7 @@ class WorkspaceMixin:
     def _build_workspace_menus(self):
         """Expose history/import/export and review actions without crowding the header."""
         menu = self.menuBar().addMenu("File")
+        self.file_menu = menu
         self.open_action = menu.addAction(icon("folder"), "Open report…", self._open_report)
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
         self.history_action = menu.addAction(icon("history"), "Scan history…", self._open_history)
@@ -196,6 +243,7 @@ class WorkspaceMixin:
         self.export_visible_action = menu.addAction("Export filtered incidents…", self._export_visible)
         self.export_visible_action.setEnabled(False)
         view = self.menuBar().addMenu("View")
+        self.view_menu = view
         self.timeline_action = view.addAction("Timeline of filtered incidents…", self._show_timeline)
         self.timeline_action.setEnabled(False)
         self.collected_events_action = view.addAction(icon("clock"), "All collected events…", self._show_collected_events)
@@ -209,6 +257,7 @@ class WorkspaceMixin:
         view.addAction(self.sound_action)
         view.addAction(icon("terminal"), "Terminal settings…", self._open_terminal_settings)
         review = self.menuBar().addMenu("Review")
+        self.review_menu = review
         self.review_actions = []
         for text, state in (("Acknowledge selected", "acknowledged"),
                             ("Ignore selected", "ignored"), ("Restore selected", "active")):
@@ -222,6 +271,23 @@ class WorkspaceMixin:
         self.scope_label.setText(f"Last {self.scan_options.hours:g} hours · "
                                  f"{len(self.scan_options.log_types)} Windows logs")
         self.scope_label.setToolTip("\n".join(self.scan_options.log_types))
+        self.scan_goal.blockSignals(True)
+        self.scan_goal.setCurrentIndex(self.scan_goal.findData(self.scan_options.profile))
+        self.scan_goal.blockSignals(False)
+        self.scan_goal_hint.setText(SCAN_GOALS[self.scan_options.profile][1])
+        self.scan_goal.setToolTip(self.scan_goal_hint.text())
+
+    def _choose_scan_goal(self):
+        """Stage a symptom's source logs without starting a scan or changing evidence."""
+        if not self.scan_goal.isEnabled():
+            return
+        profile = self.scan_goal.currentData()
+        if profile == "custom":
+            self._update_scope_label()
+            self._edit_scan_scope()
+            return
+        self.scan_options = replace(self.scan_options, profile=profile, log_types=PROFILES[profile][1])
+        self._save_scan_scope()
 
     def _edit_scan_scope(self):
         """Save valid scope controls for later desktop scans and later launches."""
@@ -229,6 +295,10 @@ class WorkspaceMixin:
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self.scan_options = dialog.options
+        self._save_scan_scope()
+
+    def _save_scan_scope(self):
+        """Persist a validated scope shared by symptom choices and advanced options."""
         for key, value in (("log_types", list(self.scan_options.log_types)),
                            ("hours", self.scan_options.hours), ("max_records", self.scan_options.max_records),
                            ("profile", self.scan_options.profile), ("rules_json", self.scan_options.rules_json),
@@ -255,7 +325,10 @@ class WorkspaceMixin:
             self.monitor_start_action.setEnabled(not busy and not self.monitor.active and self.monitor.thread is None)
             self.monitor_latest_action.setEnabled(not busy and self._latest_monitor_result is not None)
             self.monitor_events_action.setEnabled(not busy and self._latest_monitor_result is not None)
+            self.monitor_button.setEnabled(self.monitor.active or not busy)
+        self.scan_goal.setEnabled(self.scope_button.isEnabled())
         self.incident_detail.analyze_button.setEnabled(not busy and self.incident_detail.incident is not None)
+        self.incident_detail.check_again_button.setEnabled(not busy and self.incident_detail.incident is not None)
         self.motion.set_active(busy)
 
     def _sync_sound_action(self, enabled):
@@ -328,11 +401,15 @@ class WorkspaceMixin:
         """Create inactive monitoring controls and a session-only tray indicator."""
         self._latest_monitor_result = None
         self._monitor_notifications = False
+        self._pending_monitor_refresh = False
+        self._pending_monitor_open = False
+        self._unread_monitor_incidents = 0
         self.monitor = MonitorController(self.history_store, self._can_monitor_scan, self)
         self.monitor.completed.connect(self._monitor_completed)
         self.monitor.busy_changed.connect(self._monitor_busy)
         self.monitor.stopped.connect(self._monitor_stopped)
         menu = self.menuBar().addMenu("Monitor")
+        self.monitor_menu = menu
         self.monitor_start_action = menu.addAction("Start live monitoring…", self._start_monitoring)
         self.monitor_stop_action = menu.addAction("Stop monitoring", self.monitor.stop)
         self.monitor_stop_action.setEnabled(False)
@@ -340,14 +417,33 @@ class WorkspaceMixin:
         self.monitor_latest_action.setEnabled(False)
         self.monitor_events_action = menu.addAction(icon("clock"), "View collected events…", self._view_monitor_events)
         self.monitor_events_action.setEnabled(False)
-        self.monitor_label = QLabel("Monitoring off")
+        self.monitor_label = QLabel("Live updates off")
         self.monitor_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.monitor_label.setMinimumWidth(0)
+        self.monitor_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.statusBar().addWidget(self.monitor_label, 1)
-        self.statusBar().hide()
+        self.monitor_notice = QPushButton(objectName="secondaryButton")
+        self.monitor_notice.setToolTip("Open the latest monitoring results. Your current filters still apply.")
+        self.monitor_notice.clicked.connect(self._view_monitor_result)
+        self.monitor_notice.hide()
+        self.statusBar().addPermanentWidget(self.monitor_notice)
+        self.monitor_button = QPushButton("Watch for new incidents", objectName="secondaryButton")
+        self.monitor_button.setIcon(icon("eye"))
+        self.monitor_button.setToolTip("Start periodic local scans, automatic result refresh, and optional desktop notifications.")
+        self.monitor_button.clicked.connect(self._toggle_monitoring)
+        self.statusBar().addPermanentWidget(self.monitor_button)
         self.monitor.status.connect(self.monitor_label.setText)
+        self.monitor.status.connect(self.monitor_label.setToolTip)
         self.monitor_tray = QSystemTrayIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon), self)
         self.monitor_tray.setToolTip("LogOpen monitoring")
         self.monitor_tray.messageClicked.connect(self._view_monitor_result)
+
+    def _toggle_monitoring(self):
+        """Expose monitoring beside its live status, including cancellation while polling."""
+        if self.monitor.active:
+            self.monitor.stop()
+        elif self.monitor.thread is None:
+            self._start_monitoring()
 
     def _can_monitor_scan(self):
         """Defer background polls while foreground work or modal dialogs own the UI."""
@@ -357,14 +453,28 @@ class WorkspaceMixin:
 
     def _start_monitoring(self):
         """Start only after the user chooses the polling interval and notifications."""
+        if self.monitor.active or self.monitor.thread is not None:
+            return
         dialog = MonitorOptionsDialog(self)
+        dialog.notifications.setChecked(str(self._ui_settings.value("monitor/desktop_notifications", True)).lower() in ("true", "1"))
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self._monitor_notifications = dialog.notifications.isChecked()
+        self._ui_settings.setValue("monitor/desktop_notifications", self._monitor_notifications)
+        self._ui_settings.sync()
+        self._clear_notification_batch()
+        self._latest_monitor_result = None
+        self._unread_monitor_incidents = 0
+        self.monitor_notice.hide()
+        self._pending_monitor_refresh = False
+        self._pending_monitor_open = False
         self.statusBar().show()
         self.monitor_start_action.setEnabled(False)
         self.monitor_stop_action.setEnabled(True)
         self.scope_button.setEnabled(False)
+        self.scan_goal.setEnabled(False)
+        self.monitor_button.setText("Stop watching")
+        self.monitor_button.setIcon(icon("stop"))
         if self._monitor_notifications and QSystemTrayIcon.isSystemTrayAvailable():
             self.monitor_tray.show()
         self.monitor.start(self.scan_options, dialog.interval.value(), collect_all_events=dialog.all_events.isChecked())
@@ -378,13 +488,70 @@ class WorkspaceMixin:
         self.monitor_latest_action.setEnabled(not busy and self._latest_monitor_result is not None)
         self.monitor_events_action.setEnabled(not busy and self._latest_monitor_result is not None)
         self.motion.set_active(busy)
+        if self.monitor.active:
+            self.monitor_button.setText("Stop watching")
+        elif busy:
+            self.monitor_button.setText("Stopping…")
+            self.monitor_button.setEnabled(False)
+        if not busy:
+            self._flush_monitor_updates()
 
     def _monitor_completed(self, result, alerts):
-        """Retain the latest scan and show one generic notification without disrupting reading."""
+        """Refresh the dashboard and announce new evidence without interrupting a detail page."""
+        if self._close_pending or getattr(result, "cancelled", False):
+            return
         self._latest_monitor_result = result
-        if alerts and self._monitor_notifications and self.monitor_tray.isVisible():
-            self.monitor_tray.showMessage("LogOpen: new incidents", f"{len(alerts)} new high-priority incidents. Open LogOpen to review the evidence.",
-                                          QSystemTrayIcon.MessageIcon.Warning, 8000)
+        try:
+            self.history_store.apply_states(result)
+        except Exception:
+            if "Review states could not be loaded." not in result.warnings:
+                result.warnings.append("Review states could not be loaded.")
+        alerts = [incident for incident in alerts if incident.get("review_state", "active") == "active"]
+        self._pending_monitor_refresh = True
+        if self.page_stack.currentWidget() is self.dashboard:
+            self._refresh_monitor_result()
+        if alerts:
+            self._unread_monitor_incidents += len(alerts)
+            count = self._unread_monitor_incidents
+            self.monitor_notice.setText(f"{count} new {'incident' if count == 1 else 'incidents'} · View")
+            self.monitor_notice.setAccessibleName(self.monitor_notice.text())
+            self.monitor_notice.show()
+        self._queue_notifications(alerts)
+
+    def _refresh_monitor_result(self):
+        """Replace the results snapshot while retaining filters, sort, selection, and scroll."""
+        result = self._latest_monitor_result
+        if result is None:
+            return
+        selected = {(incident_key(item), str(item.get("time_generated_start", "")))
+                    for item in self._selected_incidents()}
+        scroll = self.incident_table.verticalScrollBar().value()
+        horizontal = self.incident_table.horizontalScrollBar().value()
+        try:
+            self.history_store.apply_states(result)
+        except Exception:
+            if "Review states could not be loaded." not in result.warnings:
+                result.warnings.append("Review states could not be loaded.")
+        self._show_scan_results(result)
+        for row in range(self.incident_table.rowCount()):
+            item = self.incident_table.item(row, 0)
+            incident = self._incidents[item.data(Qt.ItemDataRole.UserRole)]
+            if not self.incident_table.isRowHidden(row) and (
+                incident_key(incident), str(incident.get("time_generated_start", ""))
+            ) in selected:
+                self.incident_table.setCurrentCell(row, 0, QItemSelectionModel.SelectionFlag.Select |
+                                                   QItemSelectionModel.SelectionFlag.Rows)
+        self.incident_table.verticalScrollBar().setValue(scroll)
+        self.incident_table.horizontalScrollBar().setValue(horizontal)
+        self._pending_monitor_refresh = False
+
+    def _flush_monitor_updates(self):
+        """Honor a notification click once foreground work and the polling thread are idle."""
+        if (self._close_pending or self._scan_thread is not None or self._analysis_thread is not None
+                or self.monitor.thread is not None):
+            return
+        if self._pending_monitor_open:
+            self._view_monitor_result()
 
     def _view_monitor_events(self):
         """Open the latest monitoring evidence without replacing the current report."""
@@ -395,11 +562,21 @@ class WorkspaceMixin:
             TimelineDialog(result, self, collected_events=events).exec()
 
     def _view_monitor_result(self):
-        """Open the most recent monitoring snapshot when foreground work is idle."""
-        if self._latest_monitor_result is not None and self._scan_thread is None and self._analysis_thread is None and self.monitor.thread is None:
-            self._display_saved_result(self._latest_monitor_result, "Latest monitoring scan")
-            self.showNormal()
+        """Open live results, deferring a click delivered before worker cleanup."""
+        if self._latest_monitor_result is None:
+            return
+        self._pending_monitor_open = True
+        if self._scan_thread is None and self._analysis_thread is None and self.monitor.thread is None and not self._close_pending:
+            self._pending_monitor_open = False
+            self._refresh_monitor_result()
+            self._unread_monitor_incidents = 0
+            self.monitor_notice.hide()
+            if self.isMinimized():
+                self.showNormal()
+            else:
+                self.show()
             self.raise_()
+            self.activateWindow()
 
     def _monitor_stopped(self):
         """Restore controls after cancellation cleanup, or complete a deferred close."""
@@ -407,6 +584,10 @@ class WorkspaceMixin:
         self.monitor_start_action.setEnabled(not busy)
         self.monitor_stop_action.setEnabled(False)
         self.scope_button.setEnabled(not busy)
+        self.scan_goal.setEnabled(not busy)
+        self.monitor_button.setEnabled(not busy)
+        self.monitor_button.setText("Watch for new incidents")
+        self.monitor_button.setIcon(icon("eye"))
         self.monitor_tray.hide()
         if self._close_pending:
             self.close()
@@ -437,11 +618,14 @@ class WorkspaceMixin:
         if query and query not in self._search_text.get(id(incident), ""):
             return False
         priority = self.priority_filter.currentText()
-        if priority != "All priorities" and incident.get("incident_priority") != priority:
+        if priority == "High and Critical":
+            if incident.get("incident_priority") not in ("High", "Critical"):
+                return False
+        elif priority != "All priorities" and incident.get("incident_priority") != priority:
             return False
         state = incident.get("review_state", "active")
         selected = self.review_filter.currentData()
-        if (selected == "visible" and state == "ignored") or (
+        if (selected == "visible" and state in ("ignored", "snoozed")) or (
             selected not in ("visible", "all") and state != selected
         ):
             return False
@@ -470,23 +654,84 @@ class WorkspaceMixin:
             matched = self._matches_filters(self._incidents[index])
             table.setRowHidden(row, not matched)
             visible += matched
+        if hasattr(self, "group_action"):
+            self._refresh_groups()
         if any(table.isRowHidden(index.row()) for index in table.selectionModel().selectedRows()):
             table.clearSelection()
         self.result_count.setText(f"{visible} FOUND" if visible == len(self._incidents)
                                  else f"{visible} / {len(self._incidents)} SHOWN")
+        if hasattr(self, "group_action") and self.group_action.isChecked() and visible:
+            self.result_count.setText(f"{len(self._group_members)} GROUPS · {visible} INCIDENTS")
         self.filter_button.setText("Filters active…" if any(self._extra_filters.get(key) for key in
                                   ("provider", "classification", "dates")) else "More filters…")
         self.export_visible_action.setEnabled(visible > 0)
+        if hasattr(self, "support_filtered_action"):
+            self.support_filtered_action.setEnabled(visible > 0)
         self.filter_feedback.setVisible(bool(self._incidents) and visible == 0)
         self._update_copy_action()
+        self._update_start_here()
+        if hasattr(self, "filter_chips"):
+            self._refresh_filter_chips()
+
+    def _update_start_here(self):
+        """Recommend the highest-priority active incident within the visible results."""
+        visible = self._selected_incidents(visible=True)
+        candidates = [incident for incident in visible
+                      if incident.get("review_state", "active") == "active"]
+        ranks = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
+        self._start_here_incident = max(candidates, key=lambda item: (
+            ranks.get(item.get("incident_priority"), 0), numeric_key(item.get("incident_score")),
+        ), default=None)
+        self.start_here_card.setVisible(bool(visible))
+        self.start_here_button.setVisible(self._start_here_incident is not None)
+        if self._start_here_incident is None:
+            self.start_here_title.setText("No unreviewed problems in this view")
+            self.start_here_explanation.setText("Change the filters to see other problems, or start another scan.")
+            return
+        incident = self._start_here_incident
+        classification = str(incident.get("incident_classification") or "Unclassified problem")
+        priority = str(incident.get("incident_priority") or "Unknown")
+        self.start_here_title.setText(f"Start here · {priority} priority · {classification}")
+        self.start_here_explanation.setText(problem_explanation(classification) or
+                                          "Windows recorded this activity. Open the summary for checks you can try.")
+        self.start_here_title.setToolTip(self.start_here_explanation.text())
+
+    def _open_start_here(self):
+        """Select the recommended source object even after sorting, then open its details."""
+        self._update_start_here()
+        if self._start_here_incident is not None and self.group_action.isChecked():
+            self._expanded_groups.add(incident_key(self._start_here_incident))
+            self._apply_filters()
+        for row in range(self.incident_table.rowCount()):
+            item = self.incident_table.item(row, 0)
+            if item is not None and self._incidents[item.data(Qt.ItemDataRole.UserRole)] is self._start_here_incident:
+                self.incident_table.clearSelection()
+                self.incident_table.setCurrentCell(row, 0)
+                self._open_incident_detail()
+                return
 
     def _selected_incidents(self, visible=False):
         """Resolve selected or visible rows to source objects in current display order."""
         table = self.incident_table
         rows = range(table.rowCount()) if visible else sorted(index.row() for index in
                                                              table.selectionModel().selectedRows())
-        return [self._incidents[table.item(row, 0).data(Qt.ItemDataRole.UserRole)]
-                for row in rows if not table.isRowHidden(row)]
+        indices = []
+        for row in rows:
+            item = table.item(row, 0)
+            if item is None:
+                continue
+            index = item.data(Qt.ItemDataRole.UserRole)
+            incident = self._incidents[index]
+            if visible:
+                if self._matches_filters(incident):
+                    indices.append(index)
+            elif not table.isRowHidden(row):
+                indices.append(index)
+                if hasattr(self, "group_action") and self.group_action.isChecked():
+                    key = incident_key(incident)
+                    if key not in self._expanded_groups:
+                        indices.extend(self._group_members.get(key, []))
+        return [self._incidents[index] for index in dict.fromkeys(indices)]
 
     def _export_selection(self):
         """Export only selected visible rows to a user-chosen file."""
@@ -547,8 +792,9 @@ class WorkspaceMixin:
         except Exception:
             result.warnings.append("Review states could not be loaded.")
         self._show_scan_results(result)
+        self._check_again_context = None
         self.status_label.setText(f"{message} · {len(result)} incidents")
-        self.last_scan.setText(f"Saved: {getattr(result, 'created_at', None) or 'time unavailable'}")
+        self._update_relative_scan_time()
         self._set_state("complete" if result.complete else "warning", "SAVED REPORT")
 
     def _show_comparison(self):
@@ -569,6 +815,7 @@ class WorkspaceMixin:
     def _set_review_state(self, incidents, state):
         """Save issue-level review state and refresh visibility without losing details."""
         try:
+            snapshots = [self.history_store.issue_preferences(incident) for incident in incidents]
             for incident in incidents:
                 self.history_store.set_state(incident, state)
             self.history_store.apply_states(self._incidents)
@@ -577,6 +824,7 @@ class WorkspaceMixin:
             self.incident_detail.review_badge.setText("Review state could not be saved")
             self.status_label.setText("Could not save the review state. Check local application data access.")
             return
+        self._remember_review_undo(snapshots)
         self._apply_filters()
         current = self.incident_detail.incident
         if current is not None:
@@ -620,6 +868,7 @@ class WorkspaceMixin:
         incident["llm_analysis_message"] = outcome.message
         if outcome.analysis is not None:
             incident["llm_analysis"] = outcome.analysis.model_dump(mode="json")
+            incident["llm_prompt_version"] = config.ANALYSIS_PROMPT_VERSION
             incident.pop("llm_analysis_error", None)
         elif outcome.status == "failed":
             incident["llm_analysis_error"] = outcome.message
@@ -653,3 +902,5 @@ class WorkspaceMixin:
         self._workspace_busy(False)
         if self._close_pending:
             self.close()
+        else:
+            self._flush_monitor_updates()

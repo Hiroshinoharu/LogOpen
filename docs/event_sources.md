@@ -110,6 +110,11 @@ older reports without that field continue to open normally.
 
 Monitoring is opt-in and never starts on launch. It snapshots the current scope;
 stop it before changing that scope. A scan is followed by a 30–3,600-second wait.
+Start it with **Watch for new incidents** in the bottom bar or the Monitor menu.
+The default interval is 60 seconds. Each completed poll refreshes the incident
+list, preserving filters, sorting, surviving selections, and scroll position.
+An open incident detail page retains its scan and reading position; returning to
+results applies the newest snapshot. A cancelled poll never replaces results.
 **Collect all event levels** is selected by default. It broadens severity
 collection only for the selected channels and current lookback/record cap;
 it does not enable disabled channels or bypass access restrictions. Uncheck it
@@ -120,13 +125,16 @@ normal scan history and `reports/incidents.json`; repeated scans therefore consu
 disk space. History retention/pruning is not automated.
 
 The first noncancelled scan establishes a silent baseline. Later notifications
-require unseen evidence timestamped since monitoring started, an active review
-state, and High/Critical incident priority. Ignored/acknowledged incidents are
+require unseen evidence timestamped since monitoring started and an active review
+state, at any incident priority. Ignored/acknowledged incidents are
 remembered silently. Up to 100,000 evidence identities are retained per session
 to suppress overlapping-window duplicates; older identities may expire. Stopping
 and restarting monitoring begins a fresh baseline. Desktop notifications depend
-on Windows/Qt tray support and OS notification settings; the in-app monitor status
-and saved scan remain available regardless. Notification text contains only counts.
+on Windows/Qt tray support and OS notification settings. An in-app notice counts
+new incidents regardless of desktop notification support. The app's sound
+preference controls alert sounds. Clicking the notice or desktop notification
+opens the latest results, waiting for any active scan/AI request to finish first.
+Current filters still apply. Notification text contains only counts.
 
 Monitoring always disables automatic AI, regardless of saved AI preferences.
 Explicit manual analysis remains available between polls and uses normal AI

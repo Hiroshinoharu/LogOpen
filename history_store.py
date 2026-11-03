@@ -143,6 +143,25 @@ class HistoryStore:
                     state TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS issue_preferences (
+                    issue_key TEXT PRIMARY KEY,
+                    note TEXT NOT NULL DEFAULT '',
+                    snoozed_until TEXT
+                );
+                CREATE TABLE IF NOT EXISTS issue_activity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    issue_key TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    detail TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS activity_issue ON issue_activity(issue_key, created_at);
+                CREATE TABLE IF NOT EXISTS troubleshooting (
+                    issue_key TEXT NOT NULL,
+                    step_id TEXT NOT NULL,
+                    content_json TEXT NOT NULL,
+                    PRIMARY KEY(issue_key, step_id)
+                );
             """)
             yield connection
             connection.commit()
@@ -214,11 +233,22 @@ class HistoryStore:
         return result
 
     def apply_states(self, incidents):
-        """Attach active/acknowledged/ignored state to each supplied incident in place."""
+        """Overlay current review decisions, local notes, and unexpired temporary hiding."""
         with self._connection() as connection:
             states = dict(connection.execute("SELECT issue_key, state FROM review_states").fetchall())
+            preferences = {row["issue_key"]: row for row in connection.execute("SELECT * FROM issue_preferences")}
+        now = datetime.now(timezone.utc)
         for incident in incidents:
-            incident["review_state"] = states.get(incident_key(incident), "active")
+            key = incident_key(incident)
+            preference = preferences.get(key)
+            incident["review_state"] = states.get(key, "active")
+            imported_note = incident.get("local_note", "")
+            incident["local_note"] = preference["note"] if preference is not None else (
+                imported_note if isinstance(imported_note, str) else "")
+            until = preference["snoozed_until"] if preference is not None else None
+            incident["snoozed_until"] = until
+            if until and datetime.fromisoformat(until) > now:
+                incident["review_state"] = "snoozed"
         return incidents
 
     def set_state(self, incident, state):
@@ -227,9 +257,117 @@ class HistoryStore:
             raise ValueError("Review state must be active, acknowledged, or ignored.")
         with self._connection() as connection:
             connection.execute("INSERT INTO review_states(issue_key, state, updated_at) VALUES (?, ?, ?) ON CONFLICT(issue_key) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at", (incident_key(incident), state, datetime.now(timezone.utc).isoformat()))
+            connection.execute("UPDATE issue_preferences SET snoozed_until=NULL WHERE issue_key=?", (incident_key(incident),))
+            self._activity(connection, incident_key(incident), "Review decision", state)
         incident["review_state"] = state
+        incident["snoozed_until"] = None
 
-    def compare_scan(self, result, options=None):
+    def issue_preferences(self, incident):
+        """Read a restorable issue-family snapshot for Undo without copying evidence."""
+        key = incident_key(incident)
+        with self._connection() as connection:
+            state = connection.execute("SELECT state FROM review_states WHERE issue_key=?", (key,)).fetchone()
+            preference = connection.execute("SELECT note, snoozed_until FROM issue_preferences WHERE issue_key=?", (key,)).fetchone()
+        return {"issue_key": key, "state": state["state"] if state else "active",
+                "note": preference["note"] if preference else "",
+                "snoozed_until": preference["snoozed_until"] if preference else None}
+
+    def restore_preferences(self, snapshots):
+        """Restore review and snooze decisions together; leave independently edited notes intact."""
+        with self._connection() as connection:
+            for snapshot in snapshots:
+                key = snapshot["issue_key"]
+                state = snapshot["state"]
+                if state not in {"active", "acknowledged", "ignored"}:
+                    raise ValueError("Invalid saved review state.")
+                connection.execute("INSERT INTO review_states VALUES (?,?,?) ON CONFLICT(issue_key) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
+                                   (key, state, datetime.now(timezone.utc).isoformat()))
+                connection.execute("INSERT INTO issue_preferences(issue_key,snoozed_until) VALUES (?,?) ON CONFLICT(issue_key) DO UPDATE SET snoozed_until=excluded.snoozed_until",
+                                   (key, snapshot.get("snoozed_until")))
+                self._activity(connection, key, "Undo review change", state)
+
+    def snooze(self, incident, hours=24):
+        """Temporarily hide one family across scans without changing its underlying review state."""
+        if type(hours) not in (int, float) or not 0 < hours <= 24 * 365:
+            raise ValueError("Choose a temporary hiding period between zero and one year.")
+        until = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+        with self._connection() as connection:
+            connection.execute("INSERT INTO issue_preferences(issue_key,snoozed_until) VALUES (?,?) ON CONFLICT(issue_key) DO UPDATE SET snoozed_until=excluded.snoozed_until", (incident_key(incident), until))
+            self._activity(connection, incident_key(incident), "Hidden temporarily", f"Until {until}")
+        self.apply_states([incident])
+
+    def save_note(self, incident, note):
+        """Save local plain-text context for a family; never include it in an AI request."""
+        if not isinstance(note, str) or len(note) > 4000:
+            raise ValueError("Notes must contain at most 4,000 characters.")
+        with self._connection() as connection:
+            connection.execute("INSERT INTO issue_preferences(issue_key,note) VALUES (?,?) ON CONFLICT(issue_key) DO UPDATE SET note=excluded.note", (incident_key(incident), note))
+            self._activity(connection, incident_key(incident), "Note saved", note or "Note cleared")
+        incident["local_note"] = note
+
+    @staticmethod
+    def _activity(connection, key, kind, detail):
+        connection.execute("INSERT INTO issue_activity(issue_key,created_at,kind,detail) VALUES (?,?,?,?)",
+                           (key, datetime.now(timezone.utc).isoformat(), kind, detail))
+
+    def record_activity(self, incident, kind, detail):
+        """Record a local troubleshooting outcome without altering source evidence."""
+        with self._connection() as connection:
+            self._activity(connection, incident_key(incident), kind, detail)
+
+    def checklist(self, incident):
+        with self._connection() as connection:
+            rows = connection.execute("SELECT content_json FROM troubleshooting WHERE issue_key=? ORDER BY rowid",
+                                      (incident_key(incident),)).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def save_checklist(self, incident, steps):
+        """Save progress atomically; stable step IDs preserve work across later scans."""
+        if not isinstance(steps, list) or len(steps) > 50:
+            raise ValueError("A checklist can contain at most 50 checks.")
+        seen = set()
+        for step in steps:
+            if (not isinstance(step, dict) or not isinstance(step.get("id"), str)
+                    or not 1 <= len(step["id"]) <= 100 or step["id"] in seen
+                    or not isinstance(step.get("text"), str) or not 1 <= len(step["text"]) <= 4000
+                    or type(step.get("done")) is not bool or not isinstance(step.get("result"), str)
+                    or len(step["result"]) > 4000):
+                raise ValueError("Each check needs a unique ID, text, completion status and result (up to 4,000 characters).")
+            seen.add(step["id"])
+        key = incident_key(incident)
+        with self._connection() as connection:
+            old = {row[0]: json.loads(row[1]) for row in connection.execute(
+                "SELECT step_id,content_json FROM troubleshooting WHERE issue_key=?", (key,))}
+            for step in steps:
+                if old.get(step["id"]) == step:
+                    continue
+                connection.execute("INSERT INTO troubleshooting VALUES (?,?,?) ON CONFLICT(issue_key,step_id) DO UPDATE SET content_json=excluded.content_json",
+                                   (key, step["id"], _canonical(step)))
+                status = "Completed" if step["done"] else "Not completed"
+                self._activity(connection, key, "Troubleshooting check", f"{status}: {step['text']}\nResult: {step['result'] or 'Not recorded'}")
+
+    def issue_timeline(self, incident, limit=500):
+        """Combine local actions with observations in the most recent saved scans.
+
+        Observations are explicitly scan sightings, not a count of distinct failures.
+        Repeated evidence in overlapping scan windows remains identifiable by its time.
+        """
+        key = incident_key(incident)
+        with self._connection() as connection:
+            scans = connection.execute("SELECT id,created_at,report_json,complete FROM scans ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            actions = connection.execute("SELECT created_at,kind,detail FROM issue_activity WHERE issue_key=? ORDER BY created_at DESC LIMIT ?", (key, limit)).fetchall()
+        entries = [dict(row) for row in actions]
+        for scan in scans:
+            report = json.loads(scan["report_json"])
+            matches = [item for item in report.get("incidents", []) if incident_key(item) == key]
+            if matches:
+                times = [str(item.get("time_generated_start", "Unknown")) for item in matches]
+                entries.append(dict(created_at=scan["created_at"], kind="Observed in scan",
+                                    detail=f"{len(matches)} occurrence(s) in this snapshot; {'complete' if scan['complete'] else 'incomplete'} scan. Event start times: " + ", ".join(times),
+                                    scan_id=scan["id"]))
+        return sorted(entries, key=lambda entry: _timestamp(entry["created_at"]), reverse=True)
+
+    def compare_scan(self, result, options=None, *, previous_scan_id=None):
         """Compare issue families against the latest suitable saved scope.
 
         Complete current scans prefer the latest completed same-scope baseline.
@@ -243,7 +381,11 @@ class HistoryStore:
         current_id = getattr(result, "scan_id", None) or ""
         with self._connection() as connection:
             row = None
-            if complete:
+            if previous_scan_id is not None:
+                row = connection.execute("SELECT * FROM scans WHERE id=? AND id != ?", (previous_scan_id, current_id)).fetchone()
+                if row is None:
+                    raise HistoryStoreError("Choose a different saved scan as the baseline.")
+            elif complete:
                 row = connection.execute("SELECT * FROM scans WHERE scope_json = ? AND complete = 1 AND id != ? ORDER BY created_at DESC, rowid DESC LIMIT 1", (_canonical(scope), current_id)).fetchone()
             if row is None:
                 row = connection.execute("SELECT * FROM scans WHERE scope_json = ? AND id != ? ORDER BY created_at DESC, rowid DESC LIMIT 1", (_canonical(scope), current_id)).fetchone()
@@ -255,9 +397,12 @@ class HistoryStore:
         comparable = bool(row is not None and complete and row["complete"] and known_scope and _scope(previous_options) == scope)
         old_keys = {incident_key(item) for item in previous}
         current_keys = {incident_key(item) for item in result}
-        new = [item for item in result if incident_key(item) not in old_keys]
-        persistent = [item for item in result if incident_key(item) in old_keys]
-        disappeared = [item for item in previous if incident_key(item) not in current_keys] if comparable else []
+        # Compare issue families, not duplicate occurrences within a scan window.
+        current_families = {incident_key(item): item for item in result}
+        previous_families = {incident_key(item): item for item in previous}
+        new = [item for key, item in current_families.items() if key not in old_keys]
+        persistent = [item for key, item in current_families.items() if key in old_keys]
+        disappeared = [item for key, item in previous_families.items() if key not in current_keys] if comparable else []
         reason = "Compared completed scans with the same logs, time window, and record limit." if comparable else "Disappearance is unavailable until two completed scans cover the same known scope."
         if row is None:
             reason = "This is the first saved scan; there is no previous baseline."

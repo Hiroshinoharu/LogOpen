@@ -100,8 +100,8 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
             status, message = "completed", "AI analysis completed."
         elif not settings.enabled:
             status, message = "disabled", "AI analysis is disabled in Settings."
-        elif incident.get("review_state") == "ignored":
-            status, message = "not_selected", "Automatic AI analysis is skipped for ignored incidents."
+        elif incident.get("review_state") in {"ignored", "snoozed"}:
+            status, message = "not_selected", "Automatic AI analysis is skipped for ignored or temporarily hidden incidents."
         elif should_analyse_incident_with_llm(incident, settings=settings):
             status, message = "not_selected", "Not selected because the AI analysis limit for this scan was reached."
         else:
@@ -112,7 +112,7 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
         _write_status("AI analysis is disabled. Deterministic analysis is complete.")
         return
     selected_incidents = select_incidents_for_llm(
-        [incident for incident in incident_summaries if incident.get("review_state") != "ignored"],
+        [incident for incident in incident_summaries if incident.get("review_state") not in {"ignored", "snoozed"}],
         settings=settings,
     )
 
@@ -136,6 +136,8 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
             )
             incident["llm_analysis_status"] = outcome.status
             incident["llm_analysis_message"] = outcome.message
+            if outcome.analysis is not None:
+                incident["llm_prompt_version"] = config.ANALYSIS_PROMPT_VERSION
             if outcome.status == "failed":
                 incident["llm_analysis_error"] = outcome.message
         except Exception:

@@ -16,7 +16,7 @@ def evidence_id(event):
 
 
 class AlertTracker:
-    """Identify new high-priority active evidence after a silent first-scan baseline.
+    """Identify new active incident evidence after a silent first-scan baseline.
 
     Notifications only concern events timestamped since monitoring started.
     Overlapping scan windows cannot alert again for retained evidence. At most
@@ -30,7 +30,7 @@ class AlertTracker:
         self.initialized = False
 
     def observe(self, result):
-        """Return active High/Critical incidents containing unseen, new-timestamp evidence.
+        """Return active incidents containing unseen, new-timestamp evidence.
 
         Cancelled results cannot establish a baseline. Ignored/acknowledged
         evidence is remembered silently, so restoring it alone cannot notify.
@@ -48,7 +48,7 @@ class AlertTracker:
                 unseen = unseen or (key not in self.seen and recent)
                 self.seen[key] = None
                 self.seen.move_to_end(key)
-            if unseen and self.initialized and incident.get("incident_priority") in ("High", "Critical") and incident.get("review_state", "active") == "active":
+            if unseen and self.initialized and incident.get("review_state", "active") == "active":
                 alerts.append(incident)
         while len(self.seen) > 100_000:
             self.seen.popitem(last=False)

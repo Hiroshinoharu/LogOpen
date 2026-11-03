@@ -3,9 +3,11 @@
 from functools import lru_cache
 
 from PyQt6.QtCore import QByteArray, QSize, Qt
-from PyQt6.QtGui import QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import QPushButton
+from PyQt6.QtWidgets import QAbstractButton, QPushButton, QTabWidget, QTableWidget
+
+_ICON_SPECS = {}
 
 
 _PATHS = {
@@ -47,10 +49,12 @@ _PATHS = {
 
 
 @lru_cache(maxsize=128)
-def icon(name, color="#b8c9df", size=20):
+def icon(name, color="#b8c9df", size=20, light=False):
     """Return a high-DPI icon with a muted disabled state and no external assets."""
     result = QIcon()
-    for mode, stroke in ((QIcon.Mode.Normal, color), (QIcon.Mode.Disabled, "#76869a")):
+    normal = {"#b8c9df": "#425b72", "#80e5d3": "#086a59", "#f4bc72": "#82500a",
+              "#ffadb7": "#a92740", "#adcaff": "#245da4"}.get(color, color) if light else color
+    for mode, stroke in ((QIcon.Mode.Normal, normal), (QIcon.Mode.Disabled, "#76869a")):
         svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
             f'fill="none" stroke="{stroke}" stroke-width="1.8" '
@@ -64,7 +68,28 @@ def icon(name, color="#b8c9df", size=20):
         painter.end()
         pixmap.setDevicePixelRatio(2)
         result.addPixmap(pixmap, mode)
+    _ICON_SPECS[result.cacheKey()] = (name, color, size)
     return result
+
+
+def retint_icons(parent, light=False):
+    """Adapt existing icons to the chosen surface while preserving their source shape and role."""
+    def tinted(current):
+        spec = _ICON_SPECS.get(current.cacheKey())
+        return icon(*spec, light=light) if spec else current
+    for button in parent.findChildren(QAbstractButton):
+        button.setIcon(tinted(button.icon()))
+    for action in parent.findChildren(QAction):
+        action.setIcon(tinted(action.icon()))
+    for tabs in parent.findChildren(QTabWidget):
+        for index in range(tabs.count()):
+            tabs.setTabIcon(index, tinted(tabs.tabIcon(index)))
+    for table in parent.findChildren(QTableWidget):
+        for row in range(table.rowCount()):
+            for col in (0, 1):
+                item = table.item(row, col)
+                if item is not None and not item.icon().isNull():
+                    item.setIcon(tinted(item.icon()))
 
 
 def action_icon_name(text):
@@ -96,3 +121,9 @@ def decorate_buttons(parent):
     for button in parent.findChildren(QPushButton):
         if button.icon().isNull():
             button.setIcon(icon(action_icon_name(button.text())))
+    owner = parent
+    while owner is not None:
+        if getattr(owner, "_theme", None) in ("light", "dark"):
+            retint_icons(parent, owner._theme == "light")
+            break
+        owner = owner.parentWidget()

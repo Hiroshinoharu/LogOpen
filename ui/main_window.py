@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QStackedWidget,
+    QToolButton,
     QTableWidget,
     QVBoxLayout,
     QWidget,
@@ -41,6 +42,9 @@ from ui.table_layout import RoomyTable, expand_window
 from ui.table_sorting import SortableTableItem, numeric_key
 from ui.update_dialog import UpdateDialog
 from ui.workspace import WorkspaceMixin
+from ui.productivity import ProductivityMixin
+from ui.assistance import AssistanceMixin
+from ui.insights import MetricCard
 
 
 def _label(text, name):
@@ -53,7 +57,7 @@ def _label(text, name):
 
 def _metric_card(title, caption, tone="default"):
     """Return a styled dashboard card and its value label for subsequent updates."""
-    card = QFrame()
+    card = MetricCard()
     card.setObjectName("metricCard")
     layout = QVBoxLayout(card)
     layout.setContentsMargins(18, 12, 18, 12)
@@ -65,6 +69,8 @@ def _metric_card(title, caption, tone="default"):
     caption_label = _label(caption, "mutedLabel")
     caption_label.setWordWrap(True)
     layout.addWidget(caption_label)
+    for label in card.findChildren(QLabel):
+        label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     return card, value
 
 
@@ -108,7 +114,7 @@ class ScanWorker(QObject):
             self.finished.emit()
 
 
-class MainWindow(WorkspaceMixin, QMainWindow):
+class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow):
     """Own the dashboard, incident-detail page, settings dialog, and scan worker.
 
     Retains incident dictionaries for navigation without rescanning. Worker and
@@ -156,7 +162,9 @@ class MainWindow(WorkspaceMixin, QMainWindow):
 
         # Keep both objects alive until QThread reports that it has stopped.
         self._scan_thread = QThread(self)
-        self._scan_worker = ScanWorker(self.scan_options, self._cancel_event, self.history_store)
+        options = self._focused_scan_options or self.scan_options
+        self._focused_scan_options = None
+        self._scan_worker = ScanWorker(options, self._cancel_event, self.history_store)
         self._scan_worker.moveToThread(self._scan_thread)
 
         self._scan_thread.started.connect(self._scan_worker.run)
@@ -225,6 +233,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             self._set_state("warning", "CANCELLED")
             self.status_label.setText(f"Scan cancelled - {len(incidents)} partial incidents available")
         self._remember_result(incidents)
+        self._productivity_result_shown(incidents)
         self.motion.reveal()
         if self._scan_thread is not None and not self._close_pending and not getattr(incidents, "cancelled", False):
             self.sounds.play("success" if complete and not warnings else "attention")
@@ -233,6 +242,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
     def _show_scan_error(self, message):
         """Clear stale results and display a failed-scan state on the GUI thread."""
         self._clear_incidents()
+        self._check_again_context = None
         self.warning_label.clear()
         self.journey.set_step(0)
         self.warning_label.hide()
@@ -263,6 +273,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.scan_button.setText("Scan my PC")
         if self._close_pending:
             self.close()
+        else:
+            self._flush_monitor_updates()
 
     def closeEvent(self, event):
         """Defer closing while settings or scanning owns active asynchronous work.
@@ -436,6 +448,15 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         if hasattr(self, "filters_widget"):
             self.filters_widget.hide()
             self.filter_feedback.hide()
+            self.start_here_card.hide()
+            self._start_here_incident = None
+        if hasattr(self, "preview"):
+            self.preview.set_incident(None)
+            self.filter_chips.hide()
+        if hasattr(self, "support_action"):
+            self.support_action.setEnabled(False)
+            self.support_filtered_action.setEnabled(False)
+            self.compare_scans_action.setEnabled(False)
         if hasattr(self, "export_action"):
             self.export_action.setEnabled(False)
             for action in self.review_actions:
@@ -471,6 +492,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
             return
         self.incident_detail.set_incident(incident)
         self.incident_detail.analyze_button.setEnabled(self._analysis_thread is None and self._scan_thread is None and self.monitor.thread is None)
+        self.incident_detail.check_again_button.setEnabled(self._analysis_thread is None and self._scan_thread is None and self.monitor.thread is None)
         self.page_stack.setCurrentWidget(self.incident_detail)
         self.journey.set_step(2)
         self.incident_detail.back_button.setFocus()
@@ -478,6 +500,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
     @pyqtSlot()
     def _show_incident_list(self):
         """Return to the dashboard and table focus, preserving the current selection."""
+        if self._pending_monitor_refresh and self._latest_monitor_result is not None:
+            self._refresh_monitor_result()
         self.page_stack.setCurrentWidget(self.dashboard)
         self.journey.set_step(1 if self._incidents else 0)
         if self._incidents:
@@ -507,8 +531,11 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         if hasattr(self, "export_action"):
             selected = bool(self._selected_incidents())
             self.export_action.setEnabled(selected)
+            if hasattr(self, "support_action"):
+                self.support_action.setEnabled(selected)
             for action in self.review_actions:
                 action.setEnabled(selected)
+        self._update_preview()
 
     def __init__(self):
         """Build the dashboard/detail widgets, connect actions, and load the stylesheet.
@@ -532,7 +559,8 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.setWindowIcon(icon("logo", size=32))
         expand_window(self, 1500, 950)
         self.setMinimumSize(800, 620)
-        self.setStyleSheet(Path(__file__).with_name("style.qss").read_text(encoding="utf-8"))
+        self._base_stylesheet = Path(__file__).with_name("style.qss").read_text(encoding="utf-8")
+        self.setStyleSheet(self._base_stylesheet)
 
         self.central_widget = QWidget()
         self.central_widget.setObjectName("appSurface")
@@ -603,7 +631,14 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         self.status_label.setWordWrap(True)
         self.status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.status_label.setAccessibleName("Current scan status")
-        heading_text.addWidget(self.status_label)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status_label, 1)
+        self.coverage_button = QToolButton()
+        self.coverage_button.setText("What was checked?")
+        self.coverage_button.setToolTip("Inspect this report's source logs, time window, limits, and skipped coverage.")
+        self.coverage_button.setAccessibleName("What was checked? Scan coverage")
+        status_row.addWidget(self.coverage_button)
+        heading_text.addLayout(status_row)
         heading_row.addLayout(heading_text, 1)
         self.scan_button = QPushButton("Scan my PC")
         self.scan_button.setIcon(icon("scan", "#0b3029"))
@@ -626,14 +661,17 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         metrics = QHBoxLayout()
         metrics.setSpacing(14)
         card, self.incident_total = _metric_card("PROBLEMS FOUND", "Related log entries grouped together")
+        self.problems_card = card
         metrics.addWidget(card, 1)
         card, self.attention_total = _metric_card(
             "REVIEW FIRST", "Problems with High or Critical priority", "warm"
         )
+        self.attention_card = card
         metrics.addWidget(card, 1)
         card, self.event_total = _metric_card(
             "LOG ENTRIES", "Windows records behind these problems", "teal"
         )
+        self.events_card = card
         metrics.addWidget(card, 1)
         self.metrics_panel = QWidget()
         self.metrics_panel.setLayout(metrics)
@@ -641,6 +679,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         dashboard_layout.addWidget(self.metrics_panel)
 
         results_panel = QFrame()
+        self.results_panel = results_panel
         results_panel.setObjectName("resultsPanel")
         results_layout = QVBoxLayout(results_panel)
         results_layout.setContentsMargins(16, 16, 16, 14)
@@ -669,7 +708,7 @@ class MainWindow(WorkspaceMixin, QMainWindow):
         results_layout.addLayout(results_header)
 
         self.results_stack = QStackedWidget()
-        self.results_stack.setMinimumHeight(180)
+        self.results_stack.setMinimumHeight(144)
         self.incident_table = QTableWidget(0, 5)
         # Keep scan order until the user chooses a column; retain their choice.
         self.incident_table.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
@@ -774,13 +813,33 @@ class MainWindow(WorkspaceMixin, QMainWindow):
 
     def _update_layout_density(self):
         """Keep the results and log reader usable in a short or narrow window."""
+        compact_limit = {"normal": 760, "large": 900, "larger": 1000}.get(getattr(self, "_text_size", "normal"), 760)
+        short = self.height() < compact_limit
+        if hasattr(self, "results_panel"):
+            margins = (16, 12, 16, 10) if short else (24, 22, 24, 18)
+            self.central_widget.layout().setContentsMargins(*margins)
+            self.central_widget.layout().setSpacing(8 if short else 18)
+            self.dashboard.layout().setSpacing(6 if short else 12)
+            margins = (12, 12, 12, 10) if short else (16, 16, 16, 14)
+            self.results_panel.layout().setContentsMargins(*margins)
+            self.results_panel.layout().setSpacing(8 if short else 14)
+            self.results_hint.setVisible(not short)
         if hasattr(self, "metrics_panel"):
-            self.metrics_panel.setVisible(self.height() >= 760)
+            self.metrics_panel.setVisible(not short)
         if hasattr(self, "state_badge"):
             self.state_badge.setVisible(self.width() >= 1000)
         if hasattr(self, "page_stack"):
-            self.journey.setVisible(self.height() >= 760 or self.page_stack.currentWidget() is self.dashboard)
-            self.journey.set_compact(self.height() < 760)
+            self.journey.setVisible(not short)
+            self.journey.set_compact(short)
+        if hasattr(self, "scan_goal"):
+            compact = self.width() < 1000 or short
+            self.scan_goal_label.setText("Check" if compact else "What would you like to check?")
+            self.scan_goal_hint.setVisible(not compact)
+            self.start_here_explanation.setVisible(not short)
+        if hasattr(self, "preview"):
+            self.preview.setVisible(self.preview_action.isChecked() and self.width() >= 1400 and bool(self._incidents))
+            self.coverage_button.setText("Coverage" if self.width() < 1000 else "What was checked?")
+            self._refresh_filter_chips()
 
 def main():
     """Create the QApplication, show MainWindow, and enter the Qt event loop.

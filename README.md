@@ -7,11 +7,15 @@ and produces terminal and JSON reports.
 
 ## Your first desktop scan
 
-1. Choose **Scan my PC**. The defaults check recent Windows activity; an API key
+1. Choose a symptom under **What would you like to check?**, or keep **General check**,
+   then choose **Scan my PC**. The defaults check recent Windows activity; an API key
    is not required to scan.
-2. Start with **High** or **Critical** priority in **Problems to review**. Select
+2. Use **Start here → Understand this problem** for the highest-priority unreviewed
+   problem in the current filtered view. You can also select
    a row and choose **Understand problem**, or double-click the row.
-3. Read **Summary** for what happened and where to start. **Next steps (AI)**
+3. Read **Summary** for what happened and **Checks you can try · no AI needed**.
+   Built-in checks explain what to inspect, where to find it, and how to assess the
+   result. They work offline without an API key. **Next steps (AI)**
    offers optional AI explanations; **Set up AI** opens the key settings.
    **Windows logs** contains the original evidence. **Technical details and
    scoring** expands the detailed metadata.
@@ -23,6 +27,92 @@ a complete PC health assessment.
 
 ## Desktop features
 
+- **View → Compare scans…** lets you choose an earlier baseline from the latest
+  100 saved scans. It shows new issue families, families seen in both scans, and
+  problems no longer observed. Missing problems are reported only when both scans
+  are complete and have matching scope. Overlapping scan windows can contain the
+  same evidence; “seen in both” does not necessarily mean another failure.
+- **Summary → Incident history** combines observations in the latest 500 saved
+  scans with the latest 500 local notes, review decisions, temporary hiding,
+  Undo actions, checklist changes, and **Check again** outcomes for that issue.
+  Observations are scan sightings, not a count of separate failures. Action
+  history starts with this feature; older saved observations remain available.
+- **Summary → Explain simply** provides an offline explanation of what happened,
+  possible symptoms, and the best first check. It makes no AI request and does
+  not assume a historical problem is still happening.
+- **Summary → Troubleshooting checklist** lets you mark built-in checks completed,
+  record results, and add your own checks (including advice from AI or support).
+  Choose **Save progress** to resume across future scans. Up to 50 checks per issue
+  are stored locally; checks are never executed automatically or sent to AI.
+- **File → Prepare support report for selected/filtered incidents…** creates an
+  editable text preview with evidence, coverage, and saved troubleshooting results.
+  Common usernames/emails, computer names, and paths are masked by default; you
+  can add exact text to remove and optionally include your local note. Masking is
+  best effort, so review messages and results before saving. Rebuilding the preview
+  replaces manual edits; **Save reviewed report** writes the exact preview locally.
+  Nothing is sent or uploaded, and stored source evidence is unchanged.
+- **Monitor → Notification preferences…** saves priority choices, desktop-alert
+  preferences, quiet hours in local time, and an optional 0–600 second grouping
+  window. Zero gives one summary per scan. Quiet hours can cross midnight; equal
+  start/end times silence alerts all day. These choices govern alert sounds and
+  desktop notifications, while scans, refreshes, and in-app counts continue.
+  Suppressed alerts are not replayed later. Delayed alerts recheck review decisions;
+  stopping monitoring or changing notification preferences clears pending alerts.
+- **Health** in the bottom bar (also **Monitor → Monitoring health…**) shows the
+  last complete scan, latest result, next scheduled scan, errors, and channel
+  coverage gaps. It distinguishes waiting, scanning, failed scans, and stopped
+  monitoring. Times describe the current monitoring session; a busy app or a
+  sleeping PC can delay the next scan.
+- **View → Group repeated problems** collapses matching issue families into a
+  representative row, ranked by priority and score, with an occurrence count and
+  relative last-seen time. Click the problem name to expand/collapse its rows, or
+  use **Expand / collapse selected occurrences**. Filtered exports retain every
+  matched occurrence; selecting a collapsed group exports or reviews all its
+  matched members. Grouping changes presentation, not scoring or raw evidence.
+- **What was checked?** beside the scan status (**Coverage** on narrow windows)
+  opens the report's exact source logs, time range, limits, read/retained counts,
+  collection stop reasons, and suggested next actions for missing coverage.
+  Historical reports without coverage metadata display **Partial / unknown**.
+- **Check again** on an incident rescans its source logs using the report's known
+  time range, limit, and detection rules, without automatic AI. The saved default
+  scan scope is retained. Results distinguish new matching evidence from activity
+  already seen. A missing issue is never labeled fixed; missing coverage, changed
+  rules, or gaps since an old scan prevent an absence conclusion.
+- **Summary → Your notes and temporary hiding** saves a plain-text note for an
+  issue family across scans and offers **Hide for 24 hours**. Notes are stored
+  locally and omitted from AI requests; explicit JSON exports include notes
+  attached to exported incidents. Temporarily hidden issues skip automatic AI
+  and alerts, and return to their previous review state after expiry. Use
+  **Hidden temporarily** to find them. **Undo** in the bottom bar or **Ctrl+Z**
+  restores the last review/hiding decision without undoing independently saved notes.
+- **View → Show selection preview on wide windows** displays the selected
+  incident and local checks beside the table at widths of at least 1,400 pixels.
+  **Open full details** opens the complete evidence. The preview preference saves.
+- Summary cards are clickable and keyboard accessible: **Problems found** clears
+  the priority filter, **Review first** selects High and Critical, and **Log
+  entries** opens the filtered timeline. Active filter chips on taller windows
+  can be removed individually. Relative scan times retain the exact timestamp
+  in a tooltip; reports with no scan timestamp say it is unavailable.
+- **View → Appearance** offers saved dark/light themes and normal/large/larger
+  text. Smaller windows and larger text collapse secondary guidance and summary
+  cards to keep the result list usable.
+- **What would you like to check?** offers General check, Internet problems,
+  App crashes, Slow startup, Update failures, Security concerns, and advanced
+  performance/custom choices. Selecting one sets the source logs for the next
+  scan and saves the choice; it does not start a scan. Time range, record limits,
+  custom detection rules, and AI preferences are retained. **Scan options** shows
+  the exact logs. Disabled or inaccessible logs still produce coverage warnings.
+- **Start here** recommends an active problem by priority, then score, within
+  the current filters. It skips reviewed and hidden issues, updates after review
+  decisions, and opens the correct incident after sorting. The card also works
+  when reopening reports or history.
+- **Summary → Checks you can try** includes local guidance for network, app,
+  service, Defender, update, startup, sign-in, and DCOM issues. Unknown/custom
+  classifications receive general evidence-review steps. These checks never
+  execute commands or contact an AI service. Network, update, and Defender checks
+  follow Microsoft's [Wi-Fi guidance](https://support.microsoft.com/en-au/windows/experience/connectivity-networking/fix-wi-fi-connection-issues-in-windows),
+  [update guidance](https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/troubleshoot-problems-updating-windows),
+  and [Protection history guidance](https://support.microsoft.com/en-us/windows/security/windows-security/protection-history-in-the-windows-security-app).
 - **Settings → App** includes **Create desktop shortcut**, a sound toggle, and
   **Test sound**. The shortcut uses the LogOpen icon and your Windows desktop
   location, including OneDrive desktops. New installations select the desktop
@@ -84,17 +174,24 @@ a complete PC health assessment.
 - **View → Timeline of filtered incidents…** places evidence from different logs
   on one chronological table. Each incident also has a **Timeline** tab, including
   raw structured payload, record identity, correlation IDs, and matching rules.
-- **Monitor → Start live monitoring…** runs local scans every 30–3,600 seconds
-  after the previous scan finishes. It uses the current scope, saves history,
-  and keeps your current reading view intact. The first scan is a silent baseline;
-  later new High/Critical active incidents can trigger desktop notifications.
+- **Watch for new incidents** in the bottom bar (also **Monitor → Start live
+  monitoring…**) runs local scans every 30–3,600 seconds after the previous scan
+  finishes; the default is 60 seconds. It uses the current scope and saves history.
+  The incident list refreshes automatically, retaining filters, sorting, surviving
+  selections, and scroll position. An open detail page stays intact; returning to
+  results shows the latest scan. The first scan is a silent baseline; later new
+  active incidents at any priority show an in-app count. Eligible alerts play the
+  enabled sound and optionally trigger desktop notifications, following your
+  priority, quiet-hour and grouping preferences. Repeated evidence and
+  reviewed/hidden issues do not trigger repeat alerts. Click the notice or desktop
+  notification to open the latest results; clicks during a scan wait for cleanup.
   By default it collects every event level in the selected logs, within the
   current time window and record cap. **Monitor → View collected events…** shows
   routine activity alongside problem evidence. Routine events are not scored as
   problems or sent for automatic AI analysis. Uncheck **Collect all event levels**
   before starting to collect only warnings and detection-rule matches.
   Monitoring always skips automatic AI and stops when the app closes. Use
-  **View latest monitoring scan** to review results, or **Stop monitoring** to stop.
+  **View latest monitoring scan** to review results, or **Stop watching** to stop.
 
 See [event sources, detection rules, and monitoring](docs/event_sources.md) for
 supported channels, custom-rule examples, permissions, and polling limitations.
@@ -174,6 +271,14 @@ preferences in temporary files, and never use real credentials or network access
 `test_real_llm.py` is an explicit manual script; importing it does not call OpenAI.
 
 ## AI Settings
+
+The built-in analysis prompt is versioned in `config.ANALYSIS_PROMPT_VERSION`.
+New successful analyses record `llm_prompt_version` in their incident metadata.
+The prompt separates observations, possible causes, and checks; asks for a
+useful next observation; and keeps historical events distinct from current
+status. Existing command-grounding and least-privilege rules are retained.
+See [prompt evaluation](docs/prompt_evaluation.md) for regression cases and the
+limits of offline tests. Existing saved AI explanations are not rewritten.
 
 Open **Settings** in the desktop header. Enable or disable AI analysis, enter your
 own password-masked OpenAI API key, and select **Save Key**. The input is cleared
@@ -708,13 +813,14 @@ The scan and settings buttons are disabled during a scan to prevent overlapping
 operations. Closing the window during a scan waits for the worker to finish.
 
 [ui/incident_detail.py](ui/incident_detail.py) displays the selected incident in
-three tabs:
+four tabs:
 
 - **Summary:** what happened, where to start, review actions, and expandable
   technical details and scoring.
 - **Next steps (AI):** optional explanations and suggested checks, with direct
   access to AI setup.
 - **Windows logs:** original event records and messages.
+- **Timeline:** chronological source events and their structured details.
 
 Opening an incident uses existing results and does not trigger another scan or
 AI request. [ui/style.qss](ui/style.qss) controls the visual styling.

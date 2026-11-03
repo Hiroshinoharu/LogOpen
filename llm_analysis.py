@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 import json
+from datetime import datetime, timezone
 from html import escape
 from dataclasses import dataclass
 from typing import Any, get_args
@@ -163,6 +164,7 @@ def build_incident_context(incident, *, scan_context=None):
 
     return "\n".join(
         (
+            f"Analysis requested at: {datetime.now(timezone.utc).isoformat()} (UTC). Compare event times before making current-status claims.",
             "INCIDENT OVERVIEW",
             f"Summary: {incident.get('summary_text', 'Not available')}",
             f"Log Types: {_format_mapping(incident.get('log_types') or incident.get('log_type'))}",
@@ -296,7 +298,7 @@ def build_analysis_instructions(*, shell_policy=None):
         raise ValueError("ALLOWED_DIAGNOSTIC_SHELLS supports powershell, cmd, and bash")
     if preferred not in allowed:
         raise ValueError("PREFERRED_DIAGNOSTIC_SHELL must be in ALLOWED_DIAGNOSTIC_SHELLS")
-    return config.ANALYSIS_INSTRUCTIONS + (
+    return f"LogOpen analysis prompt version: {config.ANALYSIS_PROMPT_VERSION}\n" + config.ANALYSIS_INSTRUCTIONS + (
         "\nDIAGNOSTIC COMMAND SHELLS\n"
         f"Allowed shells: {', '.join(allowed)}.\n"
         f"Preferred shell: {preferred}.\n"

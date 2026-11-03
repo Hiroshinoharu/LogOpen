@@ -78,7 +78,7 @@ class ComparisonDialog(QDialog):
         self.setWindowTitle("Scan comparison")
         expand_window(self, 1400, 850)
         layout = QVBoxLayout(self)
-        text = ("Compared with the previous complete scan of the same scope. "
+        text = ("Compared with a complete baseline scan of the same scope. "
                 "No longer observed means absent from this scan; it does not prove a fix."
                 if comparison.get("comparable") else
                 "No comparable complete baseline is available. Run another complete scan "
@@ -86,8 +86,16 @@ class ComparisonDialog(QDialog):
         hint = QLabel(text)
         hint.setWordWrap(True)
         layout.addWidget(hint)
+        baseline = QLabel(f"Baseline: {comparison.get('previous_created_at') or 'Unavailable'}\n"
+                          f"{comparison.get('reason', '')}\n"
+                          f"{comparison.get('new_count', 0)} new · {comparison.get('persistent_count', 0)} seen in both · "
+                          f"{comparison.get('no_longer_observed_count', 0)} no longer observed\n"
+                          "Counts represent issue families. Seen in both can include the same events in overlapping windows; it does not prove another failure.")
+        baseline.setTextFormat(Qt.TextFormat.PlainText)
+        baseline.setWordWrap(True)
+        layout.addWidget(baseline)
         entries = [(label, incident) for key, label in (
-            ("new", "New"), ("persistent", "Persistent"),
+            ("new", "New to baseline"), ("persistent", "Seen in both"),
             ("no_longer_observed", "No longer observed"),
         ) for incident in comparison.get(key, [])]
         table = QTableWidget(len(entries), 4)

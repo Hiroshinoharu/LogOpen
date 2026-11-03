@@ -18,6 +18,8 @@ from tests.test_settings_dialog import app, dialog
 from tests.test_llm_analysis import install_openai_mock
 from ui.incident_detail import IncidentDetailWidget
 from ui.workspace import AnalysisWorker
+import config
+from llm_analysis import build_analysis_instructions
 
 
 def output():
@@ -112,6 +114,17 @@ def test_scan_context_carries_coverage_without_unrelated_activity_or_ai_content(
     assert metadata["complete"] is False
     assert build_scan_context(ScanResult())["complete"] is None
     assert "Coverage not supplied" in build_incident_context({})
+
+
+def test_refined_prompt_identifies_version_and_keeps_notes_out_of_evidence():
+    instructions = build_analysis_instructions()
+    assert config.ANALYSIS_PROMPT_VERSION in instructions
+    assert "Recurrence means repeated observations" in instructions
+    assert "not proof that the underlying issue was fixed" in instructions
+    assert "do not repeat each diagnostic step verbatim" in instructions
+    context = build_incident_context({"local_note": "private local context", "summary_text": "An observed failure"})
+    assert "private local context" not in context
+    assert "Analysis requested at:" in context
 
 
 def test_automatic_and_manual_requests_share_the_same_coverage_context(monkeypatch):

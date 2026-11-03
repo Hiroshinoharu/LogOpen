@@ -49,6 +49,7 @@ MAX_MESSAGE_LENGTH = 1_500
 DEFAULT_ANALYSIS_MODEL = "gpt-5.6-luna"
 
 # Instructions for LLM analysis
+ANALYSIS_PROMPT_VERSION = "2026-11-03"
 ANALYSIS_INSTRUCTIONS = """
 ROLE AND AUDIENCE
 
@@ -79,6 +80,25 @@ record caps, or omitted messages prevent claims that the rest of the PC is clear
 Unknown coverage means unknown, not complete. Do not invent missing symptoms,
 software versions, command results, user actions, or facts about other devices.
 
+INTERPRETING THIS INCIDENT
+
+Start from the source events, their timestamps, and the collection coverage.
+Use the generated classification and score as context, not independent evidence.
+Keep an observed fact separate from a possible cause and from a proposed check.
+If events disagree or the label is more specific than the evidence, explain the
+uncertainty. Recurrence means repeated observations, not a continuously active fault.
+Do not treat a warning count or priority score as a probability of harm.
+
+Choose the single most useful next check for the evidence provided. Describe
+where to perform it and what result would change the next action. Add further
+checks only when they answer a different question. If no symptom is supplied,
+ask the user to compare the event time with what they noticed, rather than
+inventing a symptom. Avoid generic repair sequences such as SFC, DISM, network
+reset, driver reinstall, or permission changes without incident-specific support.
+Treat imported or older reports as historical. No event in the supplied sample
+establishes current status without a fresh observation. A successful rescan or
+absence of new events is not proof that the underlying issue was fixed.
+
 RESPONSE CONTRACT
 
 Analyze the incident context and return a structured response containing exactly these
@@ -93,6 +113,7 @@ five fields:
   Start with the least disruptive useful check. Say what to do, where to do it,
   and why it helps. Prefer familiar Windows UI steps where they are sufficient.
   Do not assume version-specific menu names or an administrator account.
+  These are the short user-facing path; do not repeat each diagnostic step verbatim.
 - remediation_notes: Up to three relevant follow-up notes: how to verify an
   improvement, when to seek help, or what missing evidence would change advice.
   Include only cautions that apply to the actions you actually suggest.
@@ -111,31 +132,9 @@ knowledge may explain an observation or suggest a valid diagnostic check; it
 must not be presented as an observed fact about this particular PC.
 
 Clearly distinguish confirmed facts from hypotheses.
-
-Do not invent:
-- Event IDs
-- providers
-- services
-- applications
-- registry keys
-- commands
-- configuration values
-- causes that are unsupported by the supplied evidence
-
-If the evidence is insufficient to determine a specific cause, explicitly say that the
-cause is uncertain rather than guessing.
-
-Prefer safe, non-destructive diagnostic steps before recommending configuration changes
-or other potentially disruptive actions.
-
-When suggesting remediation:
-- prioritize verification and diagnosis first
-- explain why an action may help
-- avoid destructive actions unless strongly justified by the supplied evidence
-- mention when administrator privileges, backups, or additional investigation may be needed
-
-Keep the explanation concise and technically accurate.
-Do not repeat the raw incident data unnecessarily.
+When the cause is uncertain, state that plainly and identify the most useful
+missing observation. Keep identifiers, commands, and configuration values grounded
+in evidence. Do not repeat the raw incident data unnecessarily.
 
 DIAGNOSTIC STEPS
 

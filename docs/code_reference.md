@@ -25,6 +25,13 @@ and side effects.
 | Desktop threading and navigation | `ui/main_window.py` |
 | Historical recurrence, comparisons, and review state | `history_store.py` |
 | Search, exports, history browsing, and manual AI | `ui/workspace.py` |
+| Grouped display, preview, notes, Undo, and appearance | `ui/productivity.py`, `ui/insights.py`, `ui/appearance.py` |
+| Focused rechecks and fresh-evidence comparisons | `incident_followup.py` |
+| Issue activity, saved checklists and explicit comparison baselines | `history_store.py`, `ui/case_tools.py` |
+| Offline simple explanations and case-tool navigation | `ui/case_tools.py`, `ui/assistance.py` |
+| Editable support reports and best-effort redaction | `support_report.py`, `ui/case_tools.py` |
+| Priority filters, quiet hours, alert grouping and monitoring health | `notification_preferences.py`, `ui/notification_options.py`, `ui/assistance.py`, `ui/monitoring.py` |
+| Prompt versions and quality regression cases | `config.py`, `llm_analysis.py`, `docs/prompt_evaluation.md` |
 | Scope controls, cancellation, and progress | `models/scan_options.py`, `main.py`, `ui/scan_controls.py` |
 | Optional visual motion | `ui/animations.py` |
 | Wide table columns and screen-aware window sizing | `ui/table_layout.py` |

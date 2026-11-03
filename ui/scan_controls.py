@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 )
 
 from models.scan_options import ScanOptions
-from detection_rules import PROFILES
+from detection_rules import PROFILES, SCAN_GOALS
 from ui.channel_browser import ChannelBrowser
 from ui.rule_editor import RuleEditorDialog
 from ui.guidance import DisclosureSection
@@ -38,6 +38,9 @@ class ScanOptionsDialog(QDialog):
         self.profile.setCurrentIndex(self.profile.findData(options.profile))
         self.profile.currentIndexChanged.connect(self._apply_profile)
         form.addRow("What to check", self.profile)
+        self.profile_hint = QLabel(SCAN_GOALS[options.profile][1], objectName="mutedLabel")
+        self.profile_hint.setWordWrap(True)
+        form.addRow(self.profile_hint)
         self.logs = QLineEdit(", ".join(options.log_types))
         self.logs.setCursorPosition(0)
         self.logs.setPlaceholderText("System, Application")
@@ -95,6 +98,7 @@ class ScanOptionsDialog(QDialog):
 
     def _apply_profile(self):
         """Populate suggested channels; custom profiles keep the user's current list."""
+        self.profile_hint.setText(SCAN_GOALS[self.profile.currentData()][1])
         names = PROFILES[self.profile.currentData()][1]
         if names:
             self.logs.setText(", ".join(names))

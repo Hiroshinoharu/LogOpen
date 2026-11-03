@@ -8,6 +8,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QBoxLayout,
     QFormLayout,
     QFrame,
     QGridLayout,
@@ -29,7 +30,7 @@ from PyQt6.QtWidgets import (
 from ui.table_layout import RoomyTable
 from ui.table_sorting import SortableTableItem, numeric_key, timestamp_key
 from ui.timeline import TimelineWidget
-from ui.guidance import DisclosureSection, problem_explanation
+from ui.guidance import DisclosureSection, problem_explanation, problem_next_steps
 from ui.icons import decorate_buttons, icon
 from settings.terminal_service import open_terminal
 from settings.terminal_settings import SHELL_LABELS
@@ -327,6 +328,12 @@ class IncidentDetailWidget(QWidget):
     analysis_requested = pyqtSignal()
     review_requested = pyqtSignal(str)
     settings_requested = pyqtSignal()
+    note_saved = pyqtSignal()
+    snooze_requested = pyqtSignal()
+    check_requested = pyqtSignal()
+    simple_requested = pyqtSignal()
+    history_requested = pyqtSignal()
+    checklist_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         """Build overview, AI, and source-event tabs and wire Back keyboard shortcuts.
@@ -349,6 +356,10 @@ class IncidentDetailWidget(QWidget):
         self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_button.clicked.connect(self.back_requested.emit)
         navigation.addWidget(self.back_button)
+        self.check_again_button = QPushButton("Check again", objectName="secondaryButton")
+        self.check_again_button.setToolTip("Rescan this problem's Windows logs without automatic AI and compare fresh evidence.")
+        self.check_again_button.clicked.connect(self.check_requested.emit)
+        navigation.addWidget(self.check_again_button)
         navigation.addStretch()
         navigation.addWidget(QLabel("UNDERSTAND THIS PROBLEM", objectName="metricTitle"))
         layout.addLayout(navigation)
@@ -413,15 +424,45 @@ class IncidentDetailWidget(QWidget):
         self.summary.setAccessibleName("Incident summary")
         summary_layout.addWidget(self.summary)
         overview_layout.addWidget(summary_card)
-        guidance_card, guidance_layout = _section("Where to start")
+        self.case_actions = QHBoxLayout()
+        for title, signal in (("Explain simply", self.simple_requested),
+                              ("Incident history", self.history_requested),
+                              ("Troubleshooting checklist", self.checklist_requested)):
+            button = QPushButton(title, objectName="secondaryButton")
+            button.clicked.connect(signal.emit)
+            self.case_actions.addWidget(button)
+        self.case_actions.addStretch()
+        overview_layout.addLayout(self.case_actions)
+        guidance_card, guidance_layout = _section("Checks you can try · no AI needed")
         self.priority_guidance = _body_label()
         guidance_layout.addWidget(self.priority_guidance)
-        self.next_steps_button = QPushButton("See next steps", objectName="secondaryButton")
+        self.builtin_steps = _body_label()
+        self.builtin_steps.setAccessibleName("Built-in troubleshooting checks")
+        guidance_layout.addWidget(self.builtin_steps)
+        self.next_steps_button = QPushButton("Explore optional AI guidance", objectName="secondaryButton")
         self.next_steps_button.setIcon(icon("arrow"))
         self.next_steps_button.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
         guidance_layout.addWidget(self.next_steps_button, 0, Qt.AlignmentFlag.AlignLeft)
         overview_layout.addWidget(guidance_card)
         overview_layout.addWidget(self.review_controls)
+        self.personal_notes = DisclosureSection("Your notes and temporary hiding")
+        self.note_editor = QPlainTextEdit()
+        self.note_editor.setPlaceholderText("For example: started after a driver update. Notes stay local and are not sent to AI.")
+        self.note_editor.setAccessibleName("Your local note for this issue")
+        self.note_editor.setMaximumHeight(100)
+        self.personal_notes.body.addWidget(self.note_editor)
+        note_actions = QHBoxLayout()
+        self.save_note_button = QPushButton("Save note", objectName="secondaryButton")
+        self.save_note_button.clicked.connect(self.note_saved.emit)
+        note_actions.addWidget(self.save_note_button)
+        self.snooze_button = QPushButton("Hide for 24 hours", objectName="secondaryButton")
+        self.snooze_button.clicked.connect(self.snooze_requested.emit)
+        note_actions.addWidget(self.snooze_button)
+        note_actions.addStretch()
+        self.personal_notes.body.addLayout(note_actions)
+        self.note_feedback = _body_label()
+        self.personal_notes.body.addWidget(self.note_feedback)
+        overview_layout.addWidget(self.personal_notes)
         self.technical_details = DisclosureSection("Technical details and scoring")
 
         self.overview_grid = QGridLayout()
@@ -572,6 +613,10 @@ class IncidentDetailWidget(QWidget):
 
     def _arrange_overview(self):
         """Use overview columns at widths of at least 900 pixels; otherwise stack sections."""
+        buttons = [self.case_actions.itemAt(index).widget() for index in range(3)]
+        required = sum(button.sizeHint().width() for button in buttons) + 40
+        self.case_actions.setDirection(QBoxLayout.Direction.LeftToRight if required <= self.width() - 64
+                                       else QBoxLayout.Direction.TopToBottom)
         wide = self.width() >= 900
         if wide == self._wide_overview:
             return
@@ -589,7 +634,9 @@ class IncidentDetailWidget(QWidget):
         state = data.get("review_state", "active")
         self.review_badge.setText({
             "active": "To review", "acknowledged": "Reviewed", "ignored": "Hidden from results",
+            "snoozed": "Hidden for 24 hours",
         }.get(state, "To review"))
+        self.review_badge.setToolTip(f"Hidden until {data.get('snoozed_until')}" if state == "snoozed" else "")
         for button, target in zip(self.review_buttons, ("acknowledged", "ignored", "active")):
             button.setEnabled(bool(data) and state != target)
 
@@ -603,6 +650,10 @@ class IncidentDetailWidget(QWidget):
         scores and AI explanations are never recomputed by this view.
         """
         self.incident = incident
+        self.check_again_button.setEnabled(incident is not None)
+        self.note_feedback.clear()
+        self.note_editor.setPlainText(str(incident.get("local_note", "")) if isinstance(incident, dict) else "")
+        self.personal_notes.set_expanded(False)
         self.refresh_ai_model_hint()
         self.action_feedback.clear()
         self.analyze_button.setEnabled(incident is not None)
@@ -627,6 +678,11 @@ class IncidentDetailWidget(QWidget):
         explanation = problem_explanation(data.get("incident_classification"))
         self.plain_explanation.setText(explanation)
         self.plain_explanation.setVisible(bool(explanation))
+        self.builtin_steps.setText("\n\n".join(
+            f"{number}. {step}" for number, step in enumerate(
+                problem_next_steps(data.get("incident_classification")), start=1,
+            )
+        ) if incident is not None else "")
         for key, label in self.fields.items():
             label.setText(_text(data.get(key)))
         self.fields["log_type"].setText(_text(data.get("log_types") or data.get("log_type")))

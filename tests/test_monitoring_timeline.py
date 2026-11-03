@@ -1,6 +1,7 @@
 """Exercise monitoring deduplication, background lifecycle, profiles, and timeline identity."""
 
 from datetime import datetime, timedelta, timezone
+from copy import deepcopy
 import os
 import threading
 from unittest.mock import Mock
@@ -74,10 +75,13 @@ def test_cancelled_monitor_scan_cannot_establish_baseline():
 
 
 def test_monitor_runs_off_gui_thread_without_ai_and_preserves_reading(desktop, monkeypatch):
-    """Polling snapshots scope, suppresses AI, archives through the worker, and leaves the current view alone."""
+    """Polling snapshots scope and suppresses AI while keeping an open problem unchanged."""
     window, app = desktop
     old = ScanResult([incident(datetime.now(timezone.utc))])
     window._show_scan_results(old)
+    window.incident_table.setCurrentCell(0, 0)
+    window._open_incident_detail()
+    window.incident_detail.tabs.setCurrentIndex(2)
     calls = []
 
     def scan(options, **kwargs):
@@ -92,9 +96,122 @@ def test_monitor_runs_off_gui_thread_without_ai_and_preserves_reading(desktop, m
     assert calls[0][0].collect_all_events
     assert calls[0][0].log_types == (DEFENDER,) and calls[0][1] is not app.thread()
     assert window._current_result is old
+    assert window.incident_detail.incident is old[0]
+    assert window.incident_detail.tabs.currentIndex() == 2
+    assert window._pending_monitor_refresh
     assert window.monitor.timer.isActive()
-    window._view_monitor_result()
+    window.incident_detail.back_button.click()
     assert window._current_result is window._latest_monitor_result
+    assert window.page_stack.currentWidget() is window.dashboard
+
+
+@pytest.mark.parametrize("priority", ["Low", "Medium", "High", "Critical"])
+def test_new_active_incidents_notify_at_every_priority_without_repeats(priority):
+    """Fresh evidence at any priority alerts once; a baseline and reviewed evidence stay silent."""
+    start = datetime(2026, 10, 18, tzinfo=timezone.utc)
+    tracker = AlertTracker(start)
+    assert tracker.observe(ScanResult()) == []
+    fresh = incident(start + timedelta(seconds=1), record=20)
+    fresh["incident_priority"] = priority
+    assert tracker.observe(ScanResult([fresh])) == [fresh]
+    assert tracker.observe(ScanResult([deepcopy(fresh)])) == []
+    reviewed = incident(start + timedelta(seconds=2), record=21, state="acknowledged")
+    reviewed["incident_priority"] = priority
+    assert tracker.observe(ScanResult([reviewed])) == []
+
+
+def test_live_refresh_preserves_filters_sort_selection_and_metadata(desktop):
+    """Replace visible evidence and export context without losing the user's table preferences."""
+    window, _app = desktop
+    stamp = datetime.now(timezone.utc)
+    old = incident(stamp, record=1)
+    window._show_scan_results(ScanResult([old]))
+    window.incident_table.sortItems(2, Qt.SortOrder.DescendingOrder)
+    window.search_input.setText(old["incident_classification"])
+    window._apply_filters()
+    window.incident_table.setCurrentCell(0, 0)
+    refreshed = deepcopy(old)
+    fresh = incident(stamp + timedelta(seconds=1), record=2)
+    fresh["incident_score"] = 95
+    result = ScanResult([refreshed, fresh])
+    result.complete = False
+    result.warnings = ["Synthetic partial coverage"]
+    window._monitor_completed(result, [fresh])
+    assert window._current_result is result
+    assert window._selected_incident() is refreshed
+    assert window.search_input.text() == old["incident_classification"]
+    assert window.incident_table.horizontalHeader().sortIndicatorOrder() == Qt.SortOrder.DescendingOrder
+    assert window.incident_table.rowCount() == 2
+    assert window.warning_label.text() == "Synthetic partial coverage"
+    assert window.state_badge.text() == "INCOMPLETE"
+    assert not window.monitor_notice.isHidden()
+
+
+def test_notifications_are_visible_in_app_and_optionally_on_desktop(desktop, monkeypatch):
+    """The in-app notice works without a tray; desktop alerts honor the notification choice."""
+    window, _app = desktop
+    tray = Mock()
+    tray.isVisible.return_value = True
+    monkeypatch.setattr(window, "monitor_tray", tray)
+    sound = Mock()
+    monkeypatch.setattr(window.sounds, "play", sound)
+    result = ScanResult([incident(datetime.now(timezone.utc))])
+    window._monitor_notifications = False
+    window._monitor_completed(result, [result[0]])
+    assert "1 new incident" in window.monitor_notice.text()
+    assert not window.monitor_notice.isHidden()
+    tray.showMessage.assert_not_called()
+    window._monitor_notifications = True
+    window._monitor_completed(result, [result[0]])
+    assert "2 new incidents" in window.monitor_notice.text()
+    tray.showMessage.assert_called_once()
+    assert "high-priority" not in tray.showMessage.call_args.args[1]
+    sound.assert_called_with("attention")
+    window.monitor_notice.click()
+    assert window._unread_monitor_incidents == 0
+    assert window.monitor_notice.isHidden()
+    assert window._current_result is result
+
+
+def test_notification_click_waits_for_poll_cleanup(desktop, monkeypatch):
+    """A click during an active poll opens the latest results once cleanup releases the view."""
+    window, _app = desktop
+    old = ScanResult([incident(datetime.now(timezone.utc))])
+    window._show_scan_results(old)
+    window.incident_table.setCurrentCell(0, 0)
+    window._open_incident_detail()
+    window._latest_monitor_result = ScanResult()
+    # Stand in for a running thread without creating native work.
+    marker = object()
+    window.monitor.thread = marker
+    try:
+        window._view_monitor_result()
+        assert window._pending_monitor_open
+        assert window._current_result is old
+    finally:
+        window.monitor.thread = None
+    window._monitor_busy(False)
+    assert not window._pending_monitor_open
+    assert window._current_result is window._latest_monitor_result
+    assert window.page_stack.currentWidget() is window.dashboard
+
+
+def test_watch_button_starts_and_stops_monitoring(desktop, monkeypatch):
+    """The visible control uses the configured scan interval and optional notification setting."""
+    window, app = desktop
+    monkeypatch.setattr(monitor_ui.MonitorOptionsDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
+    scan = Mock(return_value=ScanResult())
+    monkeypatch.setattr(monitor_ui, "scan_system", scan)
+    window.monitor_button.click()
+    assert window.monitor.active
+    assert window.monitor_button.text() == "Stop watching"
+    assert not window.scan_goal.isEnabled()
+    wait_until(app, lambda: scan.called and window.monitor.thread is None)
+    assert window._current_result is window._latest_monitor_result
+    window.monitor_button.click()
+    assert not window.monitor.active
+    assert window.monitor_button.text() == "Watch for new incidents"
+    assert window.scan_goal.isEnabled()
 
 
 def test_monitor_can_keep_focused_collection_and_defaults_to_all_levels(desktop, monkeypatch):

@@ -17,8 +17,23 @@ PROFILES = {
     "general": ("General troubleshooting", ("System", "Application")),
     "security": ("Security", ("System", "Application", "Security", DEFENDER, POWERSHELL)),
     "network": ("Networking", ("System", WLAN, "Microsoft-Windows-DNS-Client/Operational")),
+    "apps": ("App crashes", ("Application", "System")),
+    "startup": ("Slow startup", ("System", "Application", PERFORMANCE)),
+    "updates": ("Update failures", ("System", UPDATE)),
     "performance": ("Performance and updates", ("System", "Application", PERFORMANCE, UPDATE)),
     "custom": ("Custom channels", ()),
+}
+
+# Friendly entry points share the same validated profiles as advanced scan options.
+SCAN_GOALS = {
+    "general": ("General check", "Check recent Windows service and application problems."),
+    "network": ("Internet problems", "Check DNS, Wi-Fi, and system logs for connection problems."),
+    "apps": ("App crashes", "Check application and system logs for crashes and service failures."),
+    "startup": ("Slow startup", "Check startup performance, application, and system logs."),
+    "updates": ("Update failures", "Check Windows Update and system logs for installation problems."),
+    "security": ("Security concerns", "Check audit, Defender, PowerShell, and system activity. Some logs need administrator access."),
+    "performance": ("Performance and updates", "Check startup, shutdown, Windows Update, and application activity."),
+    "custom": ("Custom Windows logs", "Use Scan options to choose your own Windows logs and detection rules."),
 }
 
 CHANNEL_DESCRIPTIONS = {

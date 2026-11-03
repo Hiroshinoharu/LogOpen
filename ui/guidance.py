@@ -31,12 +31,88 @@ def problem_explanation(classification):
         "Failed Logon": "Windows recorded an unsuccessful sign-in attempt.",
         "Account Locked Out": "Windows recorded an account lockout, which may prevent sign-in.",
         "Defender Threat Detected": "Microsoft Defender reported a possible threat. Check Windows Security for its current status.",
+        "Defender Real-Time Protection Disabled": "Windows recorded that Microsoft Defender real-time protection was turned off.",
+        "Defender Protection Action": "Microsoft Defender recorded an action on a detected item. Check its current status in Windows Security.",
+        "Boot Performance Report": "Windows recorded startup performance information. Compare it with a startup that felt slow.",
+        "Shutdown Performance Report": "Windows recorded shutdown performance information. Compare it with a shutdown that felt slow.",
     }
     if classification in explanations:
         return explanations[classification]
     if "DCOM" in classification:
         return "Windows recorded a message about how apps or background services communicate. The Windows logs show which component was involved."
     return ""
+
+
+def problem_next_steps(classification):
+    """Return local, read-first checks for a known label, with a fallback for custom rules.
+
+    Guidance is bundled with the app and never uses a model, runs a command, or
+    assumes a historical event still describes the PC's current state.
+    """
+    guides = {
+        "network": (
+            "Open Settings → Network & internet and check whether your connection is currently connected.",
+            "Try another website or app, then compare with another device on the same network. This helps separate a single-app problem from a wider connection problem.",
+            "Compare the failure time in Windows logs with when you lost access. A historical timeout may no longer affect your connection.",
+        ),
+        "apps": (
+            "Open Windows logs for this problem and note the application name, error message, and time.",
+            "Search Start for View reliability history. Look for an application failure at the same time and open its details.",
+            "Save your work before trying the affected app again. Note whether the same action causes another failure; this helps the app's support team investigate.",
+        ),
+        "services": (
+            "Open Windows logs and note which service stopped and when.",
+            "Search Start for Services and find that service. Read its current status without changing its startup type.",
+            "Check whether the feature that uses the service now works. A stopped service may have recovered; repeated failures with a current symptom are useful evidence for support.",
+        ),
+        "defender": (
+            "Open Windows Security → Virus & threat protection and read the current protection status.",
+            "Open Protection history and match the item and time to this incident. Check whether action is still needed or has already been taken.",
+            "Follow Windows Security's guidance for any outstanding action. On a managed PC, contact your IT team if protection settings are controlled by your organization.",
+        ),
+        "updates": (
+            "Search Start for Windows Update settings, then open Update history. Note the failed update and error code.",
+            "Check whether a later attempt succeeded or Windows says a restart is required. An earlier failure alone does not describe the current update status.",
+            "If the update is still failing, search Start for Get Help and use its Windows Update troubleshooter. Keep the update name and error code for support.",
+        ),
+        "startup": (
+            "Compare the event time in Windows logs with the startup or shutdown that felt slow.",
+            "For slow startup, open Task Manager → Startup apps and inspect the enabled apps and their startup impact.",
+            "Note which apps you need at sign-in and whether slowness happens every time. A performance report alone does not prove an app is the cause.",
+        ),
+        "signin": (
+            "Open Windows logs and inspect the account, sign-in time, and failure details.",
+            "Check whether this matches your own sign-in or an app using an old password. One failed sign-in does not establish that someone accessed your account.",
+            "For an unexpected repeated failure or a locked work account, share the timestamps and account details with your IT team through your usual support channel.",
+        ),
+        "dcom": (
+            "Open Windows logs and note the application or service named in the message.",
+            "Check whether that application actually failed at the recorded time. A permission warning alone may have no visible effect.",
+            "If the problem repeats with an app failure, check the app's support guidance using the event details. Avoid changing registry or DCOM permissions based only on this label.",
+        ),
+    }
+    groups = {
+        "DNS Resolution Timeout": "network", "WLAN Module Stopped": "network",
+        "Wi-Fi Connection Failed": "network", "Wi-Fi Disconnected": "network",
+        "UDP Ephemeral Port Exhaustion": "network",
+        "Application Error": "apps", "Application Hang": "apps", "Windows Error Reporting": "apps",
+        "Service Terminated Unexpectedly": "services",
+        "Defender Service Crash": "defender", "Defender Threat Detected": "defender",
+        "Defender Protection Action": "defender", "Defender Real-Time Protection Disabled": "defender",
+        "Windows Update Installation Failed": "updates",
+        "Boot Performance Report": "startup", "Shutdown Performance Report": "startup",
+        "Application Delayed System Shutdown": "apps",
+        "Failed Logon": "signin", "Account Locked Out": "signin",
+        "Distributed COM": "dcom", "Codex Permission Warning": "dcom",
+    }
+    group = groups.get(classification) if isinstance(classification, str) else None
+    if isinstance(classification, str) and "DCOM" in classification:
+        group = "dcom"
+    return guides.get(group, (
+        "Open Windows logs for this problem. Note the provider, event ID, message, and time.",
+        "Compare the event time with the symptom you noticed. The label alone does not establish a cause.",
+        "If the same problem keeps happening, export the selected incident and share it with your usual support contact after reviewing the report's contents.",
+    ))
 
 
 class DisclosureSection(QFrame):
@@ -129,9 +205,9 @@ class QuickStartDialog(QDialog):
         layout.setSpacing(16)
         layout.addWidget(QLabel("Your first scan", objectName="pageTitle"))
         for title, message in (
-            ("1. Scan my PC", "LogOpen reads recent Windows activity and groups related warnings and errors. You can use the default scan options."),
-            ("2. Review the results", "Start with High or Critical priority. These are clues from Windows logs, rather than a complete health check of your PC."),
-            ("3. Understand a problem", "Select a row and choose Understand problem. Read the summary, then open Next steps for optional AI guidance."),
+            ("1. Scan my PC", "Choose a symptom or keep General check, then choose Scan my PC. LogOpen reads recent Windows activity and groups related warnings and errors."),
+            ("2. Review the results", "The Start here card highlights an unreviewed problem in your current view. These are clues from Windows logs, rather than a complete health check of your PC."),
+            ("3. Understand a problem", "Choose Understand this problem and read Checks you can try in Summary. These built-in checks work without AI. Next steps (AI) offers optional extra guidance."),
             ("Optional extras", "Previous scans are in Scan history. AI guidance needs your own OpenAI API key in Settings and may incur API charges. Scanning works without a key."),
         ):
             layout.addWidget(QLabel(title, objectName="detailFieldTitle"))
