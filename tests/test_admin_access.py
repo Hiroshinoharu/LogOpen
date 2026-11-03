@@ -16,6 +16,19 @@ from errors import EventLogAccessError
 import windows_events
 
 
+@pytest.fixture(autouse=True)
+def process_access(monkeypatch, request):
+    """Set UI permissions before desktop construction, independent of runner rights.
+
+    Patch the UI imports only; low-level token tests still exercise admin_access.
+    Autouse makes this run before the imported desktop fixture builds its actions.
+    """
+    status = getattr(request, "param", False)
+    monkeypatch.setattr("ui.main_window.elevation_status", lambda: status)
+    monkeypatch.setattr("ui.settings_dialog.elevation_status", lambda: status)
+    return status
+
+
 @pytest.mark.parametrize("elevated", [0, 1])
 def test_status_uses_current_process_token_and_closes_handle(monkeypatch, elevated):
     import win32security
@@ -90,7 +103,6 @@ def test_uac_cancellation_and_denial_are_safe_results(monkeypatch, code, word):
 
 def test_restart_waits_for_monitor_and_cancellation_keeps_results(desktop, monkeypatch):
     window, app = desktop
-    window._elevated = False
     item = {"incident_classification": "Example", "incident_priority": "Low", "incident_score": 1}
     window._show_scan_results([item])
     window.incident_table.setCurrentCell(0, 0)
@@ -113,9 +125,11 @@ def test_restart_waits_for_monitor_and_cancellation_keeps_results(desktop, monke
     assert window.incident_detail.incident is item
 
 
-def test_successful_admin_restart_closes_old_window(desktop, monkeypatch):
+@pytest.mark.parametrize("process_access", [False, None], indirect=True)
+def test_successful_admin_restart_closes_old_window(desktop, monkeypatch, process_access):
     window, _ = desktop
-    window._elevated = False
+    assert window._elevated is process_access
+    assert window.admin_action.isEnabled()
     launch = Mock(return_value=(True, "Started"))
     monkeypatch.setattr("ui.main_window.relaunch_as_administrator", launch)
     window.admin_action.trigger()
@@ -123,14 +137,16 @@ def test_successful_admin_restart_closes_old_window(desktop, monkeypatch):
     assert not window.isVisible()
 
 
+@pytest.mark.parametrize("process_access", [True], indirect=True)
 def test_elevated_app_never_requests_elevation_again(desktop, monkeypatch):
     window, _ = desktop
-    window._elevated = True
+    assert window._elevated is True
+    assert not window.admin_action.isEnabled()
     launch = Mock()
     monkeypatch.setattr("ui.main_window.relaunch_as_administrator", launch)
+    window.admin_action.trigger()
     window._restart_as_administrator()
     launch.assert_not_called()
-    monkeypatch.setattr("ui.settings_dialog.elevation_status", lambda: True)
     dialog = SettingsDialog(window)
     try:
         assert dialog.access_status.text() == "Administrator access"
