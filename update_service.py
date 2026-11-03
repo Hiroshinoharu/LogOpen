@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -202,3 +204,51 @@ def download_release(asset, destination, *, cancel_event, progress):
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def installer_cache_path(asset):
+    """Choose an app-owned staging location for an explicitly requested installer."""
+    _validate_installer(asset)
+    directory = Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local" / "share")) / "LogOpen" / "updates"
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        raise UpdateError("Could not prepare the update folder. Try Download update to choose another location.") from None
+    return directory / asset.name
+
+
+def _validate_installer(asset):
+    if (not isinstance(asset, ReleaseAsset) or not isinstance(asset.name, str)
+            or not isinstance(asset.sha256, str)):
+        raise UpdateError("The installer information is unavailable. Check for updates again.")
+    match = re.fullmatch(r"LogOpen-([0-9]+\.[0-9]+\.[0-9]+)-Setup-x64\.exe", asset.name)
+    if (not match or asset.url != f"{RELEASES_URL}/download/v{match[1]}/{asset.name}"
+            or type(asset.size) is not int or not 0 < asset.size <= _MAX_PACKAGE_SIZE
+            or not re.fullmatch(r"[0-9a-f]{64}", asset.sha256)):
+        raise UpdateError("The selected package is not a verified LogOpen Windows installer.")
+    version_tuple(match[1])
+
+
+def launch_installer(path, asset):
+    """Recheck downloaded bytes before opening interactive setup, without a shell.
+
+    Called only after the desktop's background work has stopped. A failure keeps
+    the desktop open. Setup retains its own visible install and relaunch choices.
+    """
+    _validate_installer(asset)
+    if sys.platform != "win32":
+        raise UpdateError("The Windows installer can only run on Windows.")
+    path = Path(path).resolve()
+    try:
+        if path.suffix.lower() != ".exe" or path.stat().st_size != asset.size:
+            raise UpdateError("The installer changed or is missing. Download it again before installing.")
+        digest = hashlib.sha256()
+        with path.open("rb") as source:
+            for chunk in iter(lambda: source.read(256 * 1024), b""):
+                digest.update(chunk)
+        if not hmac.compare_digest(digest.hexdigest(), asset.sha256):
+            raise UpdateError("The installer changed after download. Download it again before installing.")
+        subprocess.Popen([str(path)], cwd=str(path.parent), stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=False)
+    except OSError:
+        raise UpdateError("Could not open the installer. LogOpen remains open; download the update again or open its folder.") from None

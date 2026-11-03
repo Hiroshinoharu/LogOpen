@@ -88,6 +88,7 @@ class CoverageDialog(QDialog):
             "record_limit": ("Entry limit reached", "Choose a shorter time range or raise the entry limit in Scan options."),
             "cancelled": ("Cancelled", "Run another scan to complete this scope."),
             "read_error": ("Log read failed", "Review the scan warnings for the access or read error, then retry."),
+            "access_denied": ("Permission required", "Choose File → Restart as administrator, approve Windows UAC, then scan again. If already elevated, ask your administrator about this log's access policy."),
             "collection_error": ("Log unavailable or could not be processed", "Check the scan warnings and read access in Choose Windows logs."),
         }
         for row, name in enumerate(names):

@@ -12,6 +12,7 @@ AppId={{B81DE21D-F07E-44D6-A17A-901109EA2D30}
 AppName=LogOpen
 AppVersion={#AppVersion}
 AppPublisher=LogOpen
+LicenseFile={#SourceRoot}\LICENSE
 DefaultDirName={localappdata}\Programs\LogOpen
 DefaultGroupName=LogOpen
 DisableProgramGroupPage=yes

@@ -1,6 +1,9 @@
 """AI preferences dialog; credentials stay in the settings service layer."""
 
-from PyQt6.QtCore import QObject, Qt, QThread, QUrl, pyqtSignal, pyqtSlot
+import sys
+from admin_access import access_label, elevation_status
+
+from PyQt6.QtCore import QObject, Qt, QThread, QTimer, QUrl, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
@@ -16,9 +19,12 @@ from settings.terminal_settings import HOST_LABELS, SHELL_LABELS, TerminalPrefer
 from settings.terminal_service import open_terminal
 from desktop_shortcut import ShortcutError, create_desktop_shortcut
 from ui.sounds import SoundEffects, SoundPreferences
-from settings.model_catalog import (MODEL_GUIDES, PRICING_URL, PRICING_CHECKED,
-                                    model_guide, model_tooltip, usd)
+from settings.model_catalog import (MODEL_GUIDES, STARTER_MODELS, PRICE_FLAG_LEGEND,
+                                    PRICING_URL, PRICING_CHECKED, price_flag,
+                                    model_guide, model_rates, model_tooltip, eur_from_usd,
+                                    EUR_ESTIMATE_NOTE, FX_SOURCE_URL)
 from ui.model_picker import ModelCostDelegate, add_model_choices
+from settings.model_compatibility import SUGGESTED_MODEL, compatibility_hint
 
 
 def _label(text, name="mutedLabel"):
@@ -96,14 +102,17 @@ class SettingsDialog(QDialog):
     to finish.
     """
     restart_requested = pyqtSignal()
+    admin_restart_requested = pyqtSignal()
     sounds_changed = pyqtSignal(bool)
+    privacy_requested = pyqtSignal()
 
     def __init__(self, parent=None, *, app_settings=None):
         """Build settings controls and load preferences plus credential-status text.
 
         parent owns the dialog; app_settings may inject an AppSettings-compatible
         service for tests. The password field starts empty even if a key is saved.
-        Opening the dialog does not call the API.
+        First display loads account model metadata in the background when a key
+        exists. The full bundled catalog is available immediately, including offline.
         """
         super().__init__(parent)
         self._settings = app_settings if app_settings is not None else AppSettings()
@@ -115,6 +124,10 @@ class SettingsDialog(QDialog):
         self._loading_models = False
         self._close_pending = False
         self._close_result = QDialog.DialogCode.Rejected
+        self._models_open_attempted = False
+        self._auto_models_timer = QTimer(self)
+        self._auto_models_timer.setSingleShot(True)
+        self._auto_models_timer.timeout.connect(self._auto_load_models)
         self.setObjectName("settingsDialog")
         self.setWindowTitle("LogOpen — Settings")
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -168,7 +181,7 @@ class SettingsDialog(QDialog):
         self.key_status = _label("")
         self.key_status.setAccessibleName("API key status")
         fields.addWidget(self.key_status)
-        self.detect_key_button = _button("Check this PC for a key", self._refresh_key_status)
+        self.detect_key_button = _button("Check this PC for a key", self._detect_key)
         self.detect_key_button.setIcon(icon("key"))
         fields.addWidget(self.detect_key_button)
         fields.addWidget(_label(
@@ -187,11 +200,16 @@ class SettingsDialog(QDialog):
         self.model_input.setAccessibleName("OpenAI model")
         self.model_input.setToolTip("Choose a model or type a compatible model ID. Your saved choice is kept.")
         self.model_input.setItemDelegate(ModelCostDelegate(self.model_input))
-        # Starter choices verified in the official model catalog. Loading models
-        # replaces these suggestions with account results; it never changes selection.
-        add_model_choices(self.model_input, MODEL_GUIDES)
+        # Show every bundled model immediately. Account discovery replaces these
+        # suggestions with available IDs while retaining the current selection.
+        add_model_choices(self.model_input, [*STARTER_MODELS, *MODEL_GUIDES])
         model_label.setBuddy(self.model_input)
         fields.addWidget(self.model_input)
+        fields.addWidget(_label(PRICE_FLAG_LEGEND))
+        self.model_compatibility = _label("")
+        fields.addWidget(self.model_compatibility)
+        self.suggested_model_button = _button("Use suggested model", lambda: self.model_input.setCurrentText(SUGGESTED_MODEL))
+        fields.addWidget(self.suggested_model_button)
         cost_card = QFrame(objectName="modelCostCard")
         cost_layout = QVBoxLayout(cost_card)
         cost_layout.setContentsMargins(12, 12, 12, 12)
@@ -207,20 +225,26 @@ class SettingsDialog(QDialog):
             cost_layout.addWidget(label)
         self.model_cost_note = _label(
             "Example only, not a bill or spending limit. Actual charges depend on text length, "
-            "reasoning, caching, and account settings. Tokens are small pieces of text."
+            "reasoning, caching, and account settings. Longer context and other service tiers may cost more. "
+            "Tokens are small pieces of text."
         )
         cost_layout.addWidget(self.model_cost_note)
         self.pricing_button = _button("View OpenAI pricing", self._open_pricing)
         self.pricing_button.setIcon(icon("info"))
         cost_layout.addWidget(self.pricing_button)
-        cost_layout.addWidget(_label(f"Rate guide checked {PRICING_CHECKED} · standard USD pricing"))
+        cost_layout.addWidget(_label(f"Rate guide checked {PRICING_CHECKED} · estimated EUR prices"))
+        self.exchange_rate_note = _label(EUR_ESTIMATE_NOTE)
+        self.exchange_rate_note.setToolTip(f"Exchange-rate source: {FX_SOURCE_URL}")
+        cost_layout.addWidget(self.exchange_rate_note)
         fields.addWidget(cost_card)
         self.load_models_button = _button("Load available models", self._load_models)
         self.load_models_button.setIcon(icon("spark"))
         fields.addWidget(self.load_models_button)
         fields.addWidget(_label(
             "Keep your saved model, choose from the list, or enter a model ID. "
-            "Load available models checks OpenAI using your key without sending problem details. "
+            "The full bundled catalog is shown immediately. With a configured key, "
+            "account models load automatically when Settings opens or you save a key. "
+            "Load available models refreshes the list without sending problem details. "
             "Model access, compatibility, and pricing vary."
         ))
 
@@ -292,6 +316,8 @@ class SettingsDialog(QDialog):
         app_layout.setContentsMargins(0, 16, 12, 0)
         app_layout.setSpacing(14)
         app_layout.addWidget(_label("Sound effects", "sectionTitle"))
+        self.privacy_button = _button("Privacy and local data…", self.privacy_requested.emit)
+        app_layout.addWidget(self.privacy_button)
         self.sound_checkbox = QCheckBox("Play subtle sound effects")
         self.sound_checkbox.setChecked(self._sound_preferences.enabled())
         self.sound_checkbox.toggled.connect(self._set_sounds_enabled)
@@ -309,6 +335,20 @@ class SettingsDialog(QDialog):
         self.shortcut_button = _button("Create desktop shortcut", self._create_shortcut)
         self.shortcut_button.setIcon(icon("desktop"))
         app_layout.addWidget(self.shortcut_button)
+        app_layout.addWidget(_label("Windows permissions", "sectionTitle"))
+        self._elevated = elevation_status()
+        self.access_status = _label(access_label(self._elevated), "detailFieldTitle")
+        app_layout.addWidget(self.access_status)
+        app_layout.addWidget(_label(
+            "Administrator access can allow deeper event-log troubleshooting, including restricted performance logs. "
+            "Windows will ask for permission or administrator credentials. Monitoring stops for the restart; start a new scan afterward. "
+            "Scans still only read logs, and suggested commands are never run automatically. "
+            "Organization policies can still restrict access. If you enter a different administrator account, its own settings and history will be used."
+        ))
+        self.admin_restart_button = _button("Restart as administrator…", self._restart_as_administrator)
+        self.admin_restart_button.setIcon(icon("key"))
+        self.admin_restart_button.setEnabled(sys.platform == "win32" and self._elevated is not True)
+        app_layout.addWidget(self.admin_restart_button)
         app_layout.addWidget(_label("Restart LogOpen", "sectionTitle"))
         self.restart_button = _button("Restart App", self._restart_app)
         self.restart_button.setIcon(icon("restart"))
@@ -334,7 +374,7 @@ class SettingsDialog(QDialog):
         preferences = self._settings.load()
         self.enabled_checkbox.setChecked(preferences.enabled)
         if self.model_input.findText(preferences.model) < 0:
-            self.model_input.insertItem(0, preferences.model)
+            add_model_choices(self.model_input, [preferences.model])
         self.model_input.setCurrentText(preferences.model)
         self.max_analyses_input.setValue(preferences.max_analyses)
         terminal = self._terminal_settings.load()
@@ -342,17 +382,42 @@ class SettingsDialog(QDialog):
         self.terminal_host_combo.setCurrentIndex(self.terminal_host_combo.findData(terminal.host))
         self._refresh_key_status()
         self._refresh_model_cost()
+        self._message("Showing the bundled model catalog. Account availability has not been checked.")
         decorate_buttons(self)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._models_open_attempted:
+            self._models_open_attempted = True
+            self._auto_models_timer.start(0)
+
+    def _auto_load_models(self):
+        """Discover account models after painting; never use an unsaved key."""
+        if (not self.isVisible() or self._close_pending or self._test_thread is not None
+                or self.key_input.text()):
+            return
+        try:
+            configured = bool(credential_store.resolve_openai_api_key())
+        except Exception:
+            return  # Keep the offline catalog and credential-status explanation.
+        if configured:
+            self._load_models()
+
+    def _detect_key(self):
+        self._refresh_key_status()
+        self._auto_models_timer.start(0)
+
     def _open_pricing(self):
-        QDesktopServices.openUrl(QUrl(PRICING_URL))
+        guide = model_guide(self.model_input.currentText())
+        QDesktopServices.openUrl(QUrl(guide.source_url if guide else PRICING_URL))
 
     def _refresh_model_cost(self):
         """Show explicit rates or unknown pricing for the currently edited exact ID."""
         model = self.model_input.currentText()
+        self.model_compatibility.setText(compatibility_hint(model))
         guide = model_guide(model)
         tier = guide.tier if guide else "Price unknown"
-        self.model_cost_tier.setText(tier)
+        self.model_cost_tier.setText(price_flag(model))
         self.model_cost_tier.setProperty("tier", tier)
         self.model_cost_tier.style().unpolish(self.model_cost_tier)
         self.model_cost_tier.style().polish(self.model_cost_tier)
@@ -365,18 +430,15 @@ class SettingsDialog(QDialog):
             self.model_cost_example.clear()
             return
         self.model_cost_description.setText(guide.description)
-        self.model_cost_rates.setText(
-            f"Per 1 million tokens: ${guide.input_per_million:.2f} sent / "
-            f"${guide.output_per_million:.2f} returned (standard, short context)."
-        )
+        self.model_cost_rates.setText(model_rates(model))
         count = self.max_analyses_input.value()
         ratio = guide.example_cost() / MODEL_GUIDES["gpt-6-luna"].example_cost()
         ratio_text = f"{ratio:.1f}".removesuffix(".0")
         comparison = (f" At that size, {ratio_text}× the gpt-6-luna cost."
                       if model.strip() != "gpt-6-luna" else "")
         self.model_cost_example.setText(
-            f"Example: 10,000 sent + 2,000 billed output tokens ≈ {usd(guide.example_cost())} "
-            f"for one analysis; {count} at that size ≈ {usd(guide.example_cost(count))}." + comparison
+            f"Example: 10,000 sent + 2,000 billed output tokens ≈ {eur_from_usd(guide.example_cost())} "
+            f"for one analysis; {count} at that size ≈ {eur_from_usd(guide.example_cost(count))}." + comparison
         )
 
     def _set_sounds_enabled(self, enabled):
@@ -446,6 +508,7 @@ class SettingsDialog(QDialog):
                 "API key saved securely. No restart needed; retry AI analysis or run a new scan.",
                 success=True,
             )
+            self._auto_models_timer.start(0)
             return True
         finally:
             # Clear on failures too; never repopulate this field from storage.
@@ -516,6 +579,14 @@ class SettingsDialog(QDialog):
         self.restart_requested.emit()
 
     @pyqtSlot()
+    def _restart_as_administrator(self):
+        """Save settings before asking the host to drain workers and show Windows UAC."""
+        if self._test_thread is not None or self._elevated is True or not self._save_settings():
+            return
+        self.accept()
+        self.admin_restart_requested.emit()
+
+    @pyqtSlot()
     def _test_connection(self):
         """Save preferences and launch one background model-metadata access check.
 
@@ -536,7 +607,8 @@ class SettingsDialog(QDialog):
 
     @pyqtSlot()
     def _load_models(self):
-        """Load candidates on explicit request; preserve unsaved preference edits."""
+        """Load account candidates automatically or on request; preserve preference edits."""
+        self._auto_models_timer.stop()
         if self._test_thread is not None:
             return
         if self.key_input.text():
@@ -554,6 +626,8 @@ class SettingsDialog(QDialog):
             self.model_input.clear()
             add_model_choices(self.model_input, [selected, *models])
             self.model_input.setCurrentText(selected)
+        if not models:
+            message += " The existing model list and your selection have been kept."
         self._message(message, success=bool(models))
 
     def _start_ai_worker(self, worker, result_slot):
@@ -578,8 +652,13 @@ class SettingsDialog(QDialog):
                        self.advanced.toggle_button, self.shell_combo, self.terminal_host_combo,
                        self.open_terminal_button, self.load_models_button, self.detect_key_button):
             widget.setEnabled(not testing)
+        self.suggested_model_button.setEnabled(not testing or self._loading_models)
         self.test_button.setText("Testing…" if testing and not self._loading_models else "Test Connection")
         self.load_models_button.setText("Loading models…" if testing and self._loading_models else "Load available models")
+        # Choosing a model remains possible during metadata discovery; the result
+        # handler reads the current selection, not the value at request start.
+        self.model_input.setEnabled(not testing or self._loading_models)
+        self.admin_restart_button.setEnabled(not testing and sys.platform == "win32" and self._elevated is not True)
 
     @pyqtSlot(bool, str)
     def _show_test_result(self, success, message):
@@ -604,6 +683,7 @@ class SettingsDialog(QDialog):
 
         Covers acceptance/rejection paths without destroying a running QThread.
         """
+        self._auto_models_timer.stop()
         self.key_input.clear()
         if self._test_thread is not None:
             self._close_pending = True
@@ -614,6 +694,7 @@ class SettingsDialog(QDialog):
 
     def closeEvent(self, event):
         """Clear the password input and defer the Qt close event if a connection test is active."""
+        self._auto_models_timer.stop()
         if self._test_thread is not None:
             self.reject()
             event.ignore()

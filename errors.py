@@ -9,6 +9,10 @@ class EventCollectionError(LogOpenError):
     """Raised when a configured Windows Event Log cannot be read."""
 
 
+class EventLogAccessError(EventCollectionError):
+    """Windows denied access to a requested log; other channels can still be scanned."""
+
+
 class LLMAnalysisError(LogOpenError):
     """Raised when optional LLM analysis cannot be completed."""
 

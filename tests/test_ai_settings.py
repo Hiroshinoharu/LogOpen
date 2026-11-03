@@ -237,6 +237,8 @@ def test_saved_model_limit_and_key_reach_llm_but_never_reports(api_client, crede
     monkeypatch.setenv("OPENAI_API_KEY", "fake-environment-secret")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://untrusted.invalid")
     AppSettings().save(AISettings(True, "selected-model", 2))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     incidents = [{"incident_priority": "High", "incident_score": score} for score in (10, 90, 60)]
     main.add_llm_analyses(incidents)
     assert client.responses.parse.call_count == 2
@@ -282,6 +284,8 @@ def test_unexpected_analysis_error_cannot_leak_into_export(monkeypatch, tmp_path
     """Check unexpected analysis error cannot leak into export."""
     import main
     AppSettings().save(AISettings(True, "test-model", 3))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     monkeypatch.setattr(main, "analyse_incident_with_llm_result", Mock(side_effect=RuntimeError("sk-fake-secret")))
     incidents = [{"incident_priority": "Critical"}]
     main.add_llm_analyses(incidents)

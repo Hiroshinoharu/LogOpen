@@ -35,7 +35,7 @@ from ui.icons import decorate_buttons, icon
 from settings.terminal_service import open_terminal
 from settings.terminal_settings import SHELL_LABELS
 from settings.app_settings import AppSettings
-from settings.model_catalog import cost_label
+from settings.model_catalog import cost_label, price_flag, model_tooltip
 
 
 def _text(value, missing="Not available"):
@@ -743,10 +743,12 @@ class IncidentDetailWidget(QWidget):
         preferences = AppSettings().load()
         if preferences.enabled:
             tier = cost_label(preferences.model)
-            self.ai_model_hint.setText(f"Next AI request: {preferences.model} · {tier}. Review prices in Settings.")
+            self.ai_model_hint.setText(f"Next AI request: {preferences.model} · {price_flag(preferences.model)}. Review prices in Settings.")
+            self.ai_model_hint.setToolTip(model_tooltip(preferences.model))
         else:
             tier = "Off"
             self.ai_model_hint.setText("AI is off. Choose a model and review its price in Settings.")
+            self.ai_model_hint.setToolTip("")
         self.ai_model_hint.setProperty("tier", tier)
         self.ai_model_hint.style().unpolish(self.ai_model_hint)
         self.ai_model_hint.style().polish(self.ai_model_hint)

@@ -9,8 +9,13 @@ root = Path(SPECPATH)
 import sys
 sys.path.insert(0, str(root))
 from scripts.release import build_metadata, current_version
+from scripts.third_party_notices import write_notices
 build_metadata(os.environ.get('LOGOPEN_BUILD_VERSION') or current_version(root), root)
 runtime_data = [
+    (str(root / 'LICENSE'), '.'),
+    (str(root / 'THIRD_PARTY_NOTICES.md'), '.'),
+    (str(write_notices(root)), '.'),
+    (str(root / 'docs' / 'privacy.md'), 'docs'),
     (str(root / 'ui' / 'style.qss'), 'ui'),
     (str(root / 'assets' / 'sounds'), 'assets/sounds'),
     (str(root / 'build' / 'version' / 'VERSION'), '.'),
@@ -27,7 +32,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=runtime_data,
-    hiddenimports=['win32cred', 'win32evtlog', 'win32evtlogutil'],
+    hiddenimports=['win32cred', 'win32evtlog', 'win32evtlogutil', 'win32security', 'win32api', 'pythoncom', 'win32com.shell.shell'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

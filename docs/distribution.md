@@ -102,7 +102,8 @@ runs this check automatically with a 30-second timeout.
 
 ## Release status
 
-The generated executable and installer are unsigned development artifacts. A
+Unless signing parameters are supplied, generated executables and installers are unsigned development artifacts. A
 public release can use the same scripts with your own signing and release process.
 Dependency metadata and bundled license files are retained under `_internal`.
-LogOpen does not currently include automatic update downloading or installation.
+Users can explicitly check, download and install verified updates from the app.
+See [release checks](release-checklist.md) for signing and clean-machine evidence.

@@ -38,6 +38,8 @@ def _check_optional_runtime():
     """
     import win32cred
     import win32evtlog
+    from win32com.shell import shell
+    from admin_access import elevation_status
     from openai import OpenAI
     from models.incident_analysis import IncidentAnalysis
 
@@ -45,6 +47,8 @@ def _check_optional_runtime():
     assert callable(win32evtlog.ReadEventLog)
     assert callable(win32evtlog.EvtQuery)
     assert callable(win32evtlog.EvtRender)
+    assert callable(shell.ShellExecuteEx)
+    assert elevation_status() is not None
     assert IncidentAnalysis.model_json_schema()["type"] == "object"
     with OpenAI(api_key="logopen-offline-build-check") as client:
         assert callable(client.responses.parse)

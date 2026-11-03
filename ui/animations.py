@@ -15,9 +15,11 @@ class MotionController(QObject):
         self.page_effect = QGraphicsOpacityEffect(stack)
         stack.setGraphicsEffect(self.page_effect)
         self.page_effect.setOpacity(1.0)
+        self.page_effect.setEnabled(False)
         self.transition = QPropertyAnimation(self.page_effect, b"opacity", self)
         self.transition.setDuration(180)
         self.transition.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.transition.finished.connect(self.finish_reveal)
         self.badge_effect = QGraphicsOpacityEffect(badge)
         badge.setGraphicsEffect(self.badge_effect)
         self.badge_effect.setOpacity(1.0)
@@ -35,11 +37,18 @@ class MotionController(QObject):
         """Fade in the current page subtly; repeated navigation restarts safely."""
         self.transition.stop()
         if self.enabled:
+            self.page_effect.setEnabled(True)
             self.transition.setStartValue(0.82)
             self.transition.setEndValue(1.0)
             self.transition.start()
         else:
-            self.page_effect.setOpacity(1.0)
+            self.finish_reveal()
+
+    def finish_reveal(self):
+        """Render directly after transitions and on resize; keep no active page effect."""
+        self.transition.stop()
+        self.page_effect.setOpacity(1.0)
+        self.page_effect.setEnabled(False)
 
     def set_active(self, active):
         """Pulse only during running work, restoring full opacity when it ends."""
@@ -52,6 +61,5 @@ class MotionController(QObject):
     def set_enabled(self, enabled):
         """Apply the user's motion preference immediately, stopping existing effects."""
         self.enabled = bool(enabled)
-        self.transition.stop()
-        self.page_effect.setOpacity(1.0)
+        self.finish_reveal()
         self.set_active(self.active)

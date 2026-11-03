@@ -17,12 +17,19 @@ param(
     [switch]$SkipTests,
     [switch]$Installer,
     [string]$InnoCompiler,
-    [switch]$DownloadInno
+    [switch]$DownloadInno,
+    [string]$SigningThumbprint,
+    [ValidateSet('CurrentUser', 'LocalMachine')][string]$SigningStore = 'CurrentUser',
+    [string]$SignTool = 'signtool.exe',
+    [string]$TimestampServer = 'https://timestamp.digicert.com',
+    [switch]$RequireSigning
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $projectRoot = Split-Path -Parent $PSScriptRoot
+if ($RequireSigning -and -not $SigningThumbprint) { throw 'RequireSigning needs a certificate thumbprint.' }
+if ($SigningThumbprint -and $SigningThumbprint -notmatch '^[A-Fa-f0-9]{40}$') { throw 'Supply the certificate thumbprint, not an account name.' }
 
 function Invoke-Checked {
     <# Run a native command and stop the build on a nonzero exit status. #>
@@ -107,6 +114,9 @@ try {
     }
 
     $executablePath = Join-Path $projectRoot "dist\LogOpen\LogOpen.exe"
+    if ($SigningThumbprint) {
+        & "$PSScriptRoot/sign-windows.ps1" -Path $executablePath -Thumbprint $SigningThumbprint -Store $SigningStore -SignTool $SignTool -TimestampServer $TimestampServer
+    }
     $smokeProcess = Start-Process -FilePath $executablePath -ArgumentList "--smoke-test" -WindowStyle Hidden -PassThru
     if (-not $smokeProcess.WaitForExit(30000)) {
         $smokeProcess.Kill()
@@ -121,6 +131,9 @@ try {
     if ($Installer) {
         $compiler = Get-InnoCompiler
         Invoke-Checked $compiler @("/Qp", "/DAppVersion=$Version", "/DSourceRoot=$projectRoot", (Join-Path $projectRoot "installer\LogOpen.iss"))
+        if ($SigningThumbprint) {
+            & "$PSScriptRoot/sign-windows.ps1" -Path (Join-Path $projectRoot "dist/installer/LogOpen-$Version-Setup-x64.exe") -Thumbprint $SigningThumbprint -Store $SigningStore -SignTool $SignTool -TimestampServer $TimestampServer
+        }
     }
     Write-Host "Verified application: $executablePath"
     Write-Host "Shareable bundle: $zipBase.zip"

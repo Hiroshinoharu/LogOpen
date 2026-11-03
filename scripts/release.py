@@ -129,7 +129,7 @@ def write_plan(directory, *, root=ROOT, before=None, bump="auto", release=True):
     revisions = [max(ancestors, key=ancestors.get) + "..HEAD"] if ancestors else ["-20", "HEAD"]
     subjects = git("log", *revisions, "--format=- %s (%h)", root=root)
     notes = (f"# LogOpen {plan['version']}\n\nSource commit: `{plan['commit']}`\n\n"
-             "Windows x64 installer and portable ZIP. Builds are currently unsigned.\n"
+             "Windows x64 installer and portable ZIP. Check Windows Properties > Digital Signatures for signing status.\n"
              "Use SHA256SUMS.txt to verify the downloaded files.\n\n## Changes\n\n" + subjects + "\n")
     (directory / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
     return plan

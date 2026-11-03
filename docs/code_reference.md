@@ -21,8 +21,14 @@ and side effects.
 | Classification, recurrence, and priority | `classify_event`, `apply_recurrence_metadata`, `calculate_incident_score` |
 | Which incidents reach OpenAI | `should_analyse_incident_with_llm`, `select_incidents_for_llm`, `add_llm_analyses` |
 | API key saving and fallback | `settings/credential_store.py` |
+| AI sharing consent, masking and exact-request preview | `settings/privacy.py`, `llm_analysis.prepare_ai_request`, `ui/ai_preview.py` |
+| Local data removal and privacy disclosures | `ui/privacy_dialog.py`, `HistoryStore.clear_all`, `docs/privacy.md` |
+| Reviewed problem reports and feedback | `feedback_report.py`, `ui/feedback_dialog.py` |
+| Model compatibility and EUR price guidance | `settings/model_compatibility.py`, `settings/model_catalog.py`, `ui/model_picker.py` |
+| Signing, licence notices and clean-machine release evidence | `scripts/sign-windows.ps1`, `scripts/third_party_notices.py`, `scripts/release_readiness.py` |
 | Preferences and connection checks | `settings/app_settings.py`, `settings/ai_service.py` |
 | Desktop threading and navigation | `ui/main_window.py` |
+| Actual process elevation and explicit Windows UAC restart | `admin_access.py`, `ui/main_window.py`, `ui/settings_dialog.py` |
 | Historical recurrence, comparisons, and review state | `history_store.py` |
 | Search, exports, history browsing, and manual AI | `ui/workspace.py` |
 | Grouped display, preview, notes, Undo, and appearance | `ui/productivity.py`, `ui/insights.py`, `ui/appearance.py` |

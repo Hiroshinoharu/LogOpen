@@ -6,6 +6,7 @@ Closing is deferred until active scan/settings workers finish safely.
 """
 
 import sys
+from admin_access import access_label, elevation_status, relaunch_as_administrator
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -41,6 +42,7 @@ from ui.sounds import SoundEffects
 from ui.table_layout import RoomyTable, expand_window
 from ui.table_sorting import SortableTableItem, numeric_key
 from ui.update_dialog import UpdateDialog
+from update_service import launch_installer, UpdateError
 from ui.workspace import WorkspaceMixin
 from ui.productivity import ProductivityMixin
 from ui.assistance import AssistanceMixin
@@ -223,7 +225,9 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
                 "This scan is incomplete. Review the warnings above\n"
                 "before drawing conclusions about your system.",
             )
-        self.warning_label.setText("\n".join(warnings))
+        self.warning_label.setText("\n".join(warnings) if len(warnings) <= 1 else
+                                   f"{len(warnings)} scan warnings · Open What was checked? / Coverage for details.")
+        self.warning_label.setToolTip("<qt>" + escape("\n".join(warnings)).replace("\n", "<br>") + "</qt>")
         self.warning_label.setVisible(bool(warnings))
         status = "incomplete" if not complete else "complete with warnings" if warnings else "complete"
         self.status_label.setText(
@@ -309,6 +313,26 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
             self.incident_detail.action_feedback.setText("Waiting for the AI request to finish before closing…")
             event.ignore()
             return
+        if self._admin_restart_pending:
+            self._admin_restart_pending = False
+            success, message = relaunch_as_administrator(int(self.winId()))
+            if not success:
+                self._close_pending = False
+                self.status_label.setText(message)
+                self.statusBar().showMessage(message, 20000)
+                event.ignore()
+                return
+        if self._pending_installer is not None:
+            path, asset = self._pending_installer
+            self._pending_installer = None
+            try:
+                launch_installer(path, asset)
+            except UpdateError as exc:
+                self._close_pending = False
+                self.status_label.setText(str(exc))
+                self.statusBar().showMessage(str(exc), 15000)
+                event.ignore()
+                return
         if self._restart_pending:
             self._restart_pending = False
             if not relaunch_app():
@@ -324,6 +348,24 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self._restart_pending = True
         self.close()
 
+    def _restart_as_administrator(self):
+        """Save the open note draft and wait for workers before requesting Windows consent."""
+        if self._close_pending or self._admin_restart_pending or self._elevated is True:
+            return
+        incident = self.incident_detail.incident
+        if incident is not None:
+            draft = self.incident_detail.note_editor.toPlainText()
+            if draft != incident.get("local_note", ""):
+                try:
+                    self.history_store.save_note(incident, draft)
+                except (ValueError, RuntimeError):
+                    self.statusBar().showMessage("Could not save your note. Save or shorten it before restarting as administrator.", 15000)
+                    return
+        self._restart_pending = False
+        self._admin_restart_pending = True
+        self._close_pending = True
+        self.close()
+
     @pyqtSlot()
     def _open_settings(self):
         """Open a single modal SettingsDialog without blocking Qt's event loop.
@@ -336,7 +378,9 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self._settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._settings_dialog.finished.connect(self._settings_closed)
         self._settings_dialog.restart_requested.connect(self._restart_app)
+        self._settings_dialog.admin_restart_requested.connect(self._restart_as_administrator)
         self._settings_dialog.sounds_changed.connect(self._sync_sound_action)
+        self._settings_dialog.privacy_requested.connect(self._open_privacy)
         self._settings_dialog.open()
 
     @pyqtSlot(int)
@@ -364,7 +408,17 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self._updates_dialog = UpdateDialog(self)
         self._updates_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._updates_dialog.finished.connect(self._updates_closed)
+        self._updates_dialog.install_requested.connect(self._install_update)
         self._updates_dialog.open()
+
+    def _install_update(self, path, asset):
+        """Drain monitoring and other workers before handing off to interactive setup."""
+        self._pending_installer = (path, asset)
+        self._close_pending = True
+        if self._updates_dialog is not None:
+            self._updates_dialog.accept()
+        else:
+            QTimer.singleShot(0, self.close)
 
     @pyqtSlot(int)
     def _updates_closed(self, _result):
@@ -552,10 +606,13 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self._updates_dialog = None
         self._close_pending = False
         self._restart_pending = False
+        self._admin_restart_pending = False
+        self._pending_installer = None
+        self._elevated = elevation_status()
         self._incidents = []
         self._cancel_event = Event()
 
-        self.setWindowTitle("LogOpen")
+        self.setWindowTitle("LogOpen — " + access_label(self._elevated))
         self.setWindowIcon(icon("logo", size=32))
         expand_window(self, 1500, 950)
         self.setMinimumSize(800, 620)
@@ -626,7 +683,8 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         heading_row.setSpacing(24)
         heading_text = QVBoxLayout()
         heading_text.setSpacing(6)
-        heading_text.addWidget(_label("What needs your attention?", "pageTitle"))
+        self.dashboard_title = _label("What needs your attention?", "pageTitle")
+        heading_text.addWidget(self.dashboard_title)
         self.status_label = _label("Start a scan to find recent problems recorded by Windows.", "statusLabel")
         self.status_label.setWordWrap(True)
         self.status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -795,6 +853,7 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
             "scopeLabel",
         )
         scope.setWordWrap(True)
+        self.footer_scope = scope
         footer.addWidget(scope, 1)
         self.last_scan = _label("No scans yet", "mutedLabel")
         footer.addWidget(self.last_scan)
@@ -809,12 +868,15 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
     def resizeEvent(self, event):
         """Prioritize readable result rows over summary cards in short windows."""
         super().resizeEvent(event)
+        if hasattr(self, "motion"):
+            self.motion.finish_reveal()
         self._update_layout_density()
 
     def _update_layout_density(self):
         """Keep the results and log reader usable in a short or narrow window."""
-        compact_limit = {"normal": 760, "large": 900, "larger": 1000}.get(getattr(self, "_text_size", "normal"), 760)
+        compact_limit = {"normal": 1000, "large": 1150, "larger": 1300}.get(getattr(self, "_text_size", "normal"), 1000)
         short = self.height() < compact_limit
+        very_tight = self.height() < 760 and getattr(self, "_text_size", "normal") != "normal"
         if hasattr(self, "results_panel"):
             margins = (16, 12, 16, 10) if short else (24, 22, 24, 18)
             self.central_widget.layout().setContentsMargins(*margins)
@@ -832,10 +894,19 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
             self.journey.setVisible(not short)
             self.journey.set_compact(short)
         if hasattr(self, "scan_goal"):
+            self.scan_goal_widget.setVisible(not very_tight)
+            self.dashboard_title.setVisible(not very_tight)
+            self.footer_scope.setVisible(not very_tight)
+            self.scope_label.setVisible(self.width() >= 1000)
             compact = self.width() < 1000 or short
             self.scan_goal_label.setText("Check" if compact else "What would you like to check?")
             self.scan_goal_hint.setVisible(not compact)
             self.start_here_explanation.setVisible(not short)
+            # Warnings and comparisons appear during polling. Reserve the rows
+            # before showing optional guidance, including on scaled laptop screens.
+            tight = self.height() < (760 if getattr(self, "_text_size", "normal") == "normal" else 950)
+            self.start_here_card.setVisible(any(self._matches_filters(item) for item in self._incidents) and not tight)
+            self.comparison_button.setVisible(not tight and bool(getattr(self._current_result, "comparison", {}).get("comparable")))
         if hasattr(self, "preview"):
             self.preview.setVisible(self.preview_action.isChecked() and self.width() >= 1400 and bool(self._incidents))
             self.coverage_button.setText("Coverage" if self.width() < 1000 else "What was checked?")

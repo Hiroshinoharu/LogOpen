@@ -13,7 +13,9 @@ from llm_analysis import (analyse_incident_with_llm_result, build_incident_conte
                           build_scan_context)
 from models.scan_result import ScanResult
 from settings.app_settings import AISettings, AppSettings
-from settings.model_catalog import MODEL_GUIDES, cost_label, model_guide
+from settings.model_catalog import (MODEL_GUIDES, cost_label, model_guide,
+                                    model_rates, model_tooltip, price_flag,
+                                    eur_from_usd, EUR_ESTIMATE_NOTE)
 from tests.test_settings_dialog import app, dialog
 from tests.test_llm_analysis import install_openai_mock
 from ui.incident_detail import IncidentDetailWidget
@@ -49,18 +51,71 @@ def test_model_dropdown_labels_cost_without_saving_the_display_annotation(dialog
     assert "Higher cost" in dialog.model_input.itemData(row, Qt.ItemDataRole.AccessibleTextRole)
     dialog.model_input.setCurrentIndex(row)
     assert dialog.model_input.currentText() == "gpt-6-astra"
-    assert dialog.model_cost_tier.text() == "Higher cost"
-    assert "$10.00" in dialog.model_cost_rates.text()
-    assert "$0.2" in dialog.model_cost_example.text()
+    assert dialog.model_cost_tier.text() == "€€€ Higher cost"
+    assert "€8.9453" in dialog.model_cost_rates.text()
+    assert "€0.1789" in dialog.model_cost_example.text()
     assert "100×" in dialog.model_cost_example.text()
     dialog.max_analyses_input.setValue(8)
-    assert "$1.6" in dialog.model_cost_example.text()
+    assert "€1.4313" in dialog.model_cost_example.text()
+    assert dialog.exchange_rate_note.text() == EUR_ESTIMATE_NOTE
     dialog.save_settings_button.click()
     assert AppSettings().load().model == "gpt-6-astra"
     dialog.model_input.setCurrentText("my-model")
-    assert dialog.model_cost_tier.text() == "Price unknown"
+    assert dialog.model_cost_tier.text() == "? Price unknown"
     assert not dialog.model_cost_example.text()
     assert "does not mean free" in dialog.model_cost_description.text()
+
+
+@pytest.mark.parametrize("model,rates,flag", [
+    ("gpt-5-nano", (".05", ".40"), "€ Budget"),
+    ("gpt-4.1-mini", (".40", "1.60"), "€ Budget"),
+    ("gpt-5.4-mini", (".75", "4.50"), "€€ Balanced"),
+    ("o4-mini", ("1.10", "4.40"), "€€ Balanced"),
+    ("gpt-5.4", ("2.50", "15"), "€€ Balanced"),
+    ("o1-pro", ("150", "600"), "€€€ Higher cost"),
+])
+def test_standard_rates_and_flags_for_other_model_families(model, rates, flag):
+    guide = model_guide(model)
+    assert (guide.input_per_million, guide.output_per_million) == tuple(map(Decimal, rates))
+    assert price_flag(model) == flag
+
+
+def test_cached_rates_keep_sub_cent_precision_and_source():
+    assert "€0.0045 cached input" in model_rates("gpt-5-nano")
+    assert "€0.0671 cached input" in model_rates("gpt-5.4-mini")
+    assert "cached input" not in model_rates("o1-pro")
+    assert "https://developers.openai.com/api/docs/models/o4-mini" in model_tooltip("o4-mini")
+
+
+def test_euro_conversion_direction_precision_and_unrounded_totals():
+    assert eur_from_usd(Decimal("1.1179")) == "€1.00"
+    assert eur_from_usd(Decimal("0")) == "€0.00"
+    assert eur_from_usd(MODEL_GUIDES["gpt-6-luna"].example_cost()) == "€0.0018"
+    # Converting the total avoids multiplying an already rounded one-request estimate.
+    assert eur_from_usd(MODEL_GUIDES["gpt-6-astra"].example_cost(8)) == "€1.4313"
+    for model in MODEL_GUIDES:
+        tooltip = model_tooltip(model)
+        assert "$" not in tooltip
+        assert EUR_ESTIMATE_NOTE in tooltip
+        assert "Estimated EUR" in model_rates(model)
+
+
+def test_loaded_models_all_get_flags_and_keep_raw_ids(dialog):
+    models = [*MODEL_GUIDES, "ft:gpt-4.1:org:custom:id", "gpt-4o-2024-05-13"]
+    dialog._show_models(models, "Loaded models")
+    for model in models:
+        row = dialog.model_input.findText(model)
+        assert row >= 0
+        dialog.model_input.setCurrentIndex(row)
+        assert dialog.model_input.currentText() == model
+        assert dialog.model_cost_tier.text() == price_flag(model)
+        assert dialog.model_input.itemData(row, Qt.ItemDataRole.ToolTipRole).startswith(model_tooltip(model))
+        assert price_flag(model) in dialog.model_input.itemData(row, Qt.ItemDataRole.AccessibleTextRole)
+    assert dialog.model_cost_tier.text() == "? Price unknown"
+    assert not dialog.model_cost_rates.text()
+    assert not dialog.model_cost_example.text()
+    dialog.save_settings_button.click()
+    assert AppSettings().load().model == "gpt-4o-2024-05-13"
 
 
 def test_manual_ai_cost_hint_tracks_saved_settings_without_requesting_analysis(app):
@@ -68,7 +123,8 @@ def test_manual_ai_cost_hint_tracks_saved_settings_without_requesting_analysis(a
     try:
         AppSettings().save(AISettings(True, "gpt-6-astra", 3))
         widget.set_incident({"incident_classification": "Example"})
-        assert "Higher cost" in widget.ai_model_hint.text()
+        assert "€€€ Higher cost" in widget.ai_model_hint.text()
+        assert EUR_ESTIMATE_NOTE in widget.ai_model_hint.toolTip()
         AppSettings().save(AISettings(True, "unknown-model", 3))
         widget.refresh_ai_model_hint()
         assert "Price unknown" in widget.ai_model_hint.text()
@@ -130,6 +186,8 @@ def test_refined_prompt_identifies_version_and_keeps_notes_out_of_evidence():
 def test_automatic_and_manual_requests_share_the_same_coverage_context(monkeypatch):
     """Both request paths pass metadata snapshots while retaining the current model."""
     AppSettings().save(AISettings(True, "gpt-6-luna", 1))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     result = ScanResult([{"incident_priority": "High", "incident_score": 60}])
     result.complete = False
     result.coverage = {"System": {"complete": False, "stop_reason": "read_error"}}

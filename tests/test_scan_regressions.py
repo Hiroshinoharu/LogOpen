@@ -242,6 +242,8 @@ def test_disabled_and_unselected_ai_have_distinct_reasons(monkeypatch):
     request.assert_not_called()
 
     AppSettings().save(AISettings(True, "test-model", 1))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     lower = {"incident_priority": "Low", "event_count": 1}
     main.add_llm_analyses([lower])
     assert lower["llm_analysis_status"] == "not_selected"
@@ -255,6 +257,8 @@ def test_missing_credentials_is_explained_in_saved_incident(monkeypatch, tmp_pat
     import llm_analysis
     monkeypatch.setattr(llm_analysis, "create_openai_client", Mock(side_effect=MissingCredentialsError()))
     AppSettings().save(AISettings(True, "test-model", 1))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     incident = {"incident_priority": "Critical", "incident_score": 90}
     main.add_llm_analyses([incident])
     assert incident["llm_analysis_status"] == "failed" and incident["llm_analysis"] is None

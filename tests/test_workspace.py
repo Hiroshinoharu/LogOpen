@@ -211,14 +211,17 @@ def test_manual_ai_runs_in_worker_updates_history_and_closes_safely(window, monk
     threads = []
     analysis = IncidentAnalysis(explanation="Test analysis", likely_causes=[],
                                 recommended_actions=[], remediation_notes=[], diagnostic_steps=[])
-    def analyze(incident, *, settings, scan_context=None):
+    def analyze(incident, *, settings, scan_context=None, prepared_request=None):
         """Simulate a paid boundary with no network and a test-controlled response."""
         threads.append(QThread.currentThread())
         assert settings.model == "example-model"
+        assert prepared_request is not None and "incident_evidence" in prepared_request["input"]
         started.set()
         assert release.wait(3)
         return AIAnalysisResult("completed", "AI analysis completed.", analysis)
     monkeypatch.setattr("ui.workspace.analyse_incident_with_llm_result", analyze)
+    from PyQt6.QtWidgets import QDialog
+    monkeypatch.setattr("ui.ai_preview.AIPrivacyPreview.exec", lambda self: QDialog.DialogCode.Accepted)
     widget.show()
     try:
         widget._analyze_selected()
@@ -267,6 +270,9 @@ def test_compact_window_keeps_result_rows_visible(window):
     assert widget.metrics_panel.isHidden()
     assert widget.incident_table.viewport().height() >= 90
     widget.resize(1140, 860)
+    app.processEvents()
+    assert widget.incident_table.viewport().height() >= 90
+    widget.resize(1400, 1060)
     app.processEvents()
     assert not widget.metrics_panel.isHidden()
 

@@ -37,19 +37,21 @@ class AnalysisWorker(QObject):
     result = pyqtSignal(object)
     finished = pyqtSignal()
 
-    def __init__(self, incident, preferences, scan_context=None):
+    def __init__(self, incident, preferences, scan_context=None, prepared_request=None):
         """Snapshot evidence and settings before moving the worker to its thread."""
         super().__init__()
         self.incident = deepcopy(incident)
         self.preferences = preferences
         self.scan_context = deepcopy(scan_context)
+        self.prepared_request = deepcopy(prepared_request)
 
     @pyqtSlot()
     def run(self):
         """Deliver a validated outcome, hiding unexpected exceptions from the UI."""
         try:
+            reviewed = {"prepared_request": self.prepared_request} if self.prepared_request is not None else {}
             outcome = analyse_incident_with_llm_result(self.incident, settings=self.preferences,
-                                                      scan_context=self.scan_context)
+                                                      scan_context=self.scan_context, **reviewed)
             self.result.emit(outcome)
         except Exception:
             self.result.emit(AIAnalysisResult("failed", "AI analysis failed. Check AI Settings and try again."))
@@ -220,6 +222,8 @@ class WorkspaceMixin:
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction(icon("help"), "Quick guide", self.help_button.click)
         help_menu.addAction(icon("download"), "Check for updates…", self._open_updates)
+        self.feedback_action = help_menu.addAction("Report a problem…", self._report_problem)
+        self.privacy_action = help_menu.addAction("Privacy and local data…", self._open_privacy)
         for menu in self.menuBar().findChildren(QMenu):
             for action in menu.actions():
                 if not action.isSeparator() and action.icon().isNull():
@@ -230,10 +234,74 @@ class WorkspaceMixin:
             self.warning_label.setText(scope_warning)
             self.warning_label.show()
 
+    def _report_problem(self):
+        from ui.feedback_dialog import FeedbackDialog
+        FeedbackDialog(self.status_label.text(), self._selected_incidents(), self).exec()
+
+    def _privacy_busy(self):
+        return (self._scan_thread is not None or self._analysis_thread is not None or self.monitor.active
+                or self.monitor.thread is not None
+                or (self._settings_dialog is not None and self._settings_dialog._test_thread is not None))
+
+    def _open_privacy(self):
+        from ui.privacy_dialog import PrivacyDialog
+        dialog = PrivacyDialog(self.history_store, self._privacy_busy, self)
+        dialog.history_cleared.connect(self._history_deleted)
+        dialog.ai_disabled.connect(self._privacy_disabled_ai)
+        dialog.exec()
+        self.incident_detail.refresh_ai_model_hint()
+        if self._settings_dialog is not None:
+            self._settings_dialog._refresh_key_status()
+
+    def _privacy_disabled_ai(self):
+        if self._settings_dialog is not None:
+            self._settings_dialog.enabled_checkbox.setChecked(False)
+            self._settings_dialog.key_input.clear()
+
+    def _history_deleted(self):
+        self._clear_notification_batch()
+        self._pending_monitor_refresh = self._pending_monitor_open = False
+        self._latest_monitor_result = None
+        self._unread_monitor_incidents = 0
+        self._search_text.clear()
+        for action in (self.monitor_latest_action, self.monitor_events_action, self.collected_events_action,
+                       self.timeline_action, self.export_visible_action):
+            action.setEnabled(False)
+        self._clear_incidents()
+        self._current_result = None
+        self._history_scan_id = None
+        self._check_again_context = None
+        self._focused_scan_options = None
+        self._remember_review_undo([])
+        self._group_members.clear()
+        self._expanded_groups.clear()
+        self.comparison_button.hide()
+        self._displayed_stamp = None
+        self.monitor.last_result = None
+        self.monitor.last_success = self.monitor.last_finished = None
+        self.monitor.last_error = ""
+        self.monitor.health_changed.emit()
+        for label in (self.incident_total, self.attention_total, self.event_total):
+            label.setText("0")
+        self.result_count.setText("NO RESULTS")
+        self.last_scan.setText("No scan loaded")
+        self.warning_label.clear()
+        self.warning_label.setToolTip("")
+        self.warning_label.hide()
+        self.journey.set_step(0)
+        self._set_state("ready", "READY")
+        self.status_label.setText("Local history deleted. Exported reports remain on disk.")
+        self._show_empty_state("✓", "History cleared", "Run a new scan when you are ready.")
+
     def _build_workspace_menus(self):
         """Expose history/import/export and review actions without crowding the header."""
         menu = self.menuBar().addMenu("File")
         self.file_menu = menu
+        self.admin_action = menu.addAction(icon("key"), "Restart as administrator…", self._restart_as_administrator)
+        import sys
+        self.admin_action.setEnabled(sys.platform == "win32" and self._elevated is not True)
+        self.admin_action.setToolTip("Windows asks for permission. Monitoring stops; run a new scan after restart. Administrator access does not override every log's security policy.")
+        menu.addSeparator()
         self.open_action = menu.addAction(icon("folder"), "Open report…", self._open_report)
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
         self.history_action = menu.addAction(icon("history"), "Scan history…", self._open_history)
@@ -682,7 +750,8 @@ class WorkspaceMixin:
         self._start_here_incident = max(candidates, key=lambda item: (
             ranks.get(item.get("incident_priority"), 0), numeric_key(item.get("incident_score")),
         ), default=None)
-        self.start_here_card.setVisible(bool(visible))
+        tight = self.height() < (760 if getattr(self, "_text_size", "normal") == "normal" else 950)
+        self.start_here_card.setVisible(bool(visible) and not tight)
         self.start_here_button.setVisible(self._start_here_incident is not None)
         if self._start_here_incident is None:
             self.start_here_title.setText("No unreviewed problems in this view")
@@ -842,9 +911,16 @@ class WorkspaceMixin:
         if not preferences.enabled:
             self.incident_detail.action_feedback.setText("Enable AI in Settings to get an explanation.")
             return
+        from ui.ai_preview import AIPrivacyPreview
+        preview = AIPrivacyPreview(incident, preferences, build_scan_context(self._current_result), self)
+        if preview.exec() != QDialog.DialogCode.Accepted or preview.request is None:
+            return
+        if self._scan_thread is not None or self._analysis_thread is not None or self.monitor.thread is not None or self._close_pending:
+            self.incident_detail.action_feedback.setText("A task started while reviewing. Wait for it to finish and try again.")
+            return
         self._analysis_target = incident
         self._analysis_thread = QThread(self)
-        self._analysis_worker = AnalysisWorker(incident, preferences, build_scan_context(self._current_result))
+        self._analysis_worker = AnalysisWorker(preview.incident, preferences, preview.scan_context, preview.request)
         self._analysis_worker.moveToThread(self._analysis_thread)
         self._analysis_thread.started.connect(self._analysis_worker.run)
         self._analysis_worker.result.connect(self._show_manual_analysis)

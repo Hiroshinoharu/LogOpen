@@ -8,7 +8,7 @@ nor an API request; execution begins through these entry points.
 import sys
 
 import config
-from errors import EventCollectionError, LogOpenError, ReportExportError, describe_error
+from errors import EventCollectionError, EventLogAccessError, LogOpenError, ReportExportError, describe_error
 from event_collection import get_recent_events
 from event_filtering import filter_events, filter_events_by_time
 from incident_detection import (
@@ -94,12 +94,16 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
     """
     
     settings = AppSettings().load()
+    from settings.privacy import PrivacyPreferences
+    automatic_sharing = PrivacyPreferences().load().automatic_sharing
     for incident in incident_summaries:
         incident.pop("llm_analysis_error", None)
         if incident.get("llm_analysis") is not None:
             status, message = "completed", "AI analysis completed."
         elif not settings.enabled:
             status, message = "disabled", "AI analysis is disabled in Settings."
+        elif not automatic_sharing:
+            status, message = "not_selected", "Review this incident before sending to AI, or enable automatic sharing in Privacy settings."
         elif incident.get("review_state") in {"ignored", "snoozed"}:
             status, message = "not_selected", "Automatic AI analysis is skipped for ignored or temporarily hidden incidents."
         elif should_analyse_incident_with_llm(incident, settings=settings):
@@ -110,6 +114,8 @@ def add_llm_analyses(incident_summaries, *, cancel_event=None, progress=None):
         incident["llm_analysis_message"] = message
     if not settings.enabled:
         _write_status("AI analysis is disabled. Deterministic analysis is complete.")
+        return
+    if not automatic_sharing:
         return
     selected_incidents = select_incidents_for_llm(
         [incident for incident in incident_summaries if incident.get("review_state") not in {"ignored", "snoozed"}],
@@ -277,7 +283,7 @@ def _run_workflow(options=None, *, progress=None, cancel_event=None, history_sto
             collection_errors.append(error_message)
             incident_summaries.complete = False
             incident_summaries.coverage[log_type] = {
-                "complete": False, "stop_reason": "collection_error",
+                "complete": False, "stop_reason": "access_denied" if isinstance(exc, EventLogAccessError) else "collection_error",
                 "window_hours": options.hours,
             }
             incident_summaries.warnings.append(error_message)

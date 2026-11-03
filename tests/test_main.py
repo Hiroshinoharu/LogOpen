@@ -69,6 +69,8 @@ class MainWorkflowTests(unittest.TestCase):
         ))
         settings_patch.start()
         self.addCleanup(settings_patch.stop)
+        from settings.privacy import PrivacyPreferences, PrivacyOptions
+        PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
 
     def test_scan_system_returns_incident_summaries(self):
         """Check scan system returns incident summaries."""

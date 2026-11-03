@@ -149,6 +149,8 @@ def test_history_failure_keeps_results_and_latest_export(workflow):
 def test_ai_stops_before_next_request(monkeypatch):
     """Cancellation after one response prevents spending on the next selected incident."""
     AppSettings().save(AISettings(True, "test-model", 3))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     token = Event()
     incidents = [{"incident_priority": "Critical", "incident_score": 90} for _ in range(3)]
 
@@ -169,6 +171,8 @@ def test_ai_stops_before_next_request(monkeypatch):
 def test_ignored_incidents_do_not_use_automatic_ai_budget(monkeypatch, review_state):
     """An ignored high-score issue does not displace active or acknowledged work."""
     AppSettings().save(AISettings(True, "test-model", 1))
+    from settings.privacy import PrivacyPreferences, PrivacyOptions
+    PrivacyPreferences().save(PrivacyOptions(automatic_sharing=True))
     ignored = {"incident_priority": "Critical", "incident_score": 99, "review_state": "ignored"}
     available = {"incident_priority": "High", "incident_score": 70, "review_state": review_state}
     request = Mock(return_value=AIAnalysisResult("failed", "Synthetic failure"))

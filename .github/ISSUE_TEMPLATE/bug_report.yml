@@ -1,0 +1,23 @@
+name: Report a LogOpen problem
+description: Report a reproducible app problem. Review diagnostics before sharing.
+body:
+  - type: markdown
+    attributes:
+      value: "Use Help > Report a problem to prepare a report. Remove personal details, raw workplace logs and API keys before posting. Issues are public."
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce and expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Reviewed diagnostics (optional)
+      description: Include app/Windows versions and safe error messages. No keys or unreviewed event logs.

@@ -1,5 +1,17 @@
 # LogOpen
 
+Licensed under **GNU GPLv3 (GPL-3.0-only)**. See [LICENSE](LICENSE) and
+[third-party notices](THIRD_PARTY_NOTICES.md).
+
+Before announcing a public build, complete the [release checks](docs/release-checklist.md).
+The [privacy guide](docs/privacy.md) explains local storage and AI sharing.
+Manual AI requests now show a masked preview before sending. Automatic sharing
+requires a separate opt-in under **Help → Privacy and local data**, also accessible
+from **Settings → App**. This screen provides confirmed history/key removal.
+Use **Help → Report a problem** to prepare a report locally for review and sharing.
+Model choices distinguish documented structured-output support from unverified
+compatibility; neither account model listings nor connection tests prove live analysis works.
+
 LogOpen analyzes Windows Event Log warnings, errors, audit failures, and events
 matched by detection rules. It groups related
 events into separate incidents, assigns deterministic classifications and scores,
@@ -27,6 +39,17 @@ a complete PC health assessment.
 
 ## Desktop features
 
+- **File → Restart as administrator…** (also **Settings → App → Windows
+  permissions**) requests an elevated LogOpen instance through the normal Windows
+  UAC prompt. The title bar and App settings show the current process's actual
+  access level. Ordinary launches remain unelevated; no permissions, group
+  membership, or UAC settings are changed. Restart saves the open incident note,
+  waits for background work, and stops monitoring. Run a new scan afterward.
+  Cancelling UAC or a launch failure keeps the current window and results open.
+  Settings initiated restarts save edited preferences first. Administrator access
+  can unlock restricted logs but cannot guarantee access against organization
+  policy. Entering a different administrator account uses that account's settings,
+  credentials, and local history. Access-denied coverage now points to this action.
 - **View → Compare scans…** lets you choose an earlier baseline from the latest
   100 saved scans. It shows new issue families, families seen in both scans, and
   problems no longer observed. Missing problems are reported only when both scans
@@ -126,10 +149,17 @@ a complete PC health assessment.
   `LOGOPEN_DISABLE_SOUNDS=1` also disables playback.
 - **Updates** in the header (also **Help → Check for updates…**) checks the latest
   stable release in [Hiroshinoharu/LogOpen](https://github.com/Hiroshinoharu/LogOpen/releases).
-  Choose the installer or portable ZIP and **Download update**. Downloads show
-  progress, support cancellation, and are saved only after size and SHA256 checks.
-  **Open download folder** locates the verified file. Close LogOpen and run the
-  installer, or extract the portable ZIP into a new folder. Installation is manual.
+  **Download & install…** downloads the Windows installer to the app's update
+  folder, checks its size and SHA256, stops monitoring, waits for background work,
+  and closes LogOpen after opening setup. Setup remains interactive and offers
+  to launch LogOpen when finished. The installer is checked again before launch;
+  if it is missing, changed, or cannot start, LogOpen stays open with an error.
+  Cancelling or closing the download dialog prevents automatic installation.
+  **Download update** still lets you save an installer or portable ZIP to a chosen
+  location. A downloaded installer offers **Install downloaded update…**; portable
+  ZIPs are extracted manually into a new folder. **Open download folder** locates
+  either package. Source runs are clearly labeled: setup updates the installed
+  app, not your source checkout.
   Checks run only when requested; no GitHub token, API key, or incident data is sent.
 - **Settings → Terminal** chooses PowerShell, Command Prompt, or Bash via WSL,
   in a standard window or Windows Terminal. **Save Settings** applies the command
@@ -192,6 +222,11 @@ a complete PC health assessment.
   before starting to collect only warnings and detection-rule matches.
   Monitoring always skips automatic AI and stops when the app closes. Use
   **View latest monitoring scan** to review results, or **Stop watching** to stop.
+  Resizing or maximizing prioritizes table space: summary cards and the Start here
+  card collapse on shorter windows, and multiple warnings are summarized with the
+  full text available under **Coverage**. Large text on very short windows also
+  moves symptom selection into **Scan options**. Page fades end on resize and no
+  page rendering effect remains active after a transition.
 
 See [event sources, detection rules, and monitoring](docs/event_sources.md) for
 supported channels, custom-rule examples, permissions, and polling limitations.
@@ -299,31 +334,49 @@ Preferences apply to the next scan, including terminal scans. Saved preferences
 override `ENABLE_LLM_ANALYSIS`, `DEFAULT_ANALYSIS_MODEL`, and
 `MAX_LLM_ANALYSES_PER_RUN` in `config.py`; those values supply initial defaults.
 The current model default is `gpt-5.6-luna`. **Settings → AI help → Choose an AI
-model** is an editable dropdown with starter choices and your saved model.
-**Load available models** retrieves candidate text models for your key using
+model** is an editable dropdown with the full bundled catalog and your saved model.
+Settings automatically retrieves candidate text models when a key is configured;
+**Load available models** manually refreshes them using
 OpenAI's [models list endpoint](https://developers.openai.com/api/reference/python/resources/models/methods/list).
 It runs in the background, keeps the current selection, and sends no incident
 data. Known specialist/audio/image models are filtered out; the endpoint does
 not establish Responses or structured-output support. You can enter any compatible
-model ID, including custom models. Opening Settings performs no API request.
+model ID, including custom models. Without a key, the bundled catalog stays available offline.
 Select **Save Settings** to apply the choice. The scan limit is bounded to **1–20**. Invalid
 stored models fall back to the default, malformed limits recover to a bounded
 default, and unrecognized enabled values or unreadable settings disable AI.
 
-The dropdown labels verified models **Budget**, **Balanced**, or **Higher cost**.
-The price card shows standard USD input/output rates and the same illustrative
+Every model choice gets a price flag: **€ Budget**, **€€ Balanced**,
+**€€€ Higher cost**, or **? Price unknown**. Flags are also shown beside the
+next manual AI request. These are LogOpen cost bands for the example below:
+up to €0.01, up to €0.05, and above €0.05 per analysis, respectively.
+The price card shows estimated EUR input/output and available cached-input rates and the same illustrative
 usage for each model: 10,000 input and 2,000 billed output tokens. Changing the
 analysis count updates the example scan cost. This is an illustration, not a
 prediction, bill, or spending cap; reasoning, actual usage, caching, processing
 tier, and account settings can change charges. The AI detail page also shows
 the model and cost category for the next request.
 
+Published USD rates are retained internally and converted only for display,
+using the bundled [ECB reference rate](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html)
+of **€1 = 1.1179 USD on 3 November 2026**. Euro amounts are estimates, exclude
+taxes and conversion fees, and do not use live exchange rates. The rate and
+date appear in Settings and model tooltips. Totals are converted before rounding.
+
 Rates in `settings/model_catalog.py` were checked against the official OpenAI
 [pricing page](https://developers.openai.com/api/docs/pricing) and model pages on
-**21 October 2026**. The bundled table covers `gpt-5.6-luna`, `gpt-6-luna`,
-`gpt-6.1-sol`, and `gpt-6-astra`. Other IDs, dated snapshots, and fine-tuned
+**3 November 2026**. The bundled table covers 42 exact text-model IDs across
+GPT-6, GPT-5, GPT-4, GPT-3.5 and o-series models, including published specialist
+models. This pricing catalog does not imply account access or compatibility.
+All 42 bundled model IDs appear immediately, including without a key or internet.
+Opening Settings with a configured key automatically loads the account's text
+models in the background; saving or detecting a key also triggers discovery.
+The current selection is preserved, including changes made while loading.
+Failed requests keep the existing list, and **Load available models** retries
+or refreshes it. Loaded and manually entered IDs use the same pricing lookup.
+Other IDs, unverified dated snapshots, and fine-tuned
 models say **Price unknown**; prices are never inferred from names. **View
-OpenAI pricing** opens the current official page. Loading model metadata does
+OpenAI pricing** opens the selected model's official rate source. Loading model metadata does
 not refresh prices. Choosing a model leaves the saved default unchanged until Save.
 
 Non-secret preferences use QSettings with organization/application **LogOpen**

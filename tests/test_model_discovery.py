@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QComboBox
 from settings import credential_store as credentials
 from settings.ai_service import create_openai_client, list_openai_models
 from settings.app_settings import AISettings, AppSettings
+from settings.model_catalog import MODEL_GUIDES
 from tests.test_settings_dialog import app, dialog, wait_until
 from ui.settings_dialog import SettingsDialog
 
@@ -139,7 +140,11 @@ def test_dropdown_keeps_custom_selection_without_network_on_open(app, monkeypatc
         request.assert_not_called()
         assert isinstance(widget.model_input, QComboBox)
         assert widget.model_input.isEditable()
+        assert set(MODEL_GUIDES).issubset({widget.model_input.itemText(i) for i in range(widget.model_input.count())})
         assert widget.model_input.currentText() == "my-custom-model"
+        widget.show()
+        app.processEvents()
+        request.assert_not_called()  # No stored/environment key: offline catalog only.
         widget.load_models_button.click()
         wait_until(app, lambda: widget._test_thread is None)
         assert widget.model_input.currentText() == "my-custom-model"
@@ -150,6 +155,89 @@ def test_dropdown_keeps_custom_selection_without_network_on_open(app, monkeypatc
         wait_until(app, lambda: widget._test_thread is None)
         widget.close()
         widget.deleteLater()
+
+
+def test_open_with_key_loads_models_once_in_background_and_keeps_latest_selection(app, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    started, release = threading.Event(), threading.Event()
+    calls = []
+
+    def load():
+        calls.append(QThread.currentThread())
+        started.set()
+        assert release.wait(3)
+        return ["gpt-5", "gpt-5-2025-08-07"], "Loaded models."
+
+    monkeypatch.setattr("ui.settings_dialog.list_openai_models", load)
+    widget = SettingsDialog()
+    try:
+        assert widget.model_input.count() == len(MODEL_GUIDES)
+        assert not calls  # Constructing a hidden dialog does not make requests.
+        widget.show()
+        wait_until(app, started.is_set)
+        assert calls == [widget._test_thread] and calls[0] != app.thread()
+        assert widget.model_input.isEnabled()
+        widget.model_input.setCurrentText("unsaved-custom-model")
+        release.set()
+        wait_until(app, lambda: widget._test_thread is None)
+        assert widget.model_input.currentText() == "unsaved-custom-model"
+        assert widget.model_input.findText("gpt-5-2025-08-07") >= 0
+        assert AppSettings().load().model != "unsaved-custom-model"
+        widget.hide()
+        widget.show()
+        app.processEvents()
+        assert len(calls) == 1
+    finally:
+        release.set()
+        wait_until(app, lambda: widget._test_thread is None)
+        widget.close()
+        widget.deleteLater()
+
+
+def test_auto_load_failure_keeps_full_catalog_and_saved_model(app, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    AppSettings().save(AISettings(False, "saved-custom-model", 2))
+    request = Mock(return_value=([], "Could not connect to OpenAI."))
+    monkeypatch.setattr("ui.settings_dialog.list_openai_models", request)
+    widget = SettingsDialog()
+    try:
+        widget.show()
+        wait_until(app, lambda: request.called and widget._test_thread is None)
+        assert widget.model_input.count() == len(MODEL_GUIDES) + 1
+        assert widget.model_input.currentText() == "saved-custom-model"
+        assert "existing model list" in widget.message_label.text()
+        assert widget.load_models_button.isEnabled()
+    finally:
+        wait_until(app, lambda: widget._test_thread is None)
+        widget.close()
+        widget.deleteLater()
+
+
+def test_saving_first_key_loads_account_models_automatically(dialog, app, monkeypatch):
+    saved = []
+    monkeypatch.setattr(credentials, "save_openai_api_key", saved.append)
+    monkeypatch.setattr(credentials, "get_openai_api_key", lambda: saved[-1] if saved else None)
+    request = Mock(return_value=(["gpt-5-2025-08-07"], "Loaded models."))
+    monkeypatch.setattr("ui.settings_dialog.list_openai_models", request)
+    dialog.key_input.setText("fake-new-key")
+    dialog.save_key_button.click()
+    wait_until(app, lambda: request.called and dialog._test_thread is None)
+    request.assert_called_once_with()
+    assert dialog.model_input.findText("gpt-5-2025-08-07") >= 0
+    assert not dialog.key_input.text()
+
+
+def test_close_before_auto_load_timer_prevents_request(app, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    request = Mock()
+    monkeypatch.setattr("ui.settings_dialog.list_openai_models", request)
+    widget = SettingsDialog()
+    widget.show()
+    widget.close()
+    app.processEvents()
+    request.assert_not_called()
+    assert widget._test_thread is None
+    widget.deleteLater()
 
 
 def test_unsaved_key_blocks_loading_models(dialog, monkeypatch):

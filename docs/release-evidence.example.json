@@ -1,0 +1,20 @@
+{
+  "installer_sha256": "REPLACE_WITH_EXACT_INSTALLER_SHA256",
+  "windows_build": "Record clean test-machine Windows version/build",
+  "tester": "Record tester name",
+  "checks": {
+    "clean_install_without_python": false,
+    "normal_and_admin_scans": false,
+    "uac_accept_and_cancel": false,
+    "monitoring_resize_refresh": false,
+    "offline_and_invalid_credentials": false,
+    "ai_preview_cancel_and_send": false,
+    "automatic_sharing_opt_in": false,
+    "reviewed_problem_report": false,
+    "history_and_key_removal": false,
+    "upgrade_preserves_data": false,
+    "uninstall_reinstall": false,
+    "display_scaling_and_keyboard": false
+  },
+  "notes": "Pending: no clean-machine checks have been performed."
+}

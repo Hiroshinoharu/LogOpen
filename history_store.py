@@ -173,6 +173,17 @@ class HistoryStore:
             if connection is not None:
                 connection.close()
 
+    def clear_all(self):
+        """Delete local history, notes, review states and checklists in one transaction.
+
+        Caller must stop scans/monitoring and obtain explicit user confirmation.
+        Does not delete exported files, settings, credentials or Windows event logs.
+        """
+        with self._connection() as connection:
+            connection.execute("PRAGMA secure_delete = ON")
+            for table in ("scans", "review_states", "issue_preferences", "issue_activity", "troubleshooting"):
+                connection.execute(f"DELETE FROM {table}")
+
     def save_scan(self, result, options=None):
         """Save a full snapshot and attach scan_id, created_at, and scan_options.
 

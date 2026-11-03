@@ -9,7 +9,7 @@ import logging
 import math
 from xml.etree import ElementTree as ET
 
-from errors import EventCollectionError, describe_error
+from errors import EventCollectionError, EventLogAccessError, describe_error
 
 try:
     import win32evtlog as native
@@ -191,10 +191,15 @@ def collect_events(channel, limit, *, hours=None, levels=None, cancel_event=None
                 result.warn(f"{channel}: scan incomplete; the {limit:,}-record limit was reached.")
                 break
     except Exception as exc:
+        denied = getattr(exc, "winerror", None) == 5 or isinstance(exc, PermissionError)
+        guidance = ("Windows denied access. Choose File → Restart as administrator, approve the Windows prompt, "
+                    "then scan again. If already elevated, your administrator may need to grant access to this log.")
         if result.records_read:
-            result.stop_reason = "read_error"
-            result.warn(f"{channel}: scan incomplete; reading stopped: {describe_error(exc)}")
+            result.stop_reason = "access_denied" if denied else "read_error"
+            result.warn(f"{channel}: scan incomplete; reading stopped: {guidance if denied else describe_error(exc)}")
         else:
+            if denied:
+                raise EventLogAccessError(f"{channel}: {guidance}") from exc
             raise EventCollectionError(f"Could not read {channel}: {describe_error(exc)}") from exc
     finally:
         close_handle(query_handle)
