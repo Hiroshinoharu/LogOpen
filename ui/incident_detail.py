@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from math import isfinite
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -102,7 +102,7 @@ def _field_form(fields):
         caption = QLabel(title)
         caption.setObjectName("mutedLabel")
         value = _body_label()
-        value.setAccessibleName(title)
+        value.setAccessibleDescription(title)
         form.addRow(caption, value)
         labels[key] = value
     return form, labels
@@ -137,7 +137,7 @@ class DiagnosticStepWidget(QFrame):
         heading.addWidget(self.risk_badge)
         layout.addLayout(heading)
         self.description = _body_label(_text(step.get("description"), "No description provided."))
-        self.description.setAccessibleName(f"Step {number} description")
+        self.description.setAccessibleDescription(f"Step {number} description")
         layout.addWidget(self.description)
 
         self.command_box = None
@@ -146,6 +146,7 @@ class DiagnosticStepWidget(QFrame):
         command = step.get("command")
         if isinstance(command, str) and command.strip():
             command_heading = QHBoxLayout()
+            self.command_heading = command_heading
             shell_labels = {"powershell": "PowerShell", "cmd": "Command Prompt", "bash": "Bash"}
             shell = step.get("shell")
             shell_name = (
@@ -153,7 +154,7 @@ class DiagnosticStepWidget(QFrame):
                 if isinstance(shell, str) else "Shell not specified"
             )
             self.shell_label = _body_label(f"Command · {shell_name}", "diagnosticShell")
-            self.shell_label.setAccessibleName(f"Step {number} command shell")
+            self.shell_label.setAccessibleDescription(f"Step {number} command shell")
             command_heading.addWidget(self.shell_label, 1)
             self.copy_button = QPushButton("Copy command", objectName="secondaryButton")
             self.copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -171,7 +172,7 @@ class DiagnosticStepWidget(QFrame):
             self.command_box.setObjectName("diagnosticCommand")
             self.command_box.setReadOnly(True)
             self.command_box.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
-            self.command_box.setFixedHeight(72)
+            self.command_box.setMinimumHeight(88)
             self.command_box.setAccessibleName(f"Step {number} recommended command")
             self.command_box.setPlainText(command)
             layout.addWidget(self.command_box)
@@ -179,6 +180,15 @@ class DiagnosticStepWidget(QFrame):
             self.terminal_feedback.hide()
             layout.addWidget(self.terminal_feedback)
         decorate_buttons(self)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.command_box is not None:
+            required = (self.shell_label.sizeHint().width() + self.copy_button.sizeHint().width()
+                        + self.open_terminal_button.sizeHint().width() + 56)
+            self.command_heading.setDirection(
+                QBoxLayout.Direction.LeftToRight if required <= self.width()
+                else QBoxLayout.Direction.TopToBottom)
 
     def _open_terminal(self, shell):
         _success, message = open_terminal(shell=shell)
@@ -232,6 +242,7 @@ class SourceEventsWidget(QWidget):
         self.splitter.addWidget(self.table)
 
         reader = QFrame()
+        self.reader = reader
         reader.setObjectName("detailSection")
         reader_layout = QVBoxLayout(reader)
         reader_layout.setContentsMargins(12, 12, 12, 12)
@@ -248,6 +259,25 @@ class SourceEventsWidget(QWidget):
         self.splitter.addWidget(reader)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 1)
+
+    def resizeEvent(self, event):
+        """Place the reader beside the table when stacking would clip its message."""
+        super().resizeEvent(event)
+        self._arrange_reader()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange) and hasattr(self, "reader"):
+            self._arrange_reader()
+
+    def _arrange_reader(self):
+        stacked_height = (self.table.minimumHeight() + self.reader.minimumSizeHint().height()
+                          + self.splitter.handleWidth() + self.caption.sizeHint().height() + 28)
+        orientation = (Qt.Orientation.Horizontal if self.height() < stacked_height
+                       else Qt.Orientation.Vertical)
+        if self.splitter.orientation() != orientation:
+            self.splitter.setOrientation(orientation)
+            self.splitter.setSizes([1, 2] if orientation == Qt.Orientation.Horizontal else [1, 1])
 
     def set_events(self, events):
         """Replace the event list and select its first valid dictionary, if present.
@@ -319,6 +349,7 @@ class SourceEventsWidget(QWidget):
             message if isinstance(message, str) and message.strip() else "No message available."
         )
         self.message.verticalScrollBar().setValue(0)
+        self._arrange_reader()
 
 
 class IncidentDetailWidget(QWidget):
@@ -350,6 +381,7 @@ class IncidentDetailWidget(QWidget):
         layout.setSpacing(16)
 
         navigation = QHBoxLayout()
+        self.navigation = navigation
         self.back_button = QPushButton("Back to results")
         self.back_button.setIcon(icon("back"))
         self.back_button.setObjectName("secondaryButton")
@@ -361,7 +393,8 @@ class IncidentDetailWidget(QWidget):
         self.check_again_button.clicked.connect(self.check_requested.emit)
         navigation.addWidget(self.check_again_button)
         navigation.addStretch()
-        navigation.addWidget(QLabel("UNDERSTAND THIS PROBLEM", objectName="metricTitle"))
+        self.navigation_caption = QLabel("UNDERSTAND THIS PROBLEM", objectName="metricTitle")
+        navigation.addWidget(self.navigation_caption)
         layout.addLayout(navigation)
         self.back_action = QAction("Back to results", self)
         self.back_action.setShortcuts([QKeySequence("Esc"), QKeySequence("Alt+Left")])
@@ -383,13 +416,14 @@ class IncidentDetailWidget(QWidget):
         score_column.setSpacing(4)
         self.score = QLabel(objectName="detailScore")
         self.score.setTextFormat(Qt.TextFormat.PlainText)
-        self.score.setAccessibleName("Incident score out of 100")
+        self.score.setAccessibleDescription("Incident score out of 100")
         self.score.setToolTip("A higher score means review this sooner. This is not a PC health score.")
         score_column.addWidget(self.score)
         headline.addLayout(score_column)
         layout.addLayout(headline)
 
         actions = QHBoxLayout()
+        self.review_actions = actions
         self.review_badge = _body_label("Active", "mutedLabel")
         self.review_badge.setMinimumWidth(110)
         actions.addWidget(self.review_badge)
@@ -411,6 +445,8 @@ class IncidentDetailWidget(QWidget):
         self.action_feedback = _body_label("", "mutedLabel")
 
         self.tabs = QTabWidget()
+        self.tabs.setAccessibleName("Problem details")
+        self.tabs.setAccessibleDescription("Summary, optional AI guidance, original Windows logs, and timeline. Use Left and Right arrows on the tab bar to choose a section.")
         self.tabs.setObjectName("detailTabs")
         self.tabs.setDocumentMode(True)
         self.tabs.tabBar().setDrawBase(False)
@@ -421,7 +457,7 @@ class IncidentDetailWidget(QWidget):
         self.plain_explanation = _body_label("", "detailFieldTitle")
         summary_layout.addWidget(self.plain_explanation)
         self.summary = _body_label()
-        self.summary.setAccessibleName("Incident summary")
+        self.summary.setAccessibleDescription("Incident summary")
         summary_layout.addWidget(self.summary)
         overview_layout.addWidget(summary_card)
         self.case_actions = QHBoxLayout()
@@ -437,7 +473,7 @@ class IncidentDetailWidget(QWidget):
         self.priority_guidance = _body_label()
         guidance_layout.addWidget(self.priority_guidance)
         self.builtin_steps = _body_label()
-        self.builtin_steps.setAccessibleName("Built-in troubleshooting checks")
+        self.builtin_steps.setAccessibleDescription("Built-in troubleshooting checks")
         guidance_layout.addWidget(self.builtin_steps)
         self.next_steps_button = QPushButton("Explore optional AI guidance", objectName="secondaryButton")
         self.next_steps_button.setIcon(icon("arrow"))
@@ -446,10 +482,11 @@ class IncidentDetailWidget(QWidget):
         overview_layout.addWidget(guidance_card)
         overview_layout.addWidget(self.review_controls)
         self.personal_notes = DisclosureSection("Your notes and temporary hiding")
+        self.personal_notes.body.addWidget(_body_label("Your local note · stays on this PC and is not sent to AI"))
         self.note_editor = QPlainTextEdit()
         self.note_editor.setPlaceholderText("For example: started after a driver update. Notes stay local and are not sent to AI.")
         self.note_editor.setAccessibleName("Your local note for this issue")
-        self.note_editor.setMaximumHeight(100)
+        self.note_editor.setMinimumHeight(100)
         self.personal_notes.body.addWidget(self.note_editor)
         note_actions = QHBoxLayout()
         self.save_note_button = QPushButton("Save note", objectName="secondaryButton")
@@ -495,7 +532,7 @@ class IncidentDetailWidget(QWidget):
             row.addWidget(_body_label(title), 1)
             value = QLabel(objectName="detailFieldTitle")
             value.setTextFormat(Qt.TextFormat.PlainText)
-            value.setAccessibleName(f"{title} score contribution")
+            value.setAccessibleDescription(f"{title} score contribution")
             row.addWidget(value)
             scoring_layout.addLayout(row)
             bar = QProgressBar()
@@ -522,12 +559,13 @@ class IncidentDetailWidget(QWidget):
         ))
         ai_layout.addWidget(self.action_feedback)
         self.ai_status = _body_label("", "mutedLabel")
-        self.ai_status.setAccessibleName("AI analysis status")
+        self.ai_status.setAccessibleDescription("AI analysis status")
         ai_layout.addWidget(self.ai_status)
         self.ai_model_hint = _body_label("", "modelCostHint")
-        self.ai_model_hint.setAccessibleName("Model and cost category for the next AI request")
+        self.ai_model_hint.setAccessibleDescription("Model and cost category for the next AI request")
         ai_layout.addWidget(self.ai_model_hint)
         ai_actions = QHBoxLayout()
+        self.ai_actions = ai_actions
         self.analyze_button = QPushButton("Explain with AI / retry", objectName="secondaryButton")
         self.analyze_button.setIcon(icon("spark"))
         self.analyze_button.setToolTip("Send this incident to OpenAI using your saved key and model. API charges may apply.")
@@ -567,7 +605,7 @@ class IncidentDetailWidget(QWidget):
         ):
             card, card_layout = _section(title)
             value = _body_label()
-            value.setAccessibleName(title)
+            value.setAccessibleDescription(title)
             card_layout.addWidget(value)
             analysis_layout.addWidget(card)
             self.ai_fields[key] = value
@@ -611,12 +649,32 @@ class IncidentDetailWidget(QWidget):
         super().resizeEvent(event)
         self._arrange_overview()
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange) and hasattr(self, "ai_actions"):
+            self._arrange_overview()
+
     def _arrange_overview(self):
         """Use overview columns at widths of at least 900 pixels; otherwise stack sections."""
         buttons = [self.case_actions.itemAt(index).widget() for index in range(3)]
         required = sum(button.sizeHint().width() for button in buttons) + 40
         self.case_actions.setDirection(QBoxLayout.Direction.LeftToRight if required <= self.width() - 64
                                        else QBoxLayout.Direction.TopToBottom)
+        for row in (self.review_actions, getattr(self, "ai_actions", None)):
+            if row is None:
+                continue
+            controls = [row.itemAt(index).widget() for index in range(row.count())]
+            controls = [control for control in controls if control is not None]
+            required = sum(control.sizeHint().width() for control in controls) + 64
+            row.setDirection(QBoxLayout.Direction.LeftToRight if required <= self.width()
+                             else QBoxLayout.Direction.TopToBottom)
+        self.navigation_caption.setVisible(
+            self.back_button.sizeHint().width() + self.check_again_button.sizeHint().width()
+            + self.navigation_caption.sizeHint().width() + 64 <= self.width())
+        self.navigation.setDirection(
+            QBoxLayout.Direction.LeftToRight if self.back_button.sizeHint().width()
+            + self.check_again_button.sizeHint().width() + 24 <= self.width()
+            else QBoxLayout.Direction.TopToBottom)
         wide = self.width() >= 900
         if wide == self._wide_overview:
             return

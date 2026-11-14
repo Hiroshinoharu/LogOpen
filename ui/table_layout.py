@@ -26,6 +26,7 @@ class RoomyTable(QObject):
         self.widths = list(widths)
         self.flexible = flexible
         self._adjusting = False
+        self._row_height = max(40, table.verticalHeader().defaultSectionSize())
         header = table.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -35,8 +36,19 @@ class RoomyTable(QObject):
         table.setHorizontalScrollMode(table.ScrollMode.ScrollPerPixel)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         table.viewport().installEventFilter(self)
+        table.installEventFilter(self)
         header.sectionResized.connect(self._user_resize)
+        self._scale_rows()
         self._apply()
+
+    def _scale_rows(self):
+        """Keep cell text and headings fully visible when the application font changes."""
+        height = max(self._row_height, self.table.fontMetrics().height() + 20)
+        rows = self.table.verticalHeader()
+        rows.setMinimumSectionSize(height)
+        rows.setDefaultSectionSize(height)
+        header = self.table.horizontalHeader()
+        header.setMinimumHeight(header.fontMetrics().height() + 20)
 
     def fit_contents(self):
         """Fit up to 1,000 rows with padding and full-text tooltips, capped at 900 px per column."""
@@ -71,4 +83,9 @@ class RoomyTable(QObject):
         """Redistribute extra viewport width when the window grows or becomes visible."""
         if event.type() == QEvent.Type.Resize:
             self._apply()
+        elif watched is self.table and event.type() in (
+            QEvent.Type.FontChange, QEvent.Type.StyleChange, QEvent.Type.Show,
+        ):
+            self._scale_rows()
+            self.fit_contents()
         return super().eventFilter(watched, event)

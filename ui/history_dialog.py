@@ -26,6 +26,8 @@ class HistoryDialog(QDialog):
         hint.setWordWrap(True)
         layout.addWidget(hint)
         self.table = QTableWidget(len(scans), 4)
+        self.table.setAccessibleName("Saved scans")
+        self.table.setAccessibleDescription("Use arrow keys to select a scan, then choose Open. Press Enter to open the selected scan.")
         self.table.setHorizontalHeaderLabels(["Saved", "Scope", "Incidents", "Coverage"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -48,6 +50,7 @@ class HistoryDialog(QDialog):
         self.roomy_table.fit_contents()
         self.table.sortItems(0, Qt.SortOrder.DescendingOrder)
         self.table.itemDoubleClicked.connect(self.accept)
+        self.table.itemActivated.connect(self.accept)
         layout.addWidget(self.table)
         self.message = QLabel("No saved scans yet." if not scans else "")
         layout.addWidget(self.message)
@@ -55,6 +58,7 @@ class HistoryDialog(QDialog):
                                    QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Open).setEnabled(bool(scans))
         layout.addWidget(buttons)
         if scans:
             self.table.setCurrentCell(0, 0)
@@ -99,6 +103,7 @@ class ComparisonDialog(QDialog):
             ("no_longer_observed", "No longer observed"),
         ) for incident in comparison.get(key, [])]
         table = QTableWidget(len(entries), 4)
+        table.setAccessibleName("Changes between scans")
         table.setHorizontalHeaderLabels(["Change", "Classification", "Computer", "Priority"])
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)

@@ -71,6 +71,9 @@ def main():
         original_directory = Path.cwd()
         try:
             _prepare_runtime()
+            if not smoke_test:
+                from notification_delivery import initialize_app_identity
+                initialize_app_identity()
             from PyQt6.QtWidgets import QApplication
             from ui.main_window import MainWindow
 

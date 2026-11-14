@@ -5,8 +5,8 @@ from uuid import uuid4
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
-                            QDialogButtonBox, QFileDialog, QHBoxLayout, QHeaderView,
-                            QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea,
+                            QDialogButtonBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView,
+                            QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSizePolicy,
                             QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from history_store import incident_key
@@ -16,12 +16,14 @@ from support_report import redact_support, support_text
 from ui.guidance import problem_explanation, problem_next_steps
 from ui.history_dialog import ComparisonDialog
 from ui.icons import decorate_buttons
+from ui.table_layout import RoomyTable
 
 
 def body(text):
     label = QLabel(text)
     label.setTextFormat(Qt.TextFormat.PlainText)
     label.setWordWrap(True)
+    label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
     return label
 
@@ -31,6 +33,20 @@ def finish(dialog, layout):
     buttons.rejected.connect(dialog.reject)
     layout.addWidget(buttons)
     decorate_buttons(dialog)
+
+
+def scroll_fields(layout):
+    """Keep long forms reachable while their final actions remain visible below."""
+    scroll = QScrollArea(objectName="detailScroll")
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    content = QWidget(objectName="detailContent")
+    fields = QVBoxLayout(content)
+    fields.setContentsMargins(0, 0, 12, 0)
+    scroll.setWidget(content)
+    layout.addWidget(scroll, 1)
+    return fields
 
 
 def simple_explanation(incident):
@@ -64,10 +80,16 @@ class SimpleExplanationDialog(QDialog):
         self.setWindowTitle("Explain this simply")
         self.resize(650, 530)
         layout = QVBoxLayout(self)
-        layout.addWidget(body("Built-in explanation · works offline · no AI request"))
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        reading = QVBoxLayout(content)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+        reading.addWidget(body("Built-in explanation · works offline · no AI request"))
         for title, text in simple_explanation(incident):
-            layout.addWidget(body(title))
-            layout.addWidget(body(text))
+            reading.addWidget(body(title))
+            reading.addWidget(body(text))
         finish(self, layout)
 
 
@@ -98,10 +120,13 @@ class ChecklistDialog(QDialog):
         for step in steps:
             self.add_step(step)
         custom = QHBoxLayout()
+        custom_label = QLabel("&Add your own check")
+        layout.addWidget(custom_label)
         self.custom = QLineEdit()
         self.custom.setMaxLength(4000)
         self.custom.setPlaceholderText("Add your own check, including a step from AI guidance")
         self.custom.setAccessibleName("New troubleshooting check")
+        custom_label.setBuddy(self.custom)
         custom.addWidget(self.custom, 1)
         add = QPushButton("Add check")
         add.clicked.connect(self.add_custom)
@@ -121,9 +146,12 @@ class ChecklistDialog(QDialog):
         self.steps_layout.addWidget(body(step["text"]))
         self.steps_layout.addWidget(checked)
         result = QPlainTextEdit()
+        result_label = QLabel("Result / observation")
+        result_label.setBuddy(result)
+        self.steps_layout.addWidget(result_label)
         result.setPlaceholderText("What happened? Record an error code, observation, or next action.")
         result.setAccessibleName("Result: " + step["text"])
-        result.setMaximumHeight(85)
+        result.setMinimumHeight(88)
         result.setPlainText(step["result"])
         self.steps_layout.addWidget(result)
         self.rows.append((step, checked, result))
@@ -162,6 +190,7 @@ class IssueHistoryDialog(QDialog):
         layout.addWidget(body("This issue's observations, notes, review decisions and checks. Observations search the latest 500 scans; the latest 500 actions are shown. Overlapping scans can contain the same events. Action history starts when this feature is installed."))
         entries = store.issue_timeline(incident)
         self.table = QTableWidget(len(entries), 3)
+        self.table.setAccessibleName("Incident observations and saved actions")
         self.table.setHorizontalHeaderLabels(["Time", "Activity", "Details"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -171,8 +200,11 @@ class IssueHistoryDialog(QDialog):
         for row, entry in enumerate(entries):
             for column, field in enumerate(("created_at", "kind", "detail")):
                 self.table.setItem(row, column, QTableWidgetItem(str(entry[field])))
+        self.roomy_table = RoomyTable(self.table, [220, 170, 420], flexible=2)
+        self.roomy_table.fit_contents()
         layout.addWidget(self.table, 1)
         self.detail = QPlainTextEdit()
+        self.detail.setAccessibleName("Selected incident history entry")
         self.detail.setReadOnly(True)
         self.detail.setMaximumHeight(170)
         self.table.itemSelectionChanged.connect(lambda: self.detail.setPlainText(
@@ -190,17 +222,29 @@ class CompareScansDialog(QDialog):
         super().__init__(parent)
         self.result, self.store = result, store
         self.setWindowTitle("Compare scans")
-        self.resize(720, 260)
+        self.resize(720, 400)
         layout = QVBoxLayout(self)
-        layout.addWidget(body(f"Current scan: {result.created_at or 'Unknown time'}. Choose an earlier baseline from the latest 100 saved scans. Only complete scans with matching scope can show no longer detected problems."))
+        fields = scroll_fields(layout)
+        fields.addWidget(body(f"Current scan: {result.created_at or 'Unknown time'}. Choose an earlier baseline from the latest 100 saved scans. Only complete scans with matching scope can show no longer detected problems."))
         self.baseline = QComboBox()
+        self.baseline.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.baseline.setMinimumContentsLength(12)
+        baseline_label = QLabel("&Earlier scan to compare")
+        baseline_label.setBuddy(self.baseline)
+        fields.addWidget(baseline_label)
         self.baseline.setAccessibleName("Comparison baseline scan")
         for scan in store.list_scans():
             if scan["id"] != result.scan_id and (result.created_at is None or scan["created_at"].timestamp() < result.created_at.timestamp()):
                 self.baseline.addItem(f"{scan['created_at'].astimezone():%Y-%m-%d %H:%M:%S} · {', '.join(scan['log_types'])} · {scan['hours']}h · {'Complete' if scan['complete'] else 'Partial'}", scan["id"])
-        layout.addWidget(self.baseline)
+                self.baseline.setItemData(self.baseline.count() - 1, self.baseline.itemText(self.baseline.count() - 1), Qt.ItemDataRole.ToolTipRole)
+        fields.addWidget(self.baseline)
+        self.baseline_details = body(self.baseline.currentText())
+        self.baseline_details.setAccessibleDescription("Selected baseline scan details")
+        self.baseline.currentTextChanged.connect(self.baseline_details.setText)
+        fields.addWidget(self.baseline_details)
         self.feedback = body("No earlier saved scans available." if not self.baseline.count() else "")
-        layout.addWidget(self.feedback)
+        fields.addWidget(self.feedback)
+        fields.addStretch()
         compare = QPushButton("Compare with this scan")
         compare.setEnabled(self.baseline.count() > 0)
         compare.clicked.connect(self.compare)
@@ -227,8 +271,9 @@ class SupportReportDialog(QDialog):
         self.setWindowTitle("Prepare support report")
         self.resize(900, 720)
         layout = QVBoxLayout(self)
-        layout.addWidget(body("Review and edit the exact text before saving. Common names and paths can be masked; automatic masking may miss details in log messages. Nothing is sent or uploaded."))
-        options = QHBoxLayout()
+        fields = scroll_fields(layout)
+        fields.addWidget(body("Review and edit the exact text before saving. Common names and paths can be masked; automatic masking may miss details in log messages. Nothing is sent or uploaded."))
+        options = QVBoxLayout()
         self.mask_user = QCheckBox("Mask usernames / emails")
         self.mask_computer = QCheckBox("Mask computer names")
         self.mask_paths = QCheckBox("Mask file paths")
@@ -237,19 +282,26 @@ class SupportReportDialog(QDialog):
             checkbox.setChecked(True)
         for checkbox in (self.mask_user, self.mask_computer, self.mask_paths, self.notes):
             options.addWidget(checkbox)
-        layout.addLayout(options)
+        fields.addLayout(options)
         self.extra = QLineEdit()
+        extra_label = QLabel("&Additional text to remove (separate exact values with semicolons)")
+        extra_label.setWordWrap(True)
+        extra_label.setBuddy(self.extra)
+        fields.addWidget(extra_label)
         self.extra.setPlaceholderText("Additional text to remove (separate exact values with semicolons)")
         self.extra.setAccessibleName("Additional sensitive text to mask")
-        layout.addWidget(self.extra)
-        regenerate = QPushButton("Rebuild preview with these options (replaces edits)")
+        fields.addWidget(self.extra)
+        fields.addWidget(body("Rebuilding the preview replaces any edits you made below."))
+        regenerate = QPushButton("Rebuild preview")
+        regenerate.setToolTip("Apply the masking choices and replace the current preview, including manual edits.")
         regenerate.clicked.connect(self.rebuild)
-        layout.addWidget(regenerate)
+        fields.addWidget(regenerate)
         self.preview = QPlainTextEdit()
+        self.preview.setMinimumHeight(240)
         self.preview.setAccessibleName("Editable support report preview; saved exactly as shown")
-        layout.addWidget(self.preview, 1)
+        fields.addWidget(self.preview, 1)
         self.feedback = body("Troubleshooting results are included. Review them for personal details too.")
-        layout.addWidget(self.feedback)
+        fields.addWidget(self.feedback)
         save = QPushButton("Save reviewed report…")
         save.clicked.connect(self.save)
         layout.addWidget(save)

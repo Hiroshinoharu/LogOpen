@@ -32,7 +32,12 @@ and produces terminal and JSON reports.
    **Windows logs** contains the original evidence. **Technical details and
    scoring** expands the detailed metadata.
 
-The three-step guide shows your place in the flow. **Quick guide** reopens the
+The scan workspace brings symptom selection, scan options, and the main action
+together. After a scan, it becomes more compact to make room for the results.
+On taller windows, clickable summary cards show problem, priority, and evidence
+counts. The welcome illustration is decorative and does not represent scan results.
+
+The three-step guide shows your place in the flow on roomy windows. **Quick guide** reopens the
 instructions at any time. Icons accompany text labels, and priority always has
 a written label. These results describe the Windows logs checked; they are not
 a complete PC health assessment.
@@ -116,9 +121,13 @@ a complete PC health assessment.
   entries** opens the filtered timeline. Active filter chips on taller windows
   can be removed individually. Relative scan times retain the exact timestamp
   in a tooltip; reports with no scan timestamp say it is unavailable.
-- **View → Appearance** offers saved dark/light themes and normal/large/larger
-  text. Smaller windows and larger text collapse secondary guidance and summary
-  cards to keep the result list usable.
+- **View → Reading and accessibility…** (**Ctrl+Shift+A**, also **Settings → App →
+  Reading options…**) offers saved dark/light themes, text sizes up to 200%, and
+  reduced motion. **Ctrl++ / Ctrl+-** changes text size; **Ctrl+0** restores the
+  comfortable size. **Ctrl+F** focuses problem search. Enlarged forms scroll,
+  keyboard focus stays visible, and priorities have written labels alongside
+  colours and icons. Animations start disabled unless previously enabled.
+  See the [accessibility guide](docs/accessibility.md) for controls and checks.
 - **What would you like to check?** offers General check, Internet problems,
   App crashes, Slow startup, Update failures, Security concerns, and advanced
   performance/custom choices. Selecting one sets the source logs for the next
@@ -171,7 +180,7 @@ a complete PC health assessment.
   Windows Terminal must be installed to use that host.
 - **Scan options** chooses a General, Security, Networking, Performance and updates,
   or Custom profile, with editable channels, lookback hours, and record limit.
-  **Advanced: Windows logs and detection rules** contains channel and record
+  **Advanced scan options** contains channel and record
   limits. **Choose Windows logs…** searches registered Windows channels and
   checks read access. **Detection rules…** edits validated custom JSON rules
   and shows built-in rules.
@@ -204,7 +213,7 @@ a complete PC health assessment.
 - **View → Timeline of filtered incidents…** places evidence from different logs
   on one chronological table. Each incident also has a **Timeline** tab, including
   raw structured payload, record identity, correlation IDs, and matching rules.
-- **Watch for new incidents** in the bottom bar (also **Monitor → Start live
+- **Live monitoring** in the header (**Ctrl+M**), **Watch for new incidents** in the bottom bar (also **Monitor → Start live
   monitoring…**) runs local scans every 30–3,600 seconds after the previous scan
   finishes; the default is 60 seconds. It uses the current scope and saves history.
   The incident list refreshes automatically, retaining filters, sorting, surviving
@@ -222,6 +231,13 @@ a complete PC health assessment.
   before starting to collect only warnings and detection-rule matches.
   Monitoring always skips automatic AI and stops when the app closes. Use
   **View latest monitoring scan** to review results, or **Stop watching** to stop.
+  A prominent status panel stays visible above results and problem details while
+  monitoring runs, showing scanning, waiting, failure, and quiet-hour states.
+  The tray icon remains present during monitoring, including when alerts are off.
+  **Test notification** requests one sample banner even during LogOpen quiet hours;
+  it does not change your saved preferences. **Notification options** shows why
+  alerts are paused and links to Windows notification settings. Windows controls
+  whether a requested banner appears; a successful request is not delivery proof.
   Resizing or maximizing prioritizes table space: summary cards and the Start here
   card collapse on shorter windows, and multiple warnings are summarized with the
   full text available under **Coverage**. Large text on very short windows also

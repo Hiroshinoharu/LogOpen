@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from notification_delivery import apply_shortcut_identity
+
 
 class ShortcutError(RuntimeError):
     """A fixed, user-facing shortcut failure."""
@@ -47,6 +49,7 @@ def create_desktop_shortcut(*, shell=None):
         shortcut.IconLocation = icon
         shortcut.Description = "LogOpen — make sense of your Windows problems"
         shortcut.Save()
+        apply_shortcut_identity(destination)
         return destination
     except ShortcutError:
         raise

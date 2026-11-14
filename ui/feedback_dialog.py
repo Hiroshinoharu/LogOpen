@@ -1,8 +1,9 @@
 """Review/edit a diagnostic report, then save or copy it for voluntary sharing."""
 from copy import deepcopy
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QPlainTextEdit, QCheckBox, QPushButton, QFileDialog, QApplication
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QPlainTextEdit, QCheckBox, QPushButton,
+                            QFileDialog, QApplication, QFrame, QScrollArea, QWidget)
 from feedback_report import problem_report
 from report_io import _atomic_write
 from ui.case_tools import body, finish
@@ -15,24 +16,40 @@ class FeedbackDialog(QDialog):
         self.setWindowTitle("Report a LogOpen problem")
         self.resize(760, 700)
         layout = QVBoxLayout(self)
-        layout.addWidget(body("Describe what happened and how to reproduce it. Review the report before sharing. "
+        scroll = QScrollArea(objectName="settingsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget(objectName="settingsContent")
+        fields = QVBoxLayout(content)
+        fields.addWidget(body("Describe what happened and how to reproduce it. Review the report before sharing. "
                               "Masking can miss sensitive details. Nothing is uploaded automatically."))
         self.description = QPlainTextEdit()
         self.description.setPlaceholderText("What did you do? What did you expect? What happened instead?")
         self.description.setAccessibleName("Problem description")
-        self.description.setMaximumHeight(100)
-        layout.addWidget(self.description)
-        self.include = QCheckBox("Include selected incident evidence (masked; excludes local notes)")
+        self.description.setMinimumHeight(100)
+        self.description.setMaximumHeight(200)
+        description_label = body("What happened?")
+        description_label.setBuddy(self.description)
+        fields.addWidget(description_label)
+        fields.addWidget(self.description)
+        self.include = QCheckBox("Include selected incident evidence")
+        self.include.setAccessibleDescription("Uses masked incident evidence and excludes your local notes. Review the preview before sharing.")
         self.include.setEnabled(bool(self.incidents))
-        layout.addWidget(self.include)
+        fields.addWidget(self.include)
         rebuild = QPushButton("Build report preview (replaces edits)")
         rebuild.clicked.connect(self.rebuild)
-        layout.addWidget(rebuild)
+        fields.addWidget(rebuild)
         self.preview = QPlainTextEdit()
         self.preview.setAccessibleName("Editable problem report; copied or saved exactly as shown")
-        layout.addWidget(self.preview, 1)
+        self.preview.setMinimumHeight(220)
+        preview_label = body("Review and edit your report")
+        preview_label.setBuddy(self.preview)
+        fields.addWidget(preview_label)
+        fields.addWidget(self.preview, 1)
         self.feedback = body("")
-        layout.addWidget(self.feedback)
+        self.feedback.setAccessibleDescription("Problem report result")
+        fields.addWidget(self.feedback)
         copy = QPushButton("Copy reviewed report")
         copy.clicked.connect(self.copy)
         save = QPushButton("Save reviewed report…")
@@ -40,8 +57,10 @@ class FeedbackDialog(QDialog):
         issue = QPushButton("Open GitHub issue form")
         issue.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/Hiroshinoharu/LogOpen/issues/new/choose")))
         for button in (copy, save, issue):
-            layout.addWidget(button)
-        layout.addWidget(body("The issue form opens without attaching your report. Paste or attach it yourself only after review."))
+            fields.addWidget(button)
+        fields.addWidget(body("The issue form opens without attaching your report. Paste or attach it yourself only after review."))
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
         finish(self, layout)
         self.rebuild()
 

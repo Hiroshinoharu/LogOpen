@@ -38,8 +38,8 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"
 Source: "{#SourceRoot}\dist\LogOpen\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\LogOpen"; Filename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"
-Name: "{autodesktop}\LogOpen"; Filename: "{app}\LogOpen.exe"; IconFilename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"; Tasks: desktopicon
+Name: "{group}\LogOpen"; Filename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"; AppUserModelID: "LogOpen.Desktop"
+Name: "{autodesktop}\LogOpen"; Filename: "{app}\LogOpen.exe"; IconFilename: "{app}\LogOpen.exe"; WorkingDir: "{localappdata}\LogOpen"; Tasks: desktopicon; AppUserModelID: "LogOpen.Desktop"
 
 [Dirs]
 Name: "{localappdata}\LogOpen"; Flags: uninsneveruninstall

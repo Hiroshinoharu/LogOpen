@@ -138,9 +138,10 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(24, 22, 24, 20)
         layout.setSpacing(16)
         layout.addWidget(_label("Settings", "pageTitle"))
-        layout.addWidget(_label("Choose AI help, your terminal, and app preferences."))
         self.tabs = QTabWidget()
         self.tabs.setObjectName("detailTabs")
+        self.tabs.setAccessibleName("Settings categories")
+        self.tabs.setMinimumHeight(160)
         layout.addWidget(self.tabs, 1)
 
         scroll = QScrollArea()
@@ -154,7 +155,7 @@ class SettingsDialog(QDialog):
         fields.setContentsMargins(0, 0, 12, 0)
         fields.setSpacing(12)
         fields.addWidget(_label("1. Choose whether to use AI", "sectionTitle"))
-        self.enabled_checkbox = QCheckBox("Use AI to explain problems")
+        self.enabled_checkbox = QCheckBox("Use optional AI help")
         fields.addWidget(self.enabled_checkbox)
         fields.addWidget(_label(
             "When enabled, selected problem details are sent to OpenAI using your API key. "
@@ -168,18 +169,20 @@ class SettingsDialog(QDialog):
         self.key_input.setMaxLength(2048)
         self.key_input.setPlaceholderText("Enter a new API key")
         self.key_input.setAccessibleName("OpenAI API Key")
+        self.key_input.setAccessibleDescription("Hidden as you type. Save a new key or leave empty to keep your existing key.")
         key_label.setBuddy(self.key_input)
         fields.addWidget(self.key_input)
         key_buttons = QHBoxLayout()
         self.save_key_button = _button("Save Key", self._save_key)
         self.save_key_button.setIcon(icon("key"))
-        self.remove_key_button = _button("Remove API Key", self._remove_key)
+        self.remove_key_button = _button("Remove key", self._remove_key)
+        self.remove_key_button.setAccessibleName("Remove saved OpenAI API key")
         key_buttons.addWidget(self.save_key_button)
         key_buttons.addWidget(self.remove_key_button)
         key_buttons.addStretch()
         fields.addLayout(key_buttons)
         self.key_status = _label("")
-        self.key_status.setAccessibleName("API key status")
+        self.key_status.setAccessibleDescription("API key status")
         fields.addWidget(self.key_status)
         self.detect_key_button = _button("Check this PC for a key", self._detect_key)
         self.detect_key_button.setIcon(icon("key"))
@@ -198,6 +201,7 @@ class SettingsDialog(QDialog):
         self.model_input.setMinimumContentsLength(16)
         self.model_input.lineEdit().setMaxLength(200)
         self.model_input.setAccessibleName("OpenAI model")
+        self.model_input.setAccessibleDescription("Choose from the list or type a compatible model ID. Your saved choice is kept.")
         self.model_input.setToolTip("Choose a model or type a compatible model ID. Your saved choice is kept.")
         self.model_input.setItemDelegate(ModelCostDelegate(self.model_input))
         # Show every bundled model immediately. Account discovery replaces these
@@ -215,11 +219,11 @@ class SettingsDialog(QDialog):
         cost_layout.setContentsMargins(12, 12, 12, 12)
         cost_layout.setSpacing(8)
         self.model_cost_tier = _label("", "modelCostTier")
-        self.model_cost_tier.setAccessibleName("Selected model cost category")
+        self.model_cost_tier.setAccessibleDescription("Selected model cost category")
         self.model_cost_description = _label("")
         self.model_cost_rates = _label("")
         self.model_cost_example = _label("")
-        self.model_cost_example.setAccessibleName("Illustrative model cost")
+        self.model_cost_example.setAccessibleDescription("Illustrative model cost")
         for label in (self.model_cost_tier, self.model_cost_description,
                       self.model_cost_rates, self.model_cost_example):
             cost_layout.addWidget(label)
@@ -256,6 +260,7 @@ class SettingsDialog(QDialog):
         self.max_analyses_input.valueChanged.connect(self._refresh_model_cost)
         self.model_input.currentTextChanged.connect(self._refresh_model_cost)
         self.max_analyses_input.setAccessibleName("Maximum AI analyses per scan")
+        self.max_analyses_input.setAccessibleDescription(f"Choose between {MIN_ANALYSES} and {MAX_ANALYSES}. This is not a spending limit.")
         limit_label.setBuddy(self.max_analyses_input)
         self.advanced.body.addWidget(self.max_analyses_input)
         self.advanced.body.addWidget(_label(
@@ -277,7 +282,11 @@ class SettingsDialog(QDialog):
         scroll.setWidget(content)
         self.tabs.addTab(scroll, icon("spark"), "AI help")
 
-        terminal_tab = QWidget()
+        terminal_scroll = QScrollArea(objectName="settingsScroll")
+        terminal_scroll.setWidgetResizable(True)
+        terminal_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        terminal_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        terminal_tab = QWidget(objectName="settingsContent")
         terminal_layout = QVBoxLayout(terminal_tab)
         terminal_layout.setContentsMargins(0, 16, 0, 0)
         terminal_layout.setSpacing(14)
@@ -304,7 +313,8 @@ class SettingsDialog(QDialog):
         terminal_layout.addWidget(self.open_terminal_button)
         terminal_layout.addWidget(_label("This opens an empty terminal. Copy and review a suggested command before pasting it. Existing saved commands keep their original format."))
         terminal_layout.addStretch()
-        self.tabs.addTab(terminal_tab, icon("terminal"), "Terminal")
+        terminal_scroll.setWidget(terminal_tab)
+        self.tabs.addTab(terminal_scroll, icon("terminal"), "Terminal")
 
         app_scroll = QScrollArea()
         app_scroll.setObjectName("settingsScroll")
@@ -315,6 +325,12 @@ class SettingsDialog(QDialog):
         app_layout = QVBoxLayout(app_content)
         app_layout.setContentsMargins(0, 16, 12, 0)
         app_layout.setSpacing(14)
+        reading_options = getattr(parent, "_open_reading_options", None)
+        if callable(reading_options):
+            app_layout.addWidget(_label("Reading and accessibility", "sectionTitle"))
+            app_layout.addWidget(_label("Choose comfortable text, colours, and motion settings."))
+            self.reading_options_button = _button("Reading options…", reading_options)
+            app_layout.addWidget(self.reading_options_button)
         app_layout.addWidget(_label("Sound effects", "sectionTitle"))
         self.privacy_button = _button("Privacy and local data…", self.privacy_requested.emit)
         app_layout.addWidget(self.privacy_button)
@@ -360,7 +376,7 @@ class SettingsDialog(QDialog):
 
         self.message_label = _label("", "settingsMessage")
         self.message_label.setMinimumHeight(36)
-        self.message_label.setAccessibleName("Settings result")
+        self.message_label.setAccessibleDescription("Settings result")
         layout.addWidget(self.message_label)
         footer = QHBoxLayout()
         footer.addStretch()
@@ -382,7 +398,7 @@ class SettingsDialog(QDialog):
         self.terminal_host_combo.setCurrentIndex(self.terminal_host_combo.findData(terminal.host))
         self._refresh_key_status()
         self._refresh_model_cost()
-        self._message("Showing the bundled model catalog. Account availability has not been checked.")
+        self._message("Bundled models ready. Account availability is unchecked.")
         decorate_buttons(self)
 
     def showEvent(self, event):
@@ -548,6 +564,10 @@ class SettingsDialog(QDialog):
         except ValueError:
             self.advanced.set_expanded(True)
             self._message("Enter a valid model name and analysis limit.")
+            self.tabs.setCurrentIndex(0)
+            self.model_input.setAccessibleDescription("Enter a valid model ID using letters, numbers, dots, underscores or hyphens.")
+            self.model_input.setFocus()
+            self.model_input.lineEdit().selectAll()
             return False
         except Exception:
             self._message("Could not save AI settings. Check your user profile permissions.")

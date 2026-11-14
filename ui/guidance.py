@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -166,7 +167,7 @@ class ScanJourney(QFrame):
             row.setSpacing(10)
             badge = QLabel(str(number), objectName="journeyNumber")
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            badge.setFixedSize(26, 26)
+            badge.setMinimumSize(30, 30)
             row.addWidget(badge)
             text = QVBoxLayout()
             text.setSpacing(2)
@@ -203,17 +204,28 @@ class QuickStartDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
-        layout.addWidget(QLabel("Your first scan", objectName="pageTitle"))
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        reading = QVBoxLayout(content)
+        reading.setContentsMargins(0, 0, 12, 0)
+        reading.setSpacing(16)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+        reading.addWidget(QLabel("Your first scan", objectName="pageTitle"))
         for title, message in (
             ("1. Scan my PC", "Choose a symptom or keep General check, then choose Scan my PC. LogOpen reads recent Windows activity and groups related warnings and errors."),
             ("2. Review the results", "The Start here card highlights an unreviewed problem in your current view. These are clues from Windows logs, rather than a complete health check of your PC."),
             ("3. Understand a problem", "Choose Understand this problem and read Checks you can try in Summary. These built-in checks work without AI. Next steps (AI) offers optional extra guidance."),
             ("Optional extras", "Previous scans are in Scan history. AI guidance needs your own OpenAI API key in Settings and may incur API charges. Scanning works without a key."),
         ):
-            layout.addWidget(QLabel(title, objectName="detailFieldTitle"))
+            heading = QLabel(title, objectName="detailFieldTitle")
+            heading.setWordWrap(True)
+            reading.addWidget(heading)
             body = QLabel(message, objectName="detailBody")
             body.setWordWrap(True)
-            layout.addWidget(body)
+            reading.addWidget(body)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Got it")
         buttons.accepted.connect(self.accept)

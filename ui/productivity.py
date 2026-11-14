@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QSplitter, QWidge
 from history_store import incident_key
 from incident_followup import focused_options, followup_summary
 from ui.appearance import themed_stylesheet
+from ui.accessibility import ReadingOptionsDialog, TEXT_SIZES
 from ui.icons import icon, retint_icons
 from ui.insights import CoverageDialog, IncidentPreview, relative_time
 from ui.table_sorting import numeric_key, timestamp_key
@@ -33,6 +34,7 @@ class ProductivityMixin:
         self.events_card.activated.connect(self._show_timeline)
         self.events_card.setAccessibleName("Show timeline of filtered problems")
         self.events_card.setToolTip("Inspect the Windows records behind the filtered problems")
+        self._update_metric_descriptions()
         self.group_action = QAction("Group repeated problems", self, checkable=True)
         self.group_action.setChecked(str(self._ui_settings.value("ui/group_problems", False)).lower() in ("true", "1"))
         self.view_menu.addAction(self.group_action)
@@ -80,7 +82,10 @@ class ProductivityMixin:
         self.view_menu.addAction("What was checked?", self._show_coverage)
 
         appearance = self.view_menu.addMenu("Appearance")
+        self.reading_action = self.view_menu.addAction("Reading and accessibility…", self._open_reading_options)
+        self.reading_action.setShortcut(QKeySequence("Ctrl+Shift+A"))
         theme_group = QActionGroup(self)
+        self._theme_actions = {}
         self._theme = self._ui_settings.value("ui/theme", "dark")
         if self._theme not in ("dark", "light"):
             self._theme = "dark"
@@ -89,18 +94,27 @@ class ProductivityMixin:
             action.setCheckable(True)
             theme_group.addAction(action)
             action.setChecked(key == self._theme)
+            self._theme_actions[key] = action
             action.triggered.connect(lambda _checked=False, value=key: self._set_appearance(theme=value))
         appearance.addSeparator()
         size_group = QActionGroup(self)
+        self._text_size_actions = {}
         self._text_size = self._ui_settings.value("ui/text_size", "normal")
-        if self._text_size not in ("normal", "large", "larger"):
+        if self._text_size not in dict(TEXT_SIZES):
             self._text_size = "normal"
-        for key, label in (("normal", "Normal text"), ("large", "Large text"), ("larger", "Larger text")):
+        for key, label in TEXT_SIZES:
             action = appearance.addAction(label)
             action.setCheckable(True)
             size_group.addAction(action)
             action.setChecked(key == self._text_size)
+            self._text_size_actions[key] = action
             action.triggered.connect(lambda _checked=False, value=key: self._set_appearance(size=value))
+        self.increase_text_action = self.view_menu.addAction("Increase text size", lambda: self._change_text_size(1))
+        self.increase_text_action.setShortcuts(QKeySequence.keyBindings(QKeySequence.StandardKey.ZoomIn) + [QKeySequence("Ctrl+=")])
+        self.decrease_text_action = self.view_menu.addAction("Decrease text size", lambda: self._change_text_size(-1))
+        self.decrease_text_action.setShortcut(QKeySequence.StandardKey.ZoomOut)
+        self.reset_text_action = self.view_menu.addAction("Restore comfortable text", lambda: self._set_appearance(size="normal"))
+        self.reset_text_action.setShortcut(QKeySequence("Ctrl+0"))
         self._set_appearance(save=False)
         self._review_timer = QTimer(self)
         self._review_timer.setInterval(60_000)
@@ -113,11 +127,34 @@ class ProductivityMixin:
         self._text_size = size or self._text_size
         self.setStyleSheet(themed_stylesheet(self._base_stylesheet, self._theme, self._text_size))
         retint_icons(self, self._theme == "light")
+        if hasattr(self, "signal_visual"):
+            self.signal_visual.set_theme(self._theme == "light")
+        for value, action in self._theme_actions.items():
+            action.setChecked(value == self._theme)
+        for value, action in self._text_size_actions.items():
+            action.setChecked(value == self._text_size)
         if save:
             self._ui_settings.setValue("ui/theme", self._theme)
             self._ui_settings.setValue("ui/text_size", self._text_size)
             self._ui_settings.sync()
         self._update_layout_density()
+
+    def _open_reading_options(self):
+        ReadingOptionsDialog(self).exec()
+
+    def _update_metric_descriptions(self):
+        for card, value, singular, plural in (
+            (self.problems_card, self.incident_total, "problem found", "problems found"),
+            (self.attention_card, self.attention_total, "High or Critical priority problem", "High or Critical priority problems"),
+            (self.events_card, self.event_total, "Windows log entry", "Windows log entries"),
+        ):
+            purpose = singular if value.text() == "1" else plural
+            card.setAccessibleDescription(f"{value.text()} {purpose}. {card.toolTip()}.")
+
+    def _change_text_size(self, direction):
+        sizes = [key for key, _label in TEXT_SIZES]
+        index = sizes.index(self._text_size)
+        self._set_appearance(size=sizes[max(0, min(len(sizes) - 1, index + direction))])
 
     def _grouping_changed(self, enabled):
         self._ui_settings.setValue("ui/group_problems", enabled)

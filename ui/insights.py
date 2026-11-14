@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from html import escape
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView, QDialog, QDialogButtonBox, QFrame, QLabel,
     QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
@@ -13,24 +13,33 @@ from ui.guidance import problem_explanation, problem_next_steps
 from ui.table_layout import RoomyTable, expand_window
 
 
-class MetricCard(QFrame):
-    """Allow summary cards to act like labeled keyboard-accessible filter controls."""
+class MetricCard(QPushButton):
+    """Expose summary actions as native buttons to keyboards and assistive technology."""
 
     activated = pyqtSignal()
 
     def __init__(self):
         super().__init__()
+        self.setAutoDefault(False)
+        # The card's child labels provide its content; a decorated button icon
+        # must not be painted behind the central value.
+        self.setIconSize(QSize(0, 0))
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clicked.connect(self.activated.emit)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.activated.emit()
-        super().mousePressEvent(event)
+    def sizeHint(self):
+        size = super().sizeHint()
+        return size.expandedTo(self.layout().sizeHint()) if self.layout() is not None else size
+
+    def minimumSizeHint(self):
+        size = super().minimumSizeHint()
+        return size.expandedTo(self.layout().minimumSize()) if self.layout() is not None else size
 
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
-            self.activated.emit()
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if not event.isAutoRepeat():
+                self.click()
             event.accept()
         else:
             super().keyPressEvent(event)
@@ -80,6 +89,8 @@ class CoverageDialog(QDialog):
         heading.setWordWrap(True)
         layout.addWidget(heading)
         self.table = QTableWidget(len(names), 5)
+        self.table.setAccessibleName("Scan coverage by Windows log")
+        self.table.setAccessibleDescription("Use arrow keys to read coverage, collection limits, and suggested next actions.")
         self.table.setHorizontalHeaderLabels(["Windows log", "Coverage", "Read / retained", "Why collection stopped", "What to do next"])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         reasons = {

@@ -1,6 +1,7 @@
 """Edit validated custom detection data and inspect the built-in rule catalog."""
 
 import json
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QPlainTextEdit,
                             QPushButton, QTabWidget, QVBoxLayout)
 from detection_rules import BUILTIN_RULES, parse_custom_rules
@@ -23,17 +24,21 @@ class RuleEditorDialog(QDialog):
         layout.addWidget(label)
         tabs = QTabWidget()
         tabs.setObjectName("detailTabs")
+        tabs.setAccessibleName("Detection rule editors")
         self.editor = QPlainTextEdit(json.dumps(parse_custom_rules(rules_json), indent=2))
         self.editor.setAccessibleName("Custom detection rules JSON")
         tabs.addTab(self.editor, icon("settings"), "Custom rules")
         builtins = QPlainTextEdit(json.dumps(BUILTIN_RULES, indent=2))
         builtins.setReadOnly(True)
+        builtins.setAccessibleName("Built-in detection rules JSON, read only")
         tabs.addTab(builtins, icon("file"), "Built-in rules (read only)")
         layout.addWidget(tabs)
         example = QPushButton("Insert example into empty editor")
         example.clicked.connect(self._example)
         layout.addWidget(example)
-        self.error = QLabel()
+        self.error = QLabel(objectName="settingsMessage")
+        self.error.setTextFormat(Qt.TextFormat.PlainText)
+        self.error.setAccessibleDescription("Detection rules error")
         self.error.setWordWrap(True)
         layout.addWidget(self.error)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -56,6 +61,8 @@ class RuleEditorDialog(QDialog):
             rules = parse_custom_rules(self.editor.toPlainText())
         except ValueError as exc:
             self.error.setText(str(exc))
+            self.editor.setAccessibleDescription(str(exc))
+            self.editor.setFocus()
             return
         self.rules_json = json.dumps(rules, sort_keys=True, separators=(",", ":"))
         super().accept()

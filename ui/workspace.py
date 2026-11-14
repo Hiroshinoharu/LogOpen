@@ -12,7 +12,7 @@ from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QWidget,
     QProgressBar, QPushButton, QVBoxLayout, QSizePolicy,
-    QApplication, QSystemTrayIcon, QStyle, QMenu,
+    QApplication, QSystemTrayIcon, QMenu,
 )
 
 from history_store import HistoryStore, incident_key
@@ -88,6 +88,7 @@ class WorkspaceMixin:
             self.scan_options = ScanOptions()
             scope_warning = "Saved scan options were invalid. Defaults loaded; review Scan options before scanning."
         scope_row = QHBoxLayout()
+        self.scope_row = scope_row
         self.scope_button = QPushButton("Scan options", objectName="secondaryButton")
         self.scope_button.setIcon(icon("settings"))
         self.scope_button.setToolTip("Choose how far back to look. Default options are a good place to start.")
@@ -110,14 +111,14 @@ class WorkspaceMixin:
         self.cancel_button.clicked.connect(self._cancel_scan)
         self.cancel_button.hide()
         scope_row.addWidget(self.cancel_button)
-        dashboard_layout.insertLayout(1, scope_row)
+        self.hero_layout.addLayout(scope_row)
         self.progress_bar = QProgressBar(objectName="scanProgress")
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedHeight(5)
         self.progress_bar.setAccessibleName("Scan progress")
         self.progress_bar.hide()
-        dashboard_layout.insertWidget(2, self.progress_bar)
+        self.hero_layout.addWidget(self.progress_bar)
         self.scan_goal_widget = QWidget()
         goal_row = QHBoxLayout(self.scan_goal_widget)
         goal_row.setContentsMargins(0, 0, 0, 0)
@@ -134,26 +135,38 @@ class WorkspaceMixin:
         self.scan_goal_hint.setWordWrap(True)
         goal_row.addWidget(self.scan_goal_hint, 1)
         self.scan_goal.currentIndexChanged.connect(self._choose_scan_goal)
-        dashboard_layout.insertWidget(1, self.scan_goal_widget)
+        self.hero_layout.insertWidget(1, self.scan_goal_widget)
         self.comparison_button = QPushButton("No comparison yet", objectName="comparisonButton")
         self.comparison_button.setEnabled(False)
         self.comparison_button.setIcon(icon("history", "#80e5d3"))
         self.comparison_button.hide()
         self.comparison_button.clicked.connect(self._show_comparison)
-        dashboard_layout.insertWidget(5, self.comparison_button)
+        dashboard_layout.insertWidget(2, self.comparison_button)
         filters = QHBoxLayout()
+        self.filters_layout = filters
         filters.setContentsMargins(0, 0, 0, 0)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search these problems…")
         self.search_input.setAccessibleName("Search problems")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.setMinimumWidth(100)
-        filters.addWidget(self.search_input, 1)
+        def labeled_filter(title, control, stretch=0):
+            group = QWidget()
+            column = QVBoxLayout(group)
+            column.setContentsMargins(0, 0, 0, 0)
+            column.setSpacing(4)
+            label = QLabel(title)
+            label.setBuddy(control)
+            column.addWidget(label)
+            column.addWidget(control)
+            filters.addWidget(group, stretch)
+
+        labeled_filter("Search problems", self.search_input, 1)
         self.priority_filter = QComboBox()
         self.priority_filter.addItems(["All priorities", "Critical", "High", "Medium", "Low", "High and Critical"])
         self.priority_filter.setAccessibleName("Filter priority")
         self.priority_filter.setToolTip("High and Critical problems are a useful place to start.")
-        filters.addWidget(self.priority_filter)
+        labeled_filter("Priority", self.priority_filter)
         self.review_filter = QComboBox()
         for label, value in (("Visible problems", "visible"), ("All problems", "all"),
                              ("To review", "active"), ("Reviewed", "acknowledged"), ("Hidden", "ignored"),
@@ -161,7 +174,7 @@ class WorkspaceMixin:
             self.review_filter.addItem(label, value)
         self.review_filter.setAccessibleName("Filter review state")
         self.review_filter.setToolTip("Choose whether to include problems you have already reviewed or hidden.")
-        filters.addWidget(self.review_filter)
+        labeled_filter("Review status", self.review_filter)
         self.filter_button = QPushButton("More filters…", objectName="secondaryButton")
         self.filter_button.setIcon(icon("settings"))
         self.filter_button.clicked.connect(self._edit_filters)
@@ -193,7 +206,9 @@ class WorkspaceMixin:
         results_layout.insertWidget(2, self.start_here_card)
         self.filter_feedback = QFrame(objectName="filterFeedback")
         no_matches = QHBoxLayout(self.filter_feedback)
-        no_matches.addWidget(QLabel("No problems match these filters. Try a different search."), 1)
+        no_matches_label = QLabel("No problems match these filters. Try a different search.")
+        no_matches_label.setWordWrap(True)
+        no_matches.addWidget(no_matches_label, 1)
         self.clear_filters_button = QPushButton("Show all problems", objectName="secondaryButton")
         self.clear_filters_button.clicked.connect(self._show_all_problems)
         no_matches.addWidget(self.clear_filters_button)
@@ -208,7 +223,7 @@ class WorkspaceMixin:
         self.review_filter.currentIndexChanged.connect(self._apply_filters)
         self.incident_table.model().layoutChanged.connect(self._apply_filters)
         self._build_workspace_menus()
-        enabled = self._ui_settings.value("ui/animations", True)
+        enabled = self._ui_settings.value("ui/animations", False)
         enabled = enabled is True or str(enabled).lower() in ("true", "1")
         self.motion = MotionController(self.page_stack, self.state_badge, enabled)
         self.motion_action.setChecked(enabled)
@@ -283,6 +298,7 @@ class WorkspaceMixin:
         self.monitor.health_changed.emit()
         for label in (self.incident_total, self.attention_total, self.event_total):
             label.setText("0")
+        self._update_metric_descriptions()
         self.result_count.setText("NO RESULTS")
         self.last_scan.setText("No scan loaded")
         self.warning_label.clear()
@@ -502,9 +518,34 @@ class WorkspaceMixin:
         self.statusBar().addPermanentWidget(self.monitor_button)
         self.monitor.status.connect(self.monitor_label.setText)
         self.monitor.status.connect(self.monitor_label.setToolTip)
-        self.monitor_tray = QSystemTrayIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon), self)
+        self.monitor_tray = QSystemTrayIcon(icon("logo", size=32), self)
         self.monitor_tray.setToolTip("LogOpen monitoring")
-        self.monitor_tray.messageClicked.connect(self._view_monitor_result)
+        self.monitor_tray.messageClicked.connect(self._notification_clicked)
+        self.monitor_tray.activated.connect(self._monitor_tray_activated)
+        tray_menu = QMenu(self)
+        tray_menu.addAction("Open LogOpen", self._show_monitor_window)
+        tray_menu.addAction("Test desktop notification", self._test_notification)
+        tray_menu.addAction("Notification preferences…", self._edit_notifications)
+        tray_menu.addAction("Stop monitoring", self.monitor.stop)
+        self.monitor_tray.setContextMenu(tray_menu)
+
+    def _show_monitor_window(self):
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def _notification_clicked(self):
+        if self._latest_monitor_result is not None:
+            self._view_monitor_result()
+        else:
+            self._show_monitor_window()
+
+    def _monitor_tray_activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
+            self._show_monitor_window()
 
     def _toggle_monitoring(self):
         """Expose monitoring beside its live status, including cancellation while polling."""
@@ -512,6 +553,21 @@ class WorkspaceMixin:
             self.monitor.stop()
         elif self.monitor.thread is None:
             self._start_monitoring()
+
+    def _update_statusbar_labels(self):
+        """Keep complete action labels readable beside alerts at enlarged text sizes."""
+        compact = getattr(self, "_text_size", "normal") == "largest" and self.width() < 1400
+        full_action = "Stop watching" if self.monitor.active else "Stopping…" if self.monitor.thread is not None else "Watch for new incidents"
+        self.monitor_button.setText("Watch logs" if compact and full_action == "Watch for new incidents" else full_action)
+        self.monitor_button.setAccessibleName(full_action)
+        count = self._unread_monitor_incidents
+        full_notice = f"{count} new {'incident' if count == 1 else 'incidents'} · View"
+        self.monitor_notice.setText(f"{count} new" if compact else full_notice)
+        self.monitor_notice.setAccessibleName(full_notice)
+        if hasattr(self, "monitor_health_button"):
+            full_health = self.monitor_health_button.property("fullText") or "Health: Off"
+            self.monitor_health_button.setText("Health" if compact else full_health)
+            self.monitor_health_button.setAccessibleName(full_health)
 
     def _can_monitor_scan(self):
         """Defer background polls while foreground work or modal dialogs own the UI."""
@@ -531,6 +587,7 @@ class WorkspaceMixin:
         self._ui_settings.setValue("monitor/desktop_notifications", self._monitor_notifications)
         self._ui_settings.sync()
         self._clear_notification_batch()
+        self._notification_feedback = ""
         self._latest_monitor_result = None
         self._unread_monitor_incidents = 0
         self.monitor_notice.hide()
@@ -543,9 +600,10 @@ class WorkspaceMixin:
         self.scan_goal.setEnabled(False)
         self.monitor_button.setText("Stop watching")
         self.monitor_button.setIcon(icon("stop"))
-        if self._monitor_notifications and QSystemTrayIcon.isSystemTrayAvailable():
+        if QSystemTrayIcon.isSystemTrayAvailable():
             self.monitor_tray.show()
         self.monitor.start(self.scan_options, dialog.interval.value(), collect_all_events=dialog.all_events.isChecked())
+        self._refresh_monitor_presentation()
 
     def _monitor_busy(self, busy):
         """Prevent overlapping foreground scans/AI while a monitoring worker runs."""
@@ -563,6 +621,7 @@ class WorkspaceMixin:
             self.monitor_button.setEnabled(False)
         if not busy:
             self._flush_monitor_updates()
+        self._update_statusbar_labels()
 
     def _monitor_completed(self, result, alerts):
         """Refresh the dashboard and announce new evidence without interrupting a detail page."""
@@ -585,6 +644,8 @@ class WorkspaceMixin:
             self.monitor_notice.setAccessibleName(self.monitor_notice.text())
             self.monitor_notice.show()
         self._queue_notifications(alerts)
+        self._update_statusbar_labels()
+        self._refresh_monitor_presentation()
 
     def _refresh_monitor_result(self):
         """Replace the results snapshot while retaining filters, sort, selection, and scroll."""
@@ -655,8 +716,10 @@ class WorkspaceMixin:
         self.scan_goal.setEnabled(not busy)
         self.monitor_button.setEnabled(not busy)
         self.monitor_button.setText("Watch for new incidents")
+        self._update_statusbar_labels()
         self.monitor_button.setIcon(icon("eye"))
         self.monitor_tray.hide()
+        self._refresh_monitor_presentation()
         if self._close_pending:
             self.close()
 
@@ -750,8 +813,7 @@ class WorkspaceMixin:
         self._start_here_incident = max(candidates, key=lambda item: (
             ranks.get(item.get("incident_priority"), 0), numeric_key(item.get("incident_score")),
         ), default=None)
-        tight = self.height() < (760 if getattr(self, "_text_size", "normal") == "normal" else 950)
-        self.start_here_card.setVisible(bool(visible) and not tight)
+        self.start_here_card.setVisible(bool(visible) and self._has_room_for_guidance())
         self.start_here_button.setVisible(self._start_here_incident is not None)
         if self._start_here_incident is None:
             self.start_here_title.setText("No unreviewed problems in this view")

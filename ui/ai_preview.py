@@ -1,7 +1,9 @@
 """Review a frozen AI request locally before explicitly sending it."""
 from copy import deepcopy
 import json
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QLineEdit, QPlainTextEdit, QTabWidget, QDialogButtonBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QCheckBox, QLineEdit, QPlainTextEdit,
+                            QTabWidget, QDialogButtonBox, QFrame, QScrollArea, QWidget)
 from llm_analysis import prepare_ai_request
 from models.incident_analysis import IncidentAnalysis
 from settings.privacy import PrivacyPreferences
@@ -17,18 +19,30 @@ class AIPrivacyPreview(QDialog):
         self.setWindowTitle("Review information sent to AI")
         self.resize(820, 680)
         layout = QVBoxLayout(self)
-        layout.addWidget(body(f"Destination: OpenAI API · Model: {preferences.model}\n{model_tooltip(preferences.model)}"))
-        layout.addWidget(body("Review the exact request text below. Masking is best effort and can miss personal details. "
+        scroll = QScrollArea(objectName="settingsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget(objectName="settingsContent")
+        fields = QVBoxLayout(content)
+        fields.addWidget(body(f"Destination: OpenAI API · Model: {preferences.model}\n{model_tooltip(preferences.model)}"))
+        fields.addWidget(body("Review the exact request text below. Masking is best effort and can miss personal details. "
                               "Your original logs and notes are unchanged. Sending may incur API charges. "
                               "Response storage is disabled; provider retention policies still apply."))
-        self.mask = QCheckBox("Mask usernames, emails, computer names and file paths")
+        self.mask = QCheckBox("Mask common personal details")
+        self.mask.setAccessibleDescription("Mask usernames, emails, computer names and file paths. Review the preview because masking can miss sensitive details.")
         self.mask.setChecked(PrivacyPreferences().load().mask_identifiers)
-        layout.addWidget(self.mask)
+        fields.addWidget(self.mask)
         self.extra = QLineEdit()
         self.extra.setPlaceholderText("Additional exact values to mask, separated by semicolons")
         self.extra.setAccessibleName("Additional sensitive values to mask for this request")
-        layout.addWidget(self.extra)
+        extra_label = body("Additional exact values to mask (separate with semicolons)")
+        extra_label.setBuddy(self.extra)
+        fields.addWidget(extra_label)
+        fields.addWidget(self.extra)
         tabs = QTabWidget(objectName="detailTabs")
+        tabs.setAccessibleName("AI request preview sections")
+        tabs.setMinimumHeight(240)
         self.preview = QPlainTextEdit()
         self.instructions = QPlainTextEdit()
         self.schema = QPlainTextEdit(json.dumps(IncidentAnalysis.model_json_schema(), indent=2))
@@ -36,7 +50,9 @@ class AIPrivacyPreview(QDialog):
             widget.setReadOnly(True)
             widget.setAccessibleName(title)
             tabs.addTab(widget, title)
-        layout.addWidget(tabs, 1)
+        fields.addWidget(tabs, 1)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Send reviewed request")
         self.buttons.accepted.connect(self.accept)

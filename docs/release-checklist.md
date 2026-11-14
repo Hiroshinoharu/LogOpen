@@ -42,6 +42,9 @@ machine containing valuable LogOpen data. Test every Windows version you adverti
 3. Request admin restart; test both UAC cancellation and consent. Scan again.
 4. Start monitoring, maximise/fullscreen and restore repeatedly; confirm visible rows
    and refreshing incidents. Stop monitoring before data removal.
+   Check the live status panel in results and details. Use **Test notification**
+   and record whether a Windows banner actually appears; a request alone is not
+   a pass. Verify quiet hours suppress normal alerts and remain unchanged by tests.
 5. Test offline startup, failed model discovery, invalid key, missing key and no results.
 6. Review masked AI input; cancel and confirm no request. With a test account,
    explicitly approve a small paid request and verify structured output. Record
@@ -53,6 +56,9 @@ machine containing valuable LogOpen data. Test every Windows version you adverti
 10. Upgrade from the previous packaged release; verify settings and history survive.
 11. Uninstall and reinstall; verify documented data retention and launch again.
 12. Check 100%, 150%, 200% display scaling, keyboard navigation, both themes and large text.
+    Follow the [accessibility guide](accessibility.md): test 200% in-app text,
+    focus visibility while scrolling, Windows contrast themes, and Narrator or
+    NVDA field names, table navigation, and changing scan statuses.
 
 Record results using `docs/release-evidence.example.json`, including artifact SHA256
 and Windows build. Keep real user data, API keys and private certificate details out

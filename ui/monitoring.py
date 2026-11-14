@@ -3,9 +3,9 @@
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from threading import Event
-from PyQt6.QtCore import QObject, QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QThread, QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFormLayout,
-                            QLabel, QSpinBox, QVBoxLayout)
+                            QFrame, QLabel, QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 from main import scan_system
 from monitoring import AlertTracker
 from ui.icons import decorate_buttons
@@ -19,33 +19,46 @@ class MonitorOptionsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Start live monitoring")
         self.setMinimumWidth(430)
+        self.resize(570, 500)
         layout = QVBoxLayout(self)
+        scroll = QScrollArea(objectName="settingsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget(objectName="settingsContent")
+        fields = QVBoxLayout(content)
         note = QLabel("Run periodic local scans of the current scope while this window is open. "
                       "The first scan establishes a silent baseline. Later new active incidents at any priority can notify you. "
                       "The incident list refreshes after every scan. An open problem stays on screen until you return to results. "
                       "Automatic AI is off for monitoring. Results are saved to local history and the latest report.")
         note.setWordWrap(True)
-        layout.addWidget(note)
+        fields.addWidget(note)
         form = QFormLayout()
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.interval = QSpinBox()
         self.interval.setRange(30, 3600)
         self.interval.setValue(60)
-        self.interval.setSuffix(" seconds after each scan")
-        form.addRow("Scan interval", self.interval)
-        self.notifications = QCheckBox("Show desktop notifications for new incidents")
+        self.interval.setSuffix(" seconds")
+        self.interval.setAccessibleName("Seconds to wait after each monitoring scan")
+        form.addRow("&Wait after each scan", self.interval)
+        self.notifications = QCheckBox("Show desktop notifications")
+        self.notifications.setAccessibleDescription("Notify for new incidents, using your notification preferences.")
         self.notifications.setChecked(True)
         form.addRow(self.notifications)
-        self.all_events = QCheckBox("Collect all event levels, including routine activity")
+        self.all_events = QCheckBox("Include routine activity")
         self.all_events.setChecked(True)
         self.all_events.setAccessibleName("Collect all event levels during monitoring")
         form.addRow(self.all_events)
-        layout.addLayout(form)
+        fields.addLayout(form)
         scope_note = QLabel("All levels are saved for the selected Windows logs within your scan's time window "
                             "and entry limit. Review them with Monitor → View collected events. "
                             "Routine activity does not become a problem or trigger an alert. "
                             "Choose priorities, quiet hours and combined alerts in Monitor → Notification preferences.")
         scope_note.setWordWrap(True)
-        layout.addWidget(scope_note)
+        fields.addWidget(scope_note)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

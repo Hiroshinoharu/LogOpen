@@ -17,12 +17,15 @@ from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QBoxLayout,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMainWindow,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QToolButton,
     QTableWidget,
@@ -47,6 +50,8 @@ from ui.workspace import WorkspaceMixin
 from ui.productivity import ProductivityMixin
 from ui.assistance import AssistanceMixin
 from ui.insights import MetricCard
+from ui.signal_visual import SignalVisual
+from ui.monitoring_status import MonitoringStatus
 
 
 def _label(text, name):
@@ -61,16 +66,20 @@ def _metric_card(title, caption, tone="default"):
     """Return a styled dashboard card and its value label for subsequent updates."""
     card = MetricCard()
     card.setObjectName("metricCard")
-    layout = QVBoxLayout(card)
-    layout.setContentsMargins(18, 12, 18, 12)
-    layout.setSpacing(4)
-    layout.addWidget(_label(title, "metricTitle"))
+    card.setProperty("tone", tone)
+    layout = QHBoxLayout(card)
+    layout.setContentsMargins(18, 10, 18, 10)
+    layout.setSpacing(16)
     value = _label("—", "metricValue")
     value.setProperty("tone", tone)
     layout.addWidget(value)
+    text = QVBoxLayout()
+    text.setSpacing(3)
+    text.addWidget(_label(title, "metricTitle"))
     caption_label = _label(caption, "mutedLabel")
     caption_label.setWordWrap(True)
-    layout.addWidget(caption_label)
+    text.addWidget(caption_label)
+    layout.addLayout(text, 1)
     for label in card.findChildren(QLabel):
         label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     return card, value
@@ -156,6 +165,7 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.result_count.setText("IN PROGRESS")
         for value in (self.incident_total, self.attention_total, self.event_total):
             value.setText("—")
+        self._update_metric_descriptions()
         self._show_empty_state(
             "···", "Making sense of your system events",
             "Collecting recent events and analyzing incidents.\n"
@@ -198,6 +208,7 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.event_total.setText(str(sum(
             incident.get("event_count", 0) for incident in incidents
         )))
+        self._update_metric_descriptions()
         self.result_count.setText(f"{len(incidents)} FOUND")
         self.journey.set_step(1 if incidents else 0)
         self.results_hint.setText(
@@ -436,6 +447,13 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
     def _show_empty_state(self, symbol, title, description):
         """Set the placeholder symbol, title, and description and show its page."""
         self.empty_symbol.setText(symbol)
+        self.empty_symbol.setVisible(symbol != "1" and self.height() >= 800)
+        self.empty_eyebrow.setText({
+            "1": "LESS GUESSWORK. MORE CLARITY.",
+            "···": "READING THE SIGNALS",
+            "✓": "YOUR SCAN, EXPLAINED",
+            "!": "LET'S TAKE ANOTHER LOOK",
+        }.get(symbol, "YOUR SCAN, EXPLAINED"))
         self.empty_title.setText(title)
         self.empty_description.setText(description)
         self.results_stack.setCurrentWidget(self.empty_state)
@@ -613,6 +631,7 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self._cancel_event = Event()
 
         self.setWindowTitle("LogOpen — " + access_label(self._elevated))
+        self._base_window_title = self.windowTitle()
         self.setWindowIcon(icon("logo", size=32))
         expand_window(self, 1500, 950)
         self.setMinimumSize(800, 620)
@@ -621,6 +640,12 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
 
         self.central_widget = QWidget()
         self.central_widget.setObjectName("appSurface")
+        # When text is very large, keep every control reachable by scrolling.
+        self.workspace_scroll = QScrollArea()
+        self.workspace_scroll.setWidgetResizable(True)
+        self.workspace_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.workspace_scroll.setParent(self)
+        self.workspace_scroll.hide()
         self.setCentralWidget(self.central_widget)
         layout = QVBoxLayout(self.central_widget)
         layout.setContentsMargins(24, 22, 24, 18)
@@ -631,30 +656,37 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         mark = _label("L/", "brandMark")
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         mark.setFixedSize(42, 42)
+        self.brand_mark = mark
         brand_row.addWidget(mark)
         brand_text = QVBoxLayout()
         brand_text.setSpacing(3)
         self.title = _label("LogOpen", "brandTitle")
         brand_text.addWidget(self.title)
-        self.subtitle = _label("Make sense of your Windows problems", "subtitle")
+        self.subtitle = _label("Windows, explained.", "brandEyebrow")
         self.subtitle.setWordWrap(True)
-        self.subtitle.setMinimumWidth(250)
+        self.subtitle.setMinimumWidth(0)
         brand_text.addWidget(self.subtitle)
         brand_row.addLayout(brand_text)
         brand_row.addStretch()
-        self.help_button = QPushButton("Quick guide", objectName="secondaryButton")
+        self.help_button = QPushButton("Quick guide", objectName="headerButton")
         self.help_button.setIcon(icon("help"))
         self.help_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.help_button.clicked.connect(lambda: QuickStartDialog(self).exec())
         brand_row.addWidget(self.help_button)
-        self.updates_button = QPushButton("Updates", objectName="secondaryButton")
+        self.updates_button = QPushButton("Updates", objectName="headerButton")
         self.updates_button.setIcon(icon("download"))
         self.updates_button.setToolTip("Check GitHub and download the latest LogOpen release.")
         self.updates_button.clicked.connect(self._open_updates)
         brand_row.addWidget(self.updates_button)
+        self.live_button = QPushButton("Live monitoring", objectName="headerButton")
+        self.live_button.setIcon(icon("eye"))
+        self.live_button.setToolTip("Start or stop automatic local scans (Ctrl+M)")
+        self.live_button.setShortcut(QKeySequence("Ctrl+M"))
+        self.live_button.clicked.connect(self._toggle_monitoring)
+        brand_row.addWidget(self.live_button)
         self.settings_button = QPushButton("Settings")
         self.settings_button.setIcon(icon("settings"))
-        self.settings_button.setObjectName("secondaryButton")
+        self.settings_button.setObjectName("headerButton")
         self.settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.settings_button.setToolTip("Choose AI help, your API key, and your preferred terminal")
         self.settings_button.clicked.connect(self._open_settings)
@@ -663,11 +695,15 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.state_badge.setProperty("state", "ready")
         brand_row.addWidget(self.state_badge)
         layout.addLayout(brand_row)
+        self.brand_row = brand_row
 
         divider = QFrame()
         divider.setObjectName("divider")
         divider.setFixedHeight(1)
         layout.addWidget(divider)
+        self.monitoring_status = MonitoringStatus()
+        self.monitoring_status.hide()
+        layout.addWidget(self.monitoring_status)
         self.journey = ScanJourney()
         layout.addWidget(self.journey)
 
@@ -679,17 +715,25 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.page_stack.addWidget(self.dashboard)
         layout.addWidget(self.page_stack, 1)
 
+        self.scan_hero = QFrame(objectName="scanHero")
+        self.hero_layout = QVBoxLayout(self.scan_hero)
+        self.hero_layout.setContentsMargins(20, 16, 20, 16)
+        self.hero_layout.setSpacing(12)
         heading_row = QHBoxLayout()
         heading_row.setSpacing(24)
         heading_text = QVBoxLayout()
         heading_text.setSpacing(6)
-        self.dashboard_title = _label("What needs your attention?", "pageTitle")
+        self.hero_eyebrow = _label("YOUR WINDOWS WORKSPACE", "heroEyebrow")
+        heading_text.addWidget(self.hero_eyebrow)
+        self.dashboard_title = _label("Find the signal in the noise.", "pageTitle")
+        self.dashboard_title.setWordWrap(True)
         heading_text.addWidget(self.dashboard_title)
         self.status_label = _label("Start a scan to find recent problems recorded by Windows.", "statusLabel")
         self.status_label.setWordWrap(True)
         self.status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.status_label.setAccessibleName("Current scan status")
+        self.status_label.setAccessibleDescription("Current scan status")
         status_row = QHBoxLayout()
+        self.scan_status_row = status_row
         status_row.addWidget(self.status_label, 1)
         self.coverage_button = QToolButton()
         self.coverage_button.setText("What was checked?")
@@ -706,28 +750,37 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.scan_button.setToolTip("Scan recent Windows warnings and errors")
         self.scan_button.setAccessibleName("Scan my PC for recent Windows problems")
         self.scan_button.clicked.connect(self.run_scan)
-        heading_row.addWidget(self.scan_button)
-        dashboard_layout.addLayout(heading_row)
+        action_column = QVBoxLayout()
+        action_column.setSpacing(6)
+        action_column.addWidget(self.scan_button)
+        self.scan_trust = _label("No API key needed to scan", "trustNote")
+        self.scan_trust.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scan_trust.setWordWrap(True)
+        action_column.addWidget(self.scan_trust)
+        heading_row.addLayout(action_column)
+        self.hero_layout.addLayout(heading_row)
+        dashboard_layout.addWidget(self.scan_hero)
+        self.scan_heading_row = heading_row
 
         self.warning_label = _label("", "scanWarning")
         self.warning_label.setWordWrap(True)
         self.warning_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.warning_label.setAccessibleName("Scan warnings")
+        self.warning_label.setAccessibleDescription("Scan warnings")
         self.warning_label.hide()
         dashboard_layout.addWidget(self.warning_label)
 
         metrics = QHBoxLayout()
         metrics.setSpacing(14)
-        card, self.incident_total = _metric_card("PROBLEMS FOUND", "Related log entries grouped together")
+        card, self.incident_total = _metric_card("Problems found", "Related records, one clear view")
         self.problems_card = card
         metrics.addWidget(card, 1)
         card, self.attention_total = _metric_card(
-            "REVIEW FIRST", "Problems with High or Critical priority", "warm"
+            "Review first", "High and Critical priority", "warm"
         )
         self.attention_card = card
         metrics.addWidget(card, 1)
         card, self.event_total = _metric_card(
-            "LOG ENTRIES", "Windows records behind these problems", "teal"
+            "Log entries", "The evidence behind each problem", "teal"
         )
         self.events_card = card
         metrics.addWidget(card, 1)
@@ -743,6 +796,7 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         results_layout.setContentsMargins(16, 16, 16, 14)
         results_layout.setSpacing(14)
         results_header = QHBoxLayout()
+        self.results_header = results_header
         results_heading = QVBoxLayout()
         results_heading.setSpacing(4)
         self.results_title = _label("Problems to review", "sectionTitle")
@@ -822,31 +876,41 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.page_stack.addWidget(self.incident_detail)
 
         self.empty_state = QWidget()
-        empty_layout = QVBoxLayout(self.empty_state)
-        empty_layout.setContentsMargins(12, 10, 12, 10)
-        empty_layout.setSpacing(12)
-        empty_layout.addStretch()
+        self.empty_layout = QHBoxLayout(self.empty_state)
+        self.empty_layout.setContentsMargins(24, 14, 24, 14)
+        self.empty_layout.setSpacing(32)
+        empty_text = QVBoxLayout()
+        empty_text.setSpacing(10)
+        empty_text.addStretch()
+        self.empty_eyebrow = _label("LESS GUESSWORK. MORE CLARITY.", "emptyEyebrow")
+        empty_text.addWidget(self.empty_eyebrow)
         self.empty_symbol = _label("24h", "emptySymbol")
         self.empty_symbol.setFixedSize(48, 48)
         self.empty_symbol.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(self.empty_symbol, 0, Qt.AlignmentFlag.AlignHCenter)
+        empty_text.addWidget(self.empty_symbol, 0, Qt.AlignmentFlag.AlignLeft)
         self.empty_title = _label("", "emptyTitle")
         self.empty_description = _label("", "emptyDescription")
         for label in (self.empty_title, self.empty_description):
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             label.setWordWrap(True)
-            empty_layout.addWidget(label)
-        empty_layout.addStretch()
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+            empty_text.addWidget(label)
+        empty_text.addStretch()
+        self.empty_layout.addLayout(empty_text, 3)
+        self.signal_visual = SignalVisual()
+        self.empty_layout.addWidget(self.signal_visual, 2)
         self.results_stack.addWidget(self.empty_state)
         self._show_empty_state(
-            "1", "Your first step: scan your PC",
-            "Click Scan my PC above. No setup or API key is needed to scan.\n"
-            "Then choose a problem to see what happened and what to do next.",
+            "1", "From Windows logs to a next step.",
+            "Windows records the details. LogOpen brings related problems together "
+            "so you can understand what happened and decide what to try.\n"
+            "Choose Scan my PC above to get started.",
         )
         results_layout.addWidget(self.results_stack, 1)
         dashboard_layout.addWidget(results_panel, 1)
 
         footer = QHBoxLayout()
+        self.footer_row = footer
         footer.setSpacing(16)
         scope = _label(
             "Scans read Windows logs. Suggested steps are never run automatically.",
@@ -858,12 +922,50 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
         self.last_scan = _label("No scans yet", "mutedLabel")
         footer.addWidget(self.last_scan)
         dashboard_layout.addLayout(footer)
-        self.setTabOrder(self.scan_button, self.incident_table)
-        self.setTabOrder(self.incident_table, self.detail_button)
         self._setup_workspace(dashboard_layout, results_layout)
+        self._setup_keyboard_navigation()
         decorate_buttons(self)
         self.page_stack.currentChanged.connect(self._update_layout_density)
         self._update_layout_density()
+
+    def _setup_keyboard_navigation(self):
+        """Follow the visual workflow without skipping scan or filter controls."""
+        controls = (
+            self.help_button, self.updates_button, self.live_button, self.settings_button,
+            self.monitoring_status.test_button, self.monitoring_status.preferences_button,
+            self.coverage_button, self.scan_button, self.scan_goal,
+            self.scope_button, self.history_button, self.open_report_button,
+            self.cancel_button, self.comparison_button, self.problems_card,
+            self.attention_card, self.events_card, self.search_input,
+            self.priority_filter, self.review_filter, self.filter_button,
+            self.start_here_button, self.clear_filters_button,
+            self.incident_table, self.detail_button,
+        )
+        for before, after in zip(controls, controls[1:]):
+            self.setTabOrder(before, after)
+        self.find_action = QAction("Search problems", self)
+        self.find_action.setShortcut(QKeySequence.StandardKey.Find)
+        self.find_action.triggered.connect(self._focus_problem_search)
+        self.addAction(self.find_action)
+        self._focus_scroll_timer = QTimer(self)
+        self._focus_scroll_timer.setSingleShot(True)
+        self._focus_scroll_timer.timeout.connect(self._reveal_workspace_focus)
+        QApplication.instance().focusChanged.connect(self._queue_workspace_focus)
+
+    def _queue_workspace_focus(self, *_args):
+        if self.centralWidget() is self.workspace_scroll:
+            self._focus_scroll_timer.start(0)
+
+    def _reveal_workspace_focus(self):
+        focused = QApplication.focusWidget()
+        if self.centralWidget() is self.workspace_scroll and focused is not None and self.central_widget.isAncestorOf(focused):
+            self.workspace_scroll.ensureWidgetVisible(focused, 16, 16)
+
+    def _focus_problem_search(self):
+        self._show_incident_list()
+        if self._incidents:
+            self.search_input.setFocus()
+            self.search_input.selectAll()
 
     def resizeEvent(self, event):
         """Prioritize readable result rows over summary cards in short windows."""
@@ -875,42 +977,106 @@ class MainWindow(AssistanceMixin, ProductivityMixin, WorkspaceMixin, QMainWindow
     def _update_layout_density(self):
         """Keep the results and log reader usable in a short or narrow window."""
         compact_limit = {"normal": 1000, "large": 1150, "larger": 1300}.get(getattr(self, "_text_size", "normal"), 1000)
-        short = self.height() < compact_limit
-        very_tight = self.height() < 760 and getattr(self, "_text_size", "normal") != "normal"
+        largest = getattr(self, "_text_size", "normal") == "largest"
+        short = largest or self.height() < compact_limit
+        if largest and self.centralWidget() is self.central_widget:
+            self.takeCentralWidget()
+            self.workspace_scroll.setWidget(self.central_widget)
+            self.setCentralWidget(self.workspace_scroll)
+            self.workspace_scroll.show()
+            self.central_widget.show()
+        elif not largest and self.centralWidget() is self.workspace_scroll:
+            self.workspace_scroll.takeWidget()
+            self.takeCentralWidget()
+            self.workspace_scroll.setParent(self)
+            self.workspace_scroll.hide()
+            self.setCentralWidget(self.central_widget)
+            self.central_widget.show()
+        scale = {"normal": 1, "large": 1.15, "larger": 1.3, "largest": 2}.get(getattr(self, "_text_size", "normal"), 1)
+        # The enlarged workspace may exceed a small screen; the outer scroll
+        # area follows keyboard focus instead of allowing controls to be cut off.
+        if hasattr(self, "brand_row"):
+            self.brand_row.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.scan_heading_row.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.scan_status_row.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.results_header.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.footer_row.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            mark_size = 84 if largest else 42
+            self.brand_mark.setFixedSize(mark_size, mark_size)
+            self.subtitle.setVisible(not largest and self.width() >= 1000 * scale and self.height() >= 760)
+            self.updates_button.setVisible(largest or self.width() >= 1100 * scale)
+        very_tight = not largest and (self.height() < 700 or (self.height() < 760 and getattr(self, "_text_size", "normal") != "normal"))
+        has_result = getattr(self, "_current_result", None) is not None
+        monitoring_visible = hasattr(self, "monitoring_status") and not self.monitoring_status.isHidden()
+        if hasattr(self, "monitoring_status"):
+            self.monitoring_status.set_compact(not largest and (self.height() < 950 * scale or self.width() < 1100 * scale))
         if hasattr(self, "results_panel"):
+            self.scan_hero.setVisible(not (monitoring_visible and not largest and self.height() < 850 * scale))
             margins = (16, 12, 16, 10) if short else (24, 22, 24, 18)
             self.central_widget.layout().setContentsMargins(*margins)
             self.central_widget.layout().setSpacing(8 if short else 18)
             self.dashboard.layout().setSpacing(6 if short else 12)
-            margins = (12, 12, 12, 10) if short else (16, 16, 16, 14)
+            hero_margins = (12, 6, 12, 6) if very_tight else (12, 10, 12, 10) if short else (20, 16, 20, 16)
+            self.hero_layout.setContentsMargins(*hero_margins)
+            self.hero_layout.setSpacing(6 if short else 12)
+            self.hero_eyebrow.setVisible(not has_result and not largest and self.height() >= 850 * scale)
+            self.scan_trust.setVisible(not has_result and not largest and self.height() >= 850 * scale)
+            margins = (12, 8, 12, 8) if very_tight else (12, 12, 12, 10) if short else (16, 16, 16, 14)
             self.results_panel.layout().setContentsMargins(*margins)
-            self.results_panel.layout().setSpacing(8 if short else 14)
-            self.results_hint.setVisible(not short)
+            self.results_panel.layout().setSpacing(4 if very_tight else 8 if short else 14)
+            header_height = self.incident_table.horizontalHeader().sizeHint().height()
+            scrollbar_height = self.incident_table.horizontalScrollBar().sizeHint().height()
+            self.results_stack.setMinimumHeight(max(144, header_height + scrollbar_height + 80))
+            self.results_title.setVisible(has_result)
+            self.detail_button.setVisible(has_result and bool(self._incidents))
+            self.result_count.setVisible(has_result)
+            self.results_hint.setVisible(has_result and not short)
+            self.coverage_button.setVisible(has_result)
         if hasattr(self, "metrics_panel"):
-            self.metrics_panel.setVisible(not short)
+            self.metrics_panel.setVisible(
+                bool(self._incidents) and not largest
+                and self.height() >= 900 * scale and self.width() >= 1000 * scale
+            )
+        if hasattr(self, "signal_visual"):
+            self.signal_visual.setVisible(not largest and self.width() >= 1000 * scale and self.height() >= 750 * scale)
+            self.empty_eyebrow.setVisible(not largest and self.height() >= 800 * scale)
+            self.empty_symbol.setVisible(self.empty_symbol.text() != "1" and not largest and self.height() >= 800 * scale)
+            empty_margins = (16, 8, 16, 8) if short else (40, 20, 40, 20)
+            self.empty_layout.setContentsMargins(*empty_margins)
         if hasattr(self, "state_badge"):
             self.state_badge.setVisible(self.width() >= 1000)
         if hasattr(self, "page_stack"):
-            self.journey.setVisible(not short)
+            self.journey.setVisible(not short and self.height() >= 1200 * scale)
             self.journey.set_compact(short)
         if hasattr(self, "scan_goal"):
             self.scan_goal_widget.setVisible(not very_tight)
-            self.dashboard_title.setVisible(not very_tight)
+            self.dashboard_title.setVisible(not has_result and not very_tight)
             self.footer_scope.setVisible(not very_tight)
+            self.last_scan.setVisible(not very_tight)
             self.scope_label.setVisible(self.width() >= 1000)
             compact = self.width() < 1000 or short
-            self.scan_goal_label.setText("Check" if compact else "What would you like to check?")
+            self.scan_goal_label.setText("Check for" if self.width() < 1100 * scale else "What would you like to check?")
             self.scan_goal_hint.setVisible(not compact)
+            self.scan_goal_widget.layout().setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.scope_row.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
+            self.filters_layout.setDirection(QBoxLayout.Direction.TopToBottom if largest else QBoxLayout.Direction.LeftToRight)
             self.start_here_explanation.setVisible(not short)
             # Warnings and comparisons appear during polling. Reserve the rows
             # before showing optional guidance, including on scaled laptop screens.
-            tight = self.height() < (760 if getattr(self, "_text_size", "normal") == "normal" else 950)
+            tight = not self._has_room_for_guidance()
             self.start_here_card.setVisible(any(self._matches_filters(item) for item in self._incidents) and not tight)
             self.comparison_button.setVisible(not tight and bool(getattr(self._current_result, "comparison", {}).get("comparable")))
         if hasattr(self, "preview"):
-            self.preview.setVisible(self.preview_action.isChecked() and self.width() >= 1400 and bool(self._incidents))
+            self.preview.setVisible(self.preview_action.isChecked() and self.width() >= 1400 * scale and bool(self._incidents))
             self.coverage_button.setText("Coverage" if self.width() < 1000 else "What was checked?")
             self._refresh_filter_chips()
+        if largest and hasattr(self, "_focus_scroll_timer"):
+            self._queue_workspace_focus()
+        if hasattr(self, "monitor"):
+            self._update_statusbar_labels()
+
+    def _has_room_for_guidance(self):
+        return self.height() >= (1100 if getattr(self, "_text_size", "normal") == "normal" else 1250)
 
 def main():
     """Create the QApplication, show MainWindow, and enter the Qt event loop.
